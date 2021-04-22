@@ -1,0 +1,357 @@
+[
+	{
+		"Info": {
+			"DevEUI": "a5367dfab62261be",
+			"DevAddr": "01f245ff",
+			"NwkSKey": "ba649786cfc07e91e93cafe33f893cb3",
+			"AppSKey": "fd74b5582fefa37649e64215a6e97d7a",
+			"AppKey": "7dd3abbdc426c6115656a67b642ab21c",
+			"Name": "Device-1",
+			"Status": {
+				"MType": "ConfirmedDataUp",
+				"Payload": "ciao",
+				"Active": false,
+				"InfoUplink": {
+					"FPort": 10,
+					"FCnt": 534
+				},
+				"FCntDown": 0,
+				"DataRate": 5,
+				"TXPower": 0,
+				"Battery": 0
+			},
+			"Configuration": {
+				"Region": 1,
+				"SendInterval": 10,
+				"AckTimeout": 2,
+				"Range": 100000,
+				"DisableFCntDown": true,
+				"SupportedOtaa": true,
+				"SupportedADR": true,
+				"SupportedFragment": true,
+				"SupportedClassB": false,
+				"SupportedClassC": false,
+				"RX1DROffset": 0,
+				"Channels": null,
+				"NbRetransmission": 8
+			},
+			"Location": {
+				"Latitude": 41.8983351,
+				"Longitude": 12.5451136,
+				"Altitude": 2
+			},
+			"RXs": [
+				{
+					"Delay": 1200,
+					"DurationOpen": 3000,
+					"Channel": {
+						"Active": false,
+						"EnableUplink": false,
+						"FreqUplink": 0,
+						"FreqDownlink": 0,
+						"MinDR": 0,
+						"MaxDR": 0
+					},
+					"DataRate": 0
+				},
+				{
+					"Delay": 1000,
+					"DurationOpen": 3000,
+					"Channel": {
+						"Active": true,
+						"EnableUplink": false,
+						"FreqUplink": 0,
+						"FreqDownlink": 869525000,
+						"MinDR": 0,
+						"MaxDR": 0
+					},
+					"DataRate": 0
+				}
+			]
+		}
+	},
+	{
+		"Info": {
+			"DevEUI": "885ddb8127ff0f1a",
+			"DevAddr": "00000000",
+			"NwkSKey": "00000000000000000000000000000000",
+			"AppSKey": "00000000000000000000000000000000",
+			"AppKey": "ef56d178f06353dd0f0ce3c17191237d",
+			"Name": "Device-2",
+			"Status": {
+				"MType": "ConfirmedDataUp",
+				"Payload": "ciao",
+				"Active": false,
+				"InfoUplink": {
+					"FPort": 10,
+					"FCnt": 205
+				},
+				"FCntDown": 0,
+				"DataRate": 5,
+				"TXPower": 0,
+				"Battery": 0
+			},
+			"Configuration": {
+				"Region": 1,
+				"SendInterval": 10,
+				"AckTimeout": 2,
+				"Range": 100000,
+				"DisableFCntDown": true,
+				"SupportedOtaa": true,
+				"SupportedADR": true,
+				"SupportedFragment": true,
+				"SupportedClassB": false,
+				"SupportedClassC": true,
+				"RX1DROffset": 0,
+				"Channels": null,
+				"NbRetransmission": 10
+			},
+			"Location": {
+				"Latitude": 41.6282418,
+				"Longitude": 13.509758349999998,
+				"Altitude": 10
+			},
+			"RXs": [
+				{
+					"Delay": 1000,
+					"DurationOpen": 3000,
+					"Channel": {
+						"Active": false,
+						"EnableUplink": false,
+						"FreqUplink": 0,
+						"FreqDownlink": 0,
+						"MinDR": 0,
+						"MaxDR": 0
+					},
+					"DataRate": 0
+				},
+				{
+					"Delay": 1000,
+					"DurationOpen": 3000,
+					"Channel": {
+						"Active": true,
+						"EnableUplink": false,
+						"FreqUplink": 0,
+						"FreqDownlink": 869525000,
+						"MinDR": 0,
+						"MaxDR": 0
+					},
+					"DataRate": 0
+				}
+			]
+		}
+	},
+	{
+		"Info": {
+			"DevEUI": "821151dd589478a3",
+			"DevAddr": "00beec16",
+			"NwkSKey": "11f4eeaef2772ba579d5f04a3aef4d76",
+			"AppSKey": "4ea5c7d1babab328fb39514d87741e29",
+			"AppKey": "00000000000000000000000000000000",
+			"Name": "Device-3",
+			"Status": {
+				"MType": "ConfirmedDataUp",
+				"Payload": "payload",
+				"Active": false,
+				"InfoUplink": {
+					"FPort": 10,
+					"FCnt": 25
+				},
+				"FCntDown": 0,
+				"DataRate": 5,
+				"TXPower": 0,
+				"Battery": 0
+			},
+			"Configuration": {
+				"Region": 1,
+				"SendInterval": 10,
+				"AckTimeout": 2,
+				"Range": 10000,
+				"DisableFCntDown": true,
+				"SupportedOtaa": false,
+				"SupportedADR": false,
+				"SupportedFragment": false,
+				"SupportedClassB": false,
+				"SupportedClassC": false,
+				"RX1DROffset": 0,
+				"Channels": null,
+				"NbRetransmission": 10
+			},
+			"Location": {
+				"Latitude": 41.282966539850406,
+				"Longitude": 13.265991210937502,
+				"Altitude": 10
+			},
+			"RXs": [
+				{
+					"Delay": 1000,
+					"DurationOpen": 3000,
+					"Channel": {
+						"Active": false,
+						"EnableUplink": false,
+						"FreqUplink": 0,
+						"FreqDownlink": 0,
+						"MinDR": 0,
+						"MaxDR": 0
+					},
+					"DataRate": 0
+				},
+				{
+					"Delay": 1000,
+					"DurationOpen": 3000,
+					"Channel": {
+						"Active": true,
+						"EnableUplink": false,
+						"FreqUplink": 0,
+						"FreqDownlink": 869525000,
+						"MinDR": 0,
+						"MaxDR": 0
+					},
+					"DataRate": 0
+				}
+			]
+		}
+	},
+	{
+		"Info": {
+			"DevEUI": "182419e0abe7dbd2",
+			"DevAddr": "00000000",
+			"NwkSKey": "00000000000000000000000000000000",
+			"AppSKey": "00000000000000000000000000000000",
+			"AppKey": "94b228608be19ed211169506c498ed9c",
+			"Name": "Device-4",
+			"Status": {
+				"MType": "UnConfirmedDataUp",
+				"Payload": "cosa",
+				"Active": false,
+				"InfoUplink": {
+					"FPort": 10,
+					"FCnt": 27
+				},
+				"FCntDown": 0,
+				"DataRate": 0,
+				"TXPower": 0,
+				"Battery": 0
+			},
+			"Configuration": {
+				"Region": 1,
+				"SendInterval": 10,
+				"AckTimeout": 2,
+				"Range": 10000,
+				"DisableFCntDown": true,
+				"SupportedOtaa": true,
+				"SupportedADR": false,
+				"SupportedFragment": false,
+				"SupportedClassB": true,
+				"SupportedClassC": false,
+				"RX1DROffset": 0,
+				"Channels": null,
+				"NbRetransmission": 10
+			},
+			"Location": {
+				"Latitude": 37.70401285,
+				"Longitude": 15.1595119,
+				"Altitude": 100
+			},
+			"RXs": [
+				{
+					"Delay": 1000,
+					"DurationOpen": 3000,
+					"Channel": {
+						"Active": false,
+						"EnableUplink": false,
+						"FreqUplink": 0,
+						"FreqDownlink": 0,
+						"MinDR": 0,
+						"MaxDR": 0
+					},
+					"DataRate": 0
+				},
+				{
+					"Delay": 1000,
+					"DurationOpen": 3000,
+					"Channel": {
+						"Active": true,
+						"EnableUplink": false,
+						"FreqUplink": 0,
+						"FreqDownlink": 869525000,
+						"MinDR": 0,
+						"MaxDR": 0
+					},
+					"DataRate": 0
+				}
+			]
+		}
+	},
+	{
+		"Info": {
+			"DevEUI": "c20907a62c9e8cd1",
+			"DevAddr": "00000000",
+			"NwkSKey": "00000000000000000000000000000000",
+			"AppSKey": "00000000000000000000000000000000",
+			"AppKey": "1b5e1adeff947901a46649b86b65f3ee",
+			"Name": "Device-5",
+			"Status": {
+				"MType": "ConfirmedDataUp",
+				"Payload": "prova",
+				"Active": true,
+				"InfoUplink": {
+					"FPort": 10,
+					"FCnt": 3
+				},
+				"FCntDown": 0,
+				"DataRate": 0,
+				"TXPower": 0,
+				"Battery": 0
+			},
+			"Configuration": {
+				"Region": 2,
+				"SendInterval": 10,
+				"AckTimeout": 2,
+				"Range": 10000,
+				"DisableFCntDown": true,
+				"SupportedOtaa": true,
+				"SupportedADR": false,
+				"SupportedFragment": true,
+				"SupportedClassB": false,
+				"SupportedClassC": false,
+				"RX1DROffset": 0,
+				"Channels": null,
+				"NbRetransmission": 8
+			},
+			"Location": {
+				"Latitude": 41.286578347826534,
+				"Longitude": 13.205566406250002,
+				"Altitude": 10
+			},
+			"RXs": [
+				{
+					"Delay": 1000,
+					"DurationOpen": 3000,
+					"Channel": {
+						"Active": false,
+						"EnableUplink": false,
+						"FreqUplink": 0,
+						"FreqDownlink": 0,
+						"MinDR": 0,
+						"MaxDR": 0
+					},
+					"DataRate": 0
+				},
+				{
+					"Delay": 1000,
+					"DurationOpen": 3000,
+					"Channel": {
+						"Active": true,
+						"EnableUplink": false,
+						"FreqUplink": 0,
+						"FreqDownlink": 923300000,
+						"MinDR": 0,
+						"MaxDR": 0
+					},
+					"DataRate": 8
+				}
+			]
+		}
+	}
+]
