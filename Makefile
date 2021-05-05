@@ -1,11 +1,6 @@
 install-dep:
-	@go get -u github.com/rakyll/statik
-	@mkdir -p "webserver/public"
-	@if [[ ! -e webserver/public/index.html ]]; then\
-    	echo "LWNSimulator - Need to do \"make build\" or similar build (for other platforms) before using GUI!" > webserver/public/index.html;\
-	fi
-	@cd webserver && statik -src=public -f 1>/dev/null
-	@go get -u -v all
+	@go get -d -u github.com/rakyll/statik
+	@go get -u -d ./...
 
 build:
 	@echo -e "\e[96mBuilding the \e[95mLWN Simulator\e[39m"

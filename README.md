@@ -33,31 +33,58 @@ There are two types of gateway:
 
 ## Requirements
 * If you don't have a real infrastracture, you can download [ChirpStack open-source LoRaWAN® Network Server](https://www.chirpstack.io/project/), or a similar software, to prove it;
-* You must install [Go](https://golang.org/ "Go website"). Version >= 1.12.9
+
 
 ## Installation
+
+### From binary file
+You can download from realeses section the pre-compiled binary file.
+
+[Releases Page](https://github.com/UniCT-ARSLab/LWN-Simulator/releases) 
+
+### From source code
+
+#### Requirements
+* You must install [Go](https://golang.org/ "Go website"). Version >= 1.16
 
 Firstly, you must clone this repository:
 ```bash
 git clone https://github.com/UniCT-ARSLab/LWN-Simulator.git
 ```
-After the download, you must enter in main directory
+After the download, you must enter in main directory:
 
 ```bash
 cd LWNSimulator
 ```
-There are two mode to start the simulator:
-* In realese mode 
+You must install all dependencies to build the simulator:
+```bash
+make install-dep
+```
+Now you can launch the build of the simulator:
+```bash
+make build
+```
 
+Finally, there are two mode to start the simulator:
+* from source (without building the source)
+```bash
+make run
+```
+* from the builded binary
 ```bash
 make run-release
 ```
 
-* Or ???
-```bash
-make run
+### Configuration file
+The simulator relises on a configuration file (`config.json`) whitch specifies some configurations for the simulator:
+
+```json
+{
+    "address":"0.0.0.0",
+    "port":8000,
+    "configDirname":"lwnsimulator"
+}
 ```
-
-After, you open a browser and connect to 127.0.0.1:8000.
-
-Good job :)
+* address: specifies the IP mask from which the web UI is accesable.
+* port: the web server port.
+* configDirname: the directory name where all status files will be saved and will be created in the user home. 

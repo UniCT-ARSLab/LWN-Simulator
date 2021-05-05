@@ -87,7 +87,13 @@ $(document).ready(function(){
     });
 
     socket.on('disconnect',()=>{
+        
         console.log("socket disconnessa");
+
+        $("#state").attr("src", "img/red_circle.svg")
+        $("#console-body").empty();
+        $(".btn-play").parent("button").addClass("hide");
+        $(".btn-stop").parent("button").removeClass("hide");
     });
 
     socket.on('console-sim',(data)=>{

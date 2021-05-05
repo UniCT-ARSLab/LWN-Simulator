@@ -208,7 +208,7 @@ func deleteDevice(c *gin.Context) {
 
 func newServerSocket() *socketio.Server {
 
-	serverSocket, _ := socketio.NewServer(nil)
+	serverSocket := socketio.NewServer(nil)
 
 	serverSocket.OnConnect("/", func(s socketio.Conn) error {
 
