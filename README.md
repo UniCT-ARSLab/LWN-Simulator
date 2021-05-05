@@ -1,4 +1,10 @@
 # LWN Simulator
+[![Build Status](https://www.travis-ci.com/UniCT-ARSLab/LWN-Simulator.svg?branch=main)](https://www.travis-ci.com/UniCT-ARSLab/LWN-Simulator)
+[![GitHub license](https://img.shields.io/github/license/UniCT-ARSLab/LWN-Simulator)](https://github.com/UniCT-ARSLab/LWN-Simulator/blob/main/LICENSE.txt)
+[![made-with-Go](https://img.shields.io/badge/Made%20with-Go-1f425f.svg)](https://golang.org)
+[![GitHub go.mod Go version of a Go module](https://img.shields.io/github/go-mod/go-version/UniCT-ARSLab/LWN-Simulator.svg)](https://github.com/UniCT-ARSLab/LWN-Simulator)
+[![GitHub release](https://img.shields.io/github/release/UniCT-ARSLab/LWN-Simulator.svg)](https://github.com/UniCT-ARSLab/LWN-Simulator/releases/)
+
 A LoRaWAN nodes' simulator to simulate a LoRaWAN Network.
 
 ## Table of Contents
