@@ -3,7 +3,6 @@ package downlink
 import (
 	"errors"
 
-	"github.com/arslab/lwnsimulator/simulator/util"
 	"github.com/brocaar/lorawan"
 )
 
@@ -15,7 +14,6 @@ type InformationDownlink struct {
 	DataPayload   []byte            `json:"-"`
 	FPending      bool              `json:"-"`
 	DwellTime     lorawan.DwellTime `json:"-"`
-	FCntDown      uint32            `json:"-"`
 }
 
 func GetDownlink(phy lorawan.PHYPayload, disableCounter bool, counter uint32, NwkSKey [16]byte, AppSKey [16]byte) (*InformationDownlink, error) {
@@ -39,12 +37,9 @@ func GetDownlink(phy lorawan.PHYPayload, disableCounter bool, counter uint32, Nw
 	//validate counter
 	if !disableCounter {
 
-		expectedValue := (counter + 1) % util.MAXFCNTGAP
-		if macPL.FHDR.FCnt != expectedValue {
-			return nil, errors.New("Donwlink Counter error")
+		if macPL.FHDR.FCnt != counter {
+			return nil, errors.New("Invalid downlink counter")
 		}
-
-		downlink.FCntDown = macPL.FHDR.FCnt
 
 	}
 

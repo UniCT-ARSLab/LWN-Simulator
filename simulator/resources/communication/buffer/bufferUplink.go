@@ -7,20 +7,22 @@ import (
 )
 
 type BufferUplink struct {
-	Mux         sync.Mutex
-	Uplinks     []packets.RXPK
-	NewUplinkCh chan struct{}
+	Mutex   sync.Mutex
+	Uplinks []packets.RXPK
+	Notify  *sync.Cond
 }
 
 func (p *BufferUplink) Push(pkt packets.RXPK) {
 
-	p.Mux.Lock()
+	p.Mutex.Lock()
 
 	p.Uplinks = append(p.Uplinks, pkt) // push
 
-	p.Mux.Unlock()
+	if len(p.Uplinks) == 1 {
+		p.Notify.Broadcast()
+	}
 
-	p.NewUplinkCh <- struct{}{} //signal to gw sender
+	p.Mutex.Unlock()
 
 }
 
@@ -28,11 +30,14 @@ func (p *BufferUplink) Pop() packets.RXPK {
 
 	var upl packets.RXPK
 
-	p.Mux.Lock()
-	defer p.Mux.Unlock()
+	p.Mutex.Lock()
+	defer p.Mutex.Unlock()
+
+	if len(p.Uplinks) == 0 {
+		p.Notify.Wait()
+	}
 
 	switch len(p.Uplinks) {
-
 	case 0:
 		return packets.RXPK{}
 	case 1:
@@ -43,5 +48,13 @@ func (p *BufferUplink) Pop() packets.RXPK {
 	}
 
 	return upl
+
+}
+
+func (p *BufferUplink) Signal() {
+
+	p.Mutex.Lock()
+	p.Notify.Broadcast()
+	p.Mutex.Unlock()
 
 }

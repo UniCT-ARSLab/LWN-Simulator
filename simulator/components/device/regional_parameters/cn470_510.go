@@ -130,11 +130,11 @@ func (cn *Cn470) RX1DROffsetSupported(offset uint8) error {
 	return errors.New("Invalid RX1DROffset")
 }
 
-func (cn *Cn470) LinkAdrReq(ChMaskCntl uint8, ChMask lorawan.ChMask, newDataRate uint8, channels []c.Channel) (int, []bool, error) {
+func (cn *Cn470) LinkAdrReq(ChMaskCntl uint8, ChMask lorawan.ChMask,
+	newDataRate uint8, channels *[]c.Channel) (int, []bool, error) {
 
 	var err error
 	chMaskTmp := ChMask
-	channelsCopy := channels
 	offset := ChMaskCntl
 	acks := []bool{false, false, false}
 	err = nil
@@ -147,24 +147,30 @@ func (cn *Cn470) LinkAdrReq(ChMaskCntl uint8, ChMask lorawan.ChMask, newDataRate
 
 		for i := int(offset); i < len(chMaskTmp); i++ {
 
-			if !channels[i].Active { // can't enable uplink channel
-				msg := fmt.Sprintf("LinkADRReq | ChMask can't enable an inactive channel[%v] |", i)
+			if !(*channels)[i].Active { // can't enable uplink channel
+
+				msg := fmt.Sprintf("ChMask can't enable an inactive channel[%v]", i)
 				return ChMaskCntlChannel, acks, errors.New(msg)
+
 			}
-			channelsCopy[i].EnableUplink = chMaskTmp[i]
+
+			(*channels)[i].EnableUplink = chMaskTmp[i]
 
 		}
 
 	case 6:
 		offset = 0
 
-		for i := int(offset); i < len(channels); i++ {
+		for i := int(offset); i < len(*channels); i++ {
 
-			if !channels[i].Active { // can't enable uplink channel
-				msg := fmt.Sprintf("LinkADRReq | ChMask can't enable an inactive channel[%v] |", i)
+			if !(*channels)[i].Active { // can't enable uplink channel
+
+				msg := fmt.Sprintf("ChMask can't enable an inactive channel[%v]", i)
 				return ChMaskCntlChannel, acks, errors.New(msg)
+
 			}
-			channelsCopy[i].EnableUplink = chMaskTmp[i]
+
+			(*channels)[i].EnableUplink = chMaskTmp[i]
 
 		}
 
@@ -173,7 +179,6 @@ func (cn *Cn470) LinkAdrReq(ChMaskCntl uint8, ChMask lorawan.ChMask, newDataRate
 	acks[0] = true //ackMask
 	acks[1] = true //ackdr
 	acks[2] = true //txack
-	channels = channelsCopy
 
 	return ChMaskCntlGroup, acks, err
 }

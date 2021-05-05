@@ -1,30 +1,27 @@
 package udp
 
 import (
+	"errors"
 	"net"
 )
 
 func ConnectTo(BridgeAddress string) (*net.UDPConn, error) {
 
-	var err error
-	var addressRS *net.UDPAddr
-
-	addressRS, err = net.ResolveUDPAddr("udp", BridgeAddress)
-	connection, err := net.DialUDP("udp", nil, addressRS) //udp4
-
+	addressRS, err := net.ResolveUDPAddr("udp", BridgeAddress)
 	if err != nil {
 		return nil, err
 	}
 
-	return connection, nil
+	return net.DialUDP("udp", nil, addressRS) //udp4
+
 }
 
 func SendDataUDP(connection *net.UDPConn, data []byte) (int, error) {
 
 	n, err := connection.Write(data)
 	if err != nil {
-		return -1, err
+		return -1, errors.New("Unable send data")
 	}
 
-	return n, err
+	return n, nil
 }

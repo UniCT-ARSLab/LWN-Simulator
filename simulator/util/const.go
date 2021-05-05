@@ -9,7 +9,11 @@ const (
 	PrintOnlySocket
 	PrintOnlyConsole
 
-	//stati del simulatore
+	//stati
 	Stopped = iota
 	Running
+
+	Normal = iota
+	Retransmission
+	FPending
 )

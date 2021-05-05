@@ -7,7 +7,6 @@ L.Control.OSMGeocoder = L.Control.extend({
 	options: {
 		collapsed: true,
 		position: 'topright',
-		text: 'Locate',
 		placeholder: '',
 		bounds: null, // L.LatLngBounds
 		email: null, // String
@@ -56,7 +55,7 @@ L.Control.OSMGeocoder = L.Control.extend({
 
 		var submit = document.createElement('input');
 		submit.type = "submit";
-		submit.value = this.options.text;
+		submit.value = "Locate";
 
 		form.appendChild(input);
 		form.appendChild(submit);
@@ -69,7 +68,7 @@ L.Control.OSMGeocoder = L.Control.extend({
 
 			var link = this._layersLink = L.DomUtil.create('a', className + '-toggle', container);
 			link.href = '#';
-			link.title = 'Nominatim Geocoder';
+			link.title = 'Geocoder';
 
 			L.DomEvent.addListener(link, L.Browser.touch ? 'click' : 'focus', this._expand, this);
 

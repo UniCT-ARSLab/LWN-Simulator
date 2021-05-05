@@ -1,6 +1,7 @@
-package packetforwarder
+package gateway
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -19,20 +20,18 @@ func (g *Gateway) Receiver() {
 		var n int
 		var err error
 
-		ok := g.CanExecute()
-		if !ok {
+		if !g.CanExecute() {
 
-			g.Print("STOP", nil, util.PrintBoth)
+			g.Print("Turn OFF", nil, util.PrintBoth)
 			return
 
 		}
 
 		for g.Info.Connection == nil {
 
-			ok := g.CanExecute()
-			if !ok {
+			if !g.CanExecute() {
 
-				g.Print("STOP", nil, util.PrintBoth)
+				g.Print("Turn OFF", nil, util.PrintBoth)
 				return
 
 			}
@@ -40,7 +39,9 @@ func (g *Gateway) Receiver() {
 			g.Info.Connection, err = udp.ConnectTo(*g.Info.BridgeAddress) //stabilish new connection
 			if err != nil {
 
-				g.Print("", err, util.PrintBoth)
+				msg := fmt.Sprintf("Unable Connect to %v", g.Info.BridgeAddress)
+				g.Print("", errors.New(msg), util.PrintBoth)
+
 				continue
 
 			}
@@ -49,17 +50,15 @@ func (g *Gateway) Receiver() {
 
 		n, _, err = g.Info.Connection.ReadFromUDP(ReceiveBuffer)
 
-		ok = g.CanExecute()
-		if !ok {
-
-			g.Print("STOP", nil, util.PrintBoth)
+		if !g.CanExecute() {
+			g.Print("Turn OFF", nil, util.PrintBoth)
 			return
-
 		}
 
 		if err != nil {
 
-			g.Print("", err, util.PrintBoth)
+			msg := fmt.Sprintf("Unable read to %v", *g.Info.BridgeAddress)
+			g.Print("", errors.New(msg), util.PrintBoth)
 			continue
 
 		}
@@ -70,10 +69,7 @@ func (g *Gateway) Receiver() {
 
 		err = pkt.ParseReceivePacket(receivedPack)
 		if err != nil {
-
-			msg := fmt.Sprintf("Error Parse Packet, %v", err)
-			g.Print(msg, nil, util.PrintOnlySocket)
-
+			g.Print("Packet not supported", nil, util.PrintBoth)
 			continue
 		}
 
@@ -93,12 +89,13 @@ func (g *Gateway) Receiver() {
 
 		case pkt.TypePullResp:
 
-			phy, freq, err := pkt.ExtractInfo(receivedPack)
+			phy, freq, err := pkt.GetInfoPullResp(receivedPack)
 			if err != nil {
 				g.Print("", err, util.PrintBoth)
+				continue
 			}
 
-			g.Forwarder.Downlink(phy, *freq)
+			g.Forwarder.Downlink(phy, *freq, g.Info.MACAddress)
 
 			g.Stat.RXFW++
 
@@ -109,16 +106,23 @@ func (g *Gateway) Receiver() {
 			}
 
 			_, err = udp.SendDataUDP(g.Info.Connection, packet)
+
+			if !g.CanExecute() {
+				g.Print("Turn OFF", nil, util.PrintBoth)
+				return
+			}
+
 			if err != nil {
 				g.Print("", err, util.PrintBoth)
-
 			} else {
+
 				g.Stat.TXNb++
 				g.Print("TX ACK sent", nil, util.PrintBoth)
+
 			}
 
 		default:
-			g.Print("Packet not supported", nil, util.PrintOnlySocket)
+			g.Print("Packet not supported", nil, util.PrintBoth)
 
 		}
 

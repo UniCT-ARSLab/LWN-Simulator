@@ -31,8 +31,10 @@ type TXPKACK struct {
 }
 
 func SetTXACKPayload() TXACKPayload {
+
 	var payload TXACKPayload
 	payload.TXPKACK.Error = NONE
+
 	return payload
 }
 
@@ -45,22 +47,18 @@ func CreateTXPacket(GatewayMACAddr lorawan.EUI64, Token uint16) ([]byte, error) 
 		payload,
 	}
 
-	packetBytes, err := packet.MarshalBinary()
+	return packet.MarshalBinary()
 
-	if err != nil {
-		return nil, err
-	}
-
-	return packetBytes, nil
 }
 
 func (p *TxAckPacket) MarshalBinary() ([]byte, error) {
 
 	payloadBytes, err := json.Marshal(p.Payload)
-
 	if err != nil {
 		return nil, err
 	}
+
 	out := append(p.Header, payloadBytes...)
+
 	return out, nil
 }

@@ -6,40 +6,69 @@ import (
 	"github.com/brocaar/lorawan"
 )
 
-//ReceivedDownlink is for every Device
 type ReceivedDownlink struct {
-	Mux      sync.Mutex
-	Downlink lorawan.PHYPayload
-	Notify   chan struct{}
+	Mutex    sync.Mutex
+	Downlink *lorawan.PHYPayload
+	Notify   *sync.Cond
+	IsOpen   bool
 }
 
-//Push data in struct
 func (b *ReceivedDownlink) Push(data *lorawan.PHYPayload) {
 
 	if data == nil {
 		return
 	}
 
-	b.Mux.Lock()
+	b.Mutex.Lock()
+	if b.IsOpen {
 
-	b.Downlink = *data
+		b.Downlink = data
+		b.Notify.Broadcast()
 
-	b.Mux.Unlock()
+	}
 
-	b.Notify <- struct{}{}
+	b.Mutex.Unlock()
+
 }
 
-// Pull the current value of the counter for the given key.
 func (b *ReceivedDownlink) Pull() *lorawan.PHYPayload {
 
-	var phy lorawan.PHYPayload
+	b.Mutex.Lock()
 
-	b.Mux.Lock()
-	defer b.Mux.Unlock()
+	defer b.Mutex.Unlock()
 
-	phy = b.Downlink
-	b.Downlink = lorawan.PHYPayload{}
+	if b.Downlink == nil {
+		return nil
+	}
 
-	return &phy
+	phy := b.Downlink
 
+	b.Downlink = nil //reset
+
+	return phy
+
+}
+
+func (b *ReceivedDownlink) Wait() {
+	b.Mutex.Lock()
+	b.Notify.Wait()
+	b.Mutex.Unlock()
+}
+
+func (b *ReceivedDownlink) Signal() {
+	b.Mutex.Lock()
+	b.Notify.Broadcast()
+	b.Mutex.Unlock()
+}
+
+func (b *ReceivedDownlink) Open() {
+	b.Mutex.Lock()
+	b.IsOpen = true
+	b.Mutex.Unlock()
+}
+
+func (b *ReceivedDownlink) Close() {
+	b.Mutex.Lock()
+	b.IsOpen = false
+	b.Mutex.Unlock()
 }

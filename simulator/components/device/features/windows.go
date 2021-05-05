@@ -16,10 +16,10 @@ const (
 
 //Window is a receive window
 type Window struct {
-	Channel      c.Channel     `json:"Channel"` // RX1's frequency is same of last uplink's frequency
-	Delay        time.Duration `json:"Delay"`
-	DurationOpen time.Duration `json:"DurationOpen"`
-	DataRate     uint8         `json:"DataRate"`
+	Channel      c.Channel     `json:"channel"` // RX1's frequency is same of last uplink's frequency
+	Delay        time.Duration `json:"delay"`
+	DurationOpen time.Duration `json:"durationOpen"`
+	DataRate     uint8         `json:"dataRate"`
 }
 
 //GetListeningFrequency get window's listening frequency
@@ -40,29 +40,24 @@ func (w *Window) OpenWindow(Delay time.Duration, ReceivedDownlink *dl.ReceivedDo
 
 	timerWindow := time.NewTimer(Delay)
 	<-timerWindow.C //delay
-
-	timerWindow.Reset(w.DurationOpen)
+	timerWindow.Stop()
 
 	for {
 
-		select {
+		go func(durate time.Duration, buf *dl.ReceivedDownlink) {
 
-		case <-ReceivedDownlink.Notify: //a frame received
+			timer := time.NewTimer(durate)
+			<-timer.C
+			timer.Stop()
 
-			phy := ReceivedDownlink.Pull()
+			buf.Signal()
 
-			if phy != nil {
+		}(w.DurationOpen, ReceivedDownlink)
 
-				return phy
+		ReceivedDownlink.Wait()
 
-			}
+		return ReceivedDownlink.Pull()
 
-		case <-timerWindow.C: // timer expired
-
-			timerWindow.Stop()
-
-			return nil
-		}
 	}
 }
 
@@ -71,8 +66,8 @@ func (w *Window) MarshalJSON() ([]byte, error) {
 	type Alias Window
 
 	return json.Marshal(&struct {
-		Delay        int `json:"Delay"`
-		DurationOpen int `json:"DurationOpen"`
+		Delay        int `json:"delay"`
+		DurationOpen int `json:"durationOpen"`
 		*Alias
 	}{
 		Delay:        int(w.Delay / time.Millisecond),
@@ -88,8 +83,8 @@ func (w *Window) UnmarshalJSON(data []byte) error {
 	type Alias Window
 
 	aux := &struct {
-		Delay        int `json:"Delay"`
-		DurationOpen int `json:"DurationOpen"`
+		Delay        int `json:"delay"`
+		DurationOpen int `json:"durationOpen"`
 		*Alias
 	}{
 		Alias: (*Alias)(w),

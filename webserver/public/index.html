@@ -30,20 +30,15 @@
       <div class="navbar-bg bg-blue"></div>
 
       <nav class="navbar navbar-expand-lg main-navbar">
-        <form class="form-inline mr-auto">
-
-
-          <ul class="navbar-nav mr-3">
-            <li><a href="#" data-toggle="sidebar" class="nav-link nav-link-lg"><i class="fas fa-bars"></i></a></li>
-          </ul>
-
-        </form>
-
-        <ul class="navbar-nav navbar-right">
-            <img id="state" src="img/red_circle.png" height="16px" width="16px" title="Simulator's status"/>
-            <a href="#" class="nav-link nav-link-lg "><i class="far btn-play"></i></a>      
-            <a href="#" class="nav-link nav-link-lg "><i class="far btn-stop"></i></a>
-        </ul>
+          
+        <div class="mr-auto"></div>
+        <div class="navbar-nav navbar-right d-flex">
+            
+            <img id="state" src="img/red_circle.svg"  title="Simulator's status" class="mr-3 align-self-center">
+            <button class="btn btn-sim" ><img class="btn-play"></button>
+            <button class="btn btn-sim hide" ><img class="btn-stop"></button>        
+ 
+        </div>
 
       </nav>
 
@@ -62,7 +57,7 @@
                 
                 <li class="nav-item active">
                     <a id="home-tab" class="nav-link" data-tab="#home">
-                        <img class="home fas mr-3" /><span>Home</span>
+                        <img class="home  mr-3" /><span>Home</span>
                     </a>
                 </li>
 
@@ -70,7 +65,8 @@
 
                 <li class="nav-item dropdown">
                     <a href="#" class="nav-link has-dropdown">
-                        <img class="device fas mr-3" /> <span>Devices</span>
+                        <img class="device  mr-3" />
+                        <span>Devices</span>
                     </a>
 
                     <ul class="dropdown-menu">
@@ -81,18 +77,20 @@
 
                 <li class="nav-item dropdown">
                     <a href="#" class="nav-link has-dropdown">
-                        <img class="gateway fas mr-3" />  <span>Gateways</span>
+                        <img class="gateway mr-3"/>
+                        <span>Gateways</span>
                     </a>
 
                     <ul class="dropdown-menu">
-                        <li><a id="gws-tab" class="nav-link" data-tab="#gws" >List gateways</a></li>
+                        <li><a id="gws-tab" class="nav-link" data-tab="#gws">List gateways</a></li>
                         <li><a id="add-gw-tab" class="nav-link " data-tab="#add-gw">Add new gateway</a></li>            
                     </ul>
                 </li>
 
                 <li class="nav-item">
                     <a id="bridge-tab" class="nav-link" data-tab="#bridge-gw" >
-                        <img class="gateway fas mr-3" /> <span>Gateway Bridge</span>
+                        <img class="gateway mr-3"/> 
+                        <span>Gateway Bridge</span>
                     </a>
                 </li>                      
             </ul>
@@ -138,10 +136,10 @@
 
                         <div class="card-header bg-blue clickable p-0" > 
                             <div id="accordion-console" class="w-100 d-flex align-items-center align-self-stretch">
-                                <div id="container-header-accordion" class="ml-3 w-100 d-flex align-items-center align-self-stretch">
-                                    <h4 id="header-console" class="ml-3 w-100 ">Console</h4>
+                                <div id="container-header-accordion" class="w-100 d-flex align-items-center align-self-stretch">
+                                    <h4 id="header-console" class="ml-4 w-100 ">Console</h4>
                                 </div>
-                                <a class="btn-clean mr-3"> <img src=""></a>
+                                <button class="btn-clean btn pt-2 pb-2 mr-2"> <img src=""> </button>
                                 </div>
                         </div>
 
@@ -165,8 +163,19 @@
         <div id="devs" class="tab-pane fade" >
             <div class="card">
                 <div class="card-body">
-                  <ul class="list-group list-group-flush" id="list-devices">       
-                  </ul>
+                    <table class="table table-sm text-center table-hover">
+                        <thead>
+                          <tr>
+                            <th scope="col">Initial state</th>
+                            <th scope="col">Name</th>
+                            <th scope="col">Device EUI</th>
+                          </tr>
+                        </thead>
+                        <tbody id="list-devices">
+                            
+                
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -269,9 +278,9 @@
                                         <div class="col-sm-6 col-md-10 input-group">
                                             
                                             <input type="text" name="input-devEUI" class="form-control mr-1" id="dev-eui">
-                                            <button name="btn-new-devEUI" class="btn btn-classic btn-generate" type="button"><img src=""/></button>
+                                            <button name="btn-new-devEUI" class="btn btn-classic btn-generate" type="button"><img  heigh=16 src=""/></button>
                                             <div class="invalid-feedback">
-                                                The format is incorrect. Example correct: 00:00:00:00:00:00:00:00
+                                                This format is incorrect. Example correct: 0000000000000000
                                             </div>
 
                                         </div>
@@ -335,8 +344,8 @@
                                         <div class="col-sm-6 col-md-10 input-group">
                                             
                                             <input type="password" name="input-key-app" class="form-control mr-1" id="appkey" disabled readonly>
-                                            <button name="btn-watch" class="btn btn-classic btn-watch mr-1" type="button"><img src=""/></button>
-                                            <button name="btn-new-key" class="btn btn-classic btn-generate" type="button"><img src=""/></button>
+                                            <button name="btn-watch" class="btn btn-classic btn-watch mr-1" type="button"><img  heigh=16 src=""/></button>
+                                            <button name="btn-new-key" class="btn btn-classic btn-generate" type="button"><img  heigh=16 src=""/></button>
                                             <div class="invalid-feedback">  
                                             </div>
         
@@ -351,9 +360,9 @@
                                         <div class="col-sm-6 col-md-10 input-group">
                                             
                                             <input type="text" name="input-devAddr" class="form-control mr-1" id="devAddr">
-                                            <button name="btn-new-devAddr" class="btn btn-classic btn-generate" type="button"><img src=""/></button>
+                                            <button name="btn-new-devAddr" class="btn btn-classic btn-generate" type="button"><img  heigh=16 src=""/></button>
                                             <div class="invalid-feedback">  
-                                                The format is incorrect. Example: 00:00:00:00
+                                                The format is incorrect. Example: 00000000
                                             </div>
         
                                         </div>
@@ -367,8 +376,8 @@
                                         <div class="col-sm-6 col-md-10 input-group">
                                             
                                             <input type="password" name="input-key-nwkS" class="form-control mr-1" id="nwkSKey">
-                                            <button name="btn-watch" class="btn btn-classic btn-watch mr-1" type="button"><img src=""/></button>
-                                            <button name="btn-new-key" class="btn btn-classic btn-generate" type="button"><img src=""/></button>
+                                            <button name="btn-watch" class="btn btn-classic btn-watch mr-1" type="button"><img  heigh=16 src=""/></button>
+                                            <button name="btn-new-key" class="btn btn-classic btn-generate" type="button"><img  heigh=16 src=""/></button>
                                             <div class="invalid-feedback">  
                                             </div>
         
@@ -383,8 +392,8 @@
                                         <div class="col-sm-6 col-md-10 input-group">
                                             
                                             <input type="password" name="input-key-appS" class="form-control mr-1" id="appSKey">
-                                            <button name="btn-watch" class="btn btn-classic btn-watch mr-1" type="button"><img src=""/></button>
-                                            <button name="btn-new-key" class="btn btn-classic btn-generate" type="button"><img src=""/></button>
+                                            <button name="btn-watch" class="btn btn-classic btn-watch mr-1" type="button"><img  heigh=16 src=""/></button>
+                                            <button name="btn-new-key" class="btn btn-classic btn-generate" type="button"><img  heigh=16 src=""/></button>
                                             <div class="invalid-feedback">  
                                             </div>
         
@@ -878,152 +887,154 @@
 
             <div class="card">
                 <div class="card-body">
-                  <ul class="list-group list-group-flush" id="list-gateways">       
-                  </ul>
+                    <table class="table table-sm text-center table-hover">
+                        <thead>
+                          <tr>
+                            <th scope="col">Initial state</th>  
+                            <th scope="col">Name</th>
+                            <th scope="col">MAC Address</th>
+                            <th scope="col">Type</th>
+                          </tr>
+                        </thead>
+                        <tbody id="list-gateways">
+                            
+                
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
 
         <!-- add gateway-->
         <div id="add-gw" class="tab-pane fade" >
-            
-            <!--type of gateway-->
-            <div id="choose-type" class="form-group">
-                
-                <div class="btn-group btn-group-toggle "  data-toggle="buttons">
+            <div class="card">
+                <div class="card-body">
 
-                    <label class="btn btn-classic mr-3">
-                        <input type="radio" name="type-gw" id="virtual-gw" autocomplete="off"> Virtual gateway
-                    </label>
-
-                    <label class="btn btn-classic">
-                        <input type="radio" name="type-gw" id="real-gw" autocomplete="off"> Real gateway
-                    </label>
-
-                </div>
-
-            </div>
-
-            <div id="info-gw" class="hide">
-                
-                <!--Active/Inactive-->
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="checkbox-active-gw">
-                    <label class="form-check-label" for="checkbox-active-gw">
-                      Active
-                    </label>
-                </div>
-
-                <!--Name-->
-                <div class="form-group mt-3">
-                    <label>Name</label>
-                    <input type="text" class="form-control" name="input-name-gw" placeholder="Gateway's Name" required="">
-                    <div class="invalid-feedback">
-                        Choose another name for the gateway.
+                    <!--type of gateway-->
+                    <div id="choose-type" class="btn-group mb-3 d-flex justify-content-center" role="group" aria-label="Basic example">
+                        <button id="virtual-gw" name="type-gw" type="button" class="btn btn-classic mr-3" >Virtual gateway</button>
+                        <button id="real-gw" name="type-gw" type="button" class="btn btn-classic">Real gateway</button>
                     </div>
-                </div>
-
-                <!--MAC Address-->
-                <div class="form-group mt-3">
-
-                    <label>MAC Address</label>
-                    <div class="input-group">
-
-                        <input type="text" class="form-control mr-1" name="input-MAC-gw" placeholder="Gateway's MAC Address" required="">
-                        <button name="btn-new-MACAddress" class="btn btn-classic btn-generate" type="button"><img src=""/></button>
-                        <div class="invalid-feedback">
-                            The format is incorrect. Example correct: 00:00:00:00:00:00:00:00
-                        </div>
-                    </div>           
-
-                </div>
-
-                <!--info real gateway-->
-                <div id="info-real-gw" class="hide">
-
-                    <div class="form-group">
-                        <label>Gateway's IPv4</label>
-                        <input type="text" class="form-control" name="input-IP-gw" required="">
-                        <div class="invalid-feedback">
-                            The format is incorrect. Example: 192.168.1.1
-                        </div>
-                    </div>
-        
-                    <div class="form-group">
-                        <label>Gateway's Port</label>
-                        <input type="text" class="form-control" name="input-port-gw" required="">
-                        <div class="invalid-feedback">
-                            Please choose a number from 0 to 65535.
-                        </div>
-                    </div>
-
-                </div>
-
-                <!--info virtual gateway-->
-                <div id="info-virtual-gw" class="hide">
-
-                    <div class="form-group">
-
-                        <label>KeepAlive</label>
-                        <input type="number" class="form-control" name="input-KeepAlive" aria-describedby="KeepAliveHelpBlock" placeholder="KeepAlive in seconds">
-                        <div id="KeepAliveHelpBlock" class="form-text mt-0" >
-                            Default value is 30 seconds.
-                        </div>
-
-                    </div>
-                </div>
-
-                <!--location-->
-                <div id="location" class="row">
-                    <div class="col-9">
-                        <div class="card">
-                        <div class="card-body">
-                            <div id="map-gw" data-height="400"></div>
-                        </div>
-                        </div>
-                    </div>
-
-                    <div id="coords" class="col-3">
-
-                        <!--Latitudine-->
-                        <div class="form-group mt-3">
-
-                            <label>Latitude</label>
-
-                            <input type="text" class="form-control" name="input-latitude" placeholder="Latitude" >
-
-                        </div>
-
-                        <!--Longitudine-->
-                        <div class="form-group mt-3">
-
-                            <label>Longitude</label>
-
-                            <input type="text" class="form-control" name="input-longitude" placeholder="Longitude" >
- 
-                        </div>
-
-                        <!--Altitudine-->
-                        <div class="form-group mt-3">
-
-                            <label>Altitude</label>
-
-                            <input type="number" class="form-control" name="input-altitude" placeholder="Altitude" >
+       
+                    <div id="info-gw" class="hide">
                         
+                        <!--Active/Inactive-->
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="checkbox-active-gw">
+                            <label class="form-check-label" for="checkbox-active-gw">
+                            Active
+                            </label>
+                        </div>
+
+                        <!--Name-->
+                        <div class="form-group mt-3">
+                            <label>Name</label>
+                            <input type="text" class="form-control" name="input-name-gw" placeholder="Gateway's Name" required="">
+                            <div class="invalid-feedback">
+                                Choose another name for the gateway.
+                            </div>
+                        </div>
+
+                        <!--MAC Address-->
+                        <div class="form-group mt-3">
+
+                            <label>MAC Address</label>
+                            <div class="input-group">
+
+                                <input type="text" class="form-control mr-1" name="input-MAC-gw" placeholder="Gateway's MAC Address" required="">
+                                <button name="btn-new-MACAddress" class="btn btn-classic btn-generate" type="button"><img  heigh=16 src=""/></button>
+                                <div class="invalid-feedback">
+                                    The format is incorrect. Example correct: 0000000000000000
+                                </div>
+                            </div>           
+
+                        </div>
+
+                        <!--info real gateway-->
+                        <div id="info-real-gw" class="hide">
+
+                            <div class="form-group">
+                                <label>Gateway's IPv4</label>
+                                <input type="text" class="form-control" name="input-IP-gw" required="">
+                                <div class="invalid-feedback">
+                                    The format is incorrect. Example: 192.168.1.1
+                                </div>
+                            </div>
+                
+                            <div class="form-group">
+                                <label>Gateway's Port</label>
+                                <input type="text" class="form-control" name="input-port-gw" required="">
+                                <div class="invalid-feedback">
+                                    Please choose a number from 0 to 65535.
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <!--info virtual gateway-->
+                        <div id="info-virtual-gw" class="hide">
+
+                            <div class="form-group">
+
+                                <label>KeepAlive</label>
+                                <input type="number" class="form-control" name="input-KeepAlive" aria-describedby="KeepAliveHelpBlock" placeholder="KeepAlive in seconds">
+                                <div id="KeepAliveHelpBlock" class="form-text mt-0" >
+                                    Default value is 30 seconds.
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <!--location-->
+                        <div id="location" class="row">
+                            <div class="col-9">
+                                <div id="map-gw" data-height="400"></div>
+                            </div>
+
+                            <div id="coords" class="col-3">
+
+                                <!--Latitudine-->
+                                <div class="form-group mt-3">
+
+                                    <label>Latitude</label>
+
+                                    <input type="text" class="form-control" name="input-latitude" placeholder="Latitude" >
+
+                                </div>
+
+                                <!--Longitudine-->
+                                <div class="form-group mt-3">
+
+                                    <label>Longitude</label>
+
+                                    <input type="text" class="form-control" name="input-longitude" placeholder="Longitude" >
+        
+                                </div>
+
+                                <!--Altitudine-->
+                                <div class="form-group mt-3">
+
+                                    <label>Altitude</label>
+
+                                    <input type="number" class="form-control" name="input-altitude" placeholder="Altitude" >
+                                
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <!--buttons-->
+                        <div id="div-buttons-gw" data-addr="" class=" d-md-flex justify-content-md-end">
+                            <button name="btn-delete-gw" class="btn btn-del  mr-1 hide" type="button">Delete</button>
+                            <button name="btn-edit-gw" class="btn btn-edit  mr-1 hide" type="button">Edit</button>
+                            <button name="btn-save-gw" class="btn btn-classic " type="button">Save</button>
                         </div>
 
                     </div>
-                </div>
 
-                <!--buttons-->
-                <div id="div-buttons-gw" data-addr="" class=" d-md-flex justify-content-md-end">
-                    <button name="btn-delete-gw" class="btn btn-del  mr-1 hide" type="button">Delete</button>
-                    <button name="btn-edit-gw" class="btn btn-edit  mr-1 hide" type="button">Edit</button>
-                    <button name="btn-save-gw" class="btn btn-classic " type="button">Save</button>
                 </div>
-
             </div>
-     
+
         </div>
 
         <!-- gateway bridge-->
@@ -1272,11 +1283,11 @@
   <script src="js/Control.OSMGeocoder.js"></script>
   
 
-  <!-- Template JS File -->
+  <!-- Template JS File scripts.js must be before custom.js-->
   <script src="js/scripts.js"></script>
-  <script src="js/custom.js"></script>
-
+  
   <!-- Page Specific JS File -->
+  <script src="js/custom.js"></script>
 
 </body>
 </html>

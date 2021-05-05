@@ -5,13 +5,13 @@ import (
 
 	"github.com/brocaar/lorawan"
 
+	"github.com/arslab/lwnsimulator/models"
 	e "github.com/arslab/lwnsimulator/socket"
 
 	"github.com/arslab/lwnsimulator/simulator"
 	dev "github.com/arslab/lwnsimulator/simulator/components/device"
 	gw "github.com/arslab/lwnsimulator/simulator/components/gateway"
 	"github.com/arslab/lwnsimulator/simulator/util"
-	types "github.com/arslab/lwnsimulator/types"
 	socketio "github.com/googollee/go-socket.io"
 )
 
@@ -19,25 +19,24 @@ import (
 type SimulatorRepository interface {
 	Run() bool
 	Stop() bool
-	Setup(socketio.Conn)
-	SaveBridgeAddress(types.AddressIP) error
-	GetBridgeAddress() types.AddressIP
+	GetIstance()
+	AddWebSocket(*socketio.Conn)
+	SaveBridgeAddress(models.AddressIP) error
+	GetBridgeAddress() models.AddressIP
 	GetGateways() []gw.Gateway
-	AddGateway(gw.Gateway) (int, error)
-	UpdateGateway(gw.Gateway, int) (int, error)
-	DeleteGateway(lorawan.EUI64) bool
-	AddDevice(dev.Device) (int, error)
+	AddGateway(*gw.Gateway) (int, int, error)
+	UpdateGateway(*gw.Gateway) (int, error)
+	DeleteGateway(int) bool
+	AddDevice(*dev.Device) (int, int, error)
 	GetDevices() []dev.Device
-	UpdateDevice(dev.Device, int) (int, error)
-	DeleteDevice(lorawan.EUI64) bool
-	TurnONDevice(lorawan.EUI64) bool
-	TurnOFFDevice(lorawan.EUI64) bool
+	UpdateDevice(*dev.Device) (int, error)
+	DeleteDevice(int) bool
+	ToggleStateDevice(int)
 	SendMACCommand(lorawan.CID, e.MacCommand)
-	ChangePayload(e.NewPayload)
+	ChangePayload(e.NewPayload) (string, bool)
 	SendUplink(e.NewPayload)
 	ChangeLocation(e.NewLocation) bool
-	TurnONGateway(lorawan.EUI64) bool
-	TurnOFFGateway(lorawan.EUI64) bool
+	ToggleStateGateway(int)
 }
 
 type simulatorRepository struct {
@@ -49,8 +48,12 @@ func NewSimulatorRepository() SimulatorRepository {
 	return &simulatorRepository{}
 }
 
-func (s *simulatorRepository) Setup(WebSocket socketio.Conn) {
-	s.sim = simulator.Setup(WebSocket)
+func (s *simulatorRepository) GetIstance() {
+	s.sim = simulator.GetIstance()
+}
+
+func (s *simulatorRepository) AddWebSocket(socket *socketio.Conn) {
+	s.sim.AddWebSocket(socket)
 }
 
 func (s *simulatorRepository) Run() bool {
@@ -84,74 +87,68 @@ func (s *simulatorRepository) Stop() bool {
 
 }
 
-func (s *simulatorRepository) SaveBridgeAddress(addr types.AddressIP) error {
+func (s *simulatorRepository) SaveBridgeAddress(addr models.AddressIP) error {
 	return s.sim.SaveBridgeAddress(addr)
 }
 
-func (s *simulatorRepository) GetBridgeAddress() types.AddressIP {
+func (s *simulatorRepository) GetBridgeAddress() models.AddressIP {
 	return s.sim.GetBridgeAddress()
 }
 
 func (s *simulatorRepository) GetGateways() []gw.Gateway {
-	return simulator.GetGateways()
+	return s.sim.GetGateways()
 }
 
-func (s *simulatorRepository) AddGateway(gateway gw.Gateway) (int, error) {
-	return s.sim.SetGateway(&gateway, nil)
+func (s *simulatorRepository) AddGateway(gateway *gw.Gateway) (int, int, error) {
+	return s.sim.SetGateway(gateway, false)
 }
 
-func (s *simulatorRepository) UpdateGateway(gateway gw.Gateway, index int) (int, error) {
-	return s.sim.SetGateway(&gateway, &index)
+func (s *simulatorRepository) UpdateGateway(gateway *gw.Gateway) (int, error) {
+	code, _, err := s.sim.SetGateway(gateway, true)
+	return code, err
 }
 
-func (s *simulatorRepository) DeleteGateway(gateway lorawan.EUI64) bool {
-	return s.sim.DeleteGateway(gateway)
+func (s *simulatorRepository) DeleteGateway(Id int) bool {
+	return s.sim.DeleteGateway(Id)
 }
 
-func (s *simulatorRepository) AddDevice(device dev.Device) (int, error) {
-	return s.sim.SetDevice(device, nil)
+func (s *simulatorRepository) AddDevice(device *dev.Device) (int, int, error) {
+	return s.sim.SetDevice(device, false)
 }
 
 func (s *simulatorRepository) GetDevices() []dev.Device {
-	return simulator.GetDevices()
+	return s.sim.GetDevices()
 }
 
-func (s *simulatorRepository) UpdateDevice(device dev.Device, index int) (int, error) {
-	return s.sim.SetDevice(device, &index)
+func (s *simulatorRepository) UpdateDevice(device *dev.Device) (int, error) {
+	code, _, err := s.sim.SetDevice(device, true)
+	return code, err
 }
 
-func (s *simulatorRepository) DeleteDevice(device lorawan.EUI64) bool {
-	return s.sim.DeleteDevice(device)
+func (s *simulatorRepository) DeleteDevice(Id int) bool {
+	return s.sim.DeleteDevice(Id)
 }
 
-func (s *simulatorRepository) TurnONDevice(DevEUI lorawan.EUI64) bool {
-	return s.sim.TurnONDevice(DevEUI)
-}
-
-func (s *simulatorRepository) TurnOFFDevice(DevEUI lorawan.EUI64) bool {
-	return s.sim.TurnOFFDevice(DevEUI)
+func (s *simulatorRepository) ToggleStateDevice(Id int) {
+	s.sim.ToggleStateDevice(Id)
 }
 
 func (s *simulatorRepository) SendMACCommand(cid lorawan.CID, data e.MacCommand) {
 	s.sim.SendMACCommand(cid, data)
 }
 
-func (s *simulatorRepository) ChangePayload(pl e.NewPayload) {
-	s.sim.ChangePayload(pl)
+func (s *simulatorRepository) ChangePayload(pl e.NewPayload) (string, bool) {
+	return s.sim.ChangePayload(pl)
 }
 
 func (s *simulatorRepository) SendUplink(pl e.NewPayload) {
-	s.sim.SendUplinkDevice(pl)
+	s.sim.SendUplink(pl)
 }
 
 func (s *simulatorRepository) ChangeLocation(loc e.NewLocation) bool {
 	return s.sim.ChangeLocation(loc)
 }
 
-func (s *simulatorRepository) TurnONGateway(MACAddress lorawan.EUI64) bool {
-	return s.sim.TurnONGateway(MACAddress)
-}
-
-func (s *simulatorRepository) TurnOFFGateway(MACAddress lorawan.EUI64) bool {
-	return s.sim.TurnOFFGateway(MACAddress)
+func (s *simulatorRepository) ToggleStateGateway(Id int) {
+	s.sim.ToggleStateGateway(Id)
 }

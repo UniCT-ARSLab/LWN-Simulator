@@ -1,6 +1,8 @@
-package packetforwarder
+package gateway
 
 import (
+	"sync"
+
 	f "github.com/arslab/lwnsimulator/simulator/components/forwarder"
 	res "github.com/arslab/lwnsimulator/simulator/resources"
 	"github.com/arslab/lwnsimulator/simulator/resources/communication/buffer"
@@ -9,15 +11,27 @@ import (
 )
 
 func (g *Gateway) Setup(BridgeAddress *string,
-	Resources *res.Resources,
-	StateSimulator *uint8, Forwarder *f.Forwarder) {
+	Resources *res.Resources, Forwarder *f.Forwarder) {
+
+	g.State = util.Stopped
+
+	g.Info.BridgeAddress = BridgeAddress
+
+	g.Resources = Resources
+	g.Forwarder = Forwarder
+
+	g.BufferUplink = buffer.BufferUplink{}
+	g.BufferUplink.Notify = sync.NewCond(&g.BufferUplink.Mutex)
+
+	g.Print("Setup OK!", nil, util.PrintOnlyConsole)
+
+}
+
+func (g *Gateway) TurnON() {
 
 	var err error
 
-	g.Info.BridgeAddress = BridgeAddress
-	g.StateSimulator = StateSimulator
-	g.Resources = Resources
-	g.Forwarder = Forwarder
+	g.State = util.Running
 
 	//udp
 	if g.Info.TypeGateway { //real
@@ -27,48 +41,37 @@ func (g *Gateway) Setup(BridgeAddress *string,
 	}
 
 	if err != nil {
-		g.Print("", err, util.PrintBoth)
+		g.Print("", err, util.PrintOnlyConsole)
 	} else {
-		g.Print("UDP connection with "+g.Info.Connection.RemoteAddr().String(), nil, util.PrintBoth)
+		g.Print("UDP connection with "+g.Info.Connection.RemoteAddr().String(), nil, util.PrintOnlyConsole)
 	}
-
-	g.BufferUplink = buffer.BufferUplink{
-		NewUplinkCh: make(chan struct{}),
-	}
-
-	g.Print("Setup OK!", nil, util.PrintBoth)
-
-}
-
-func (g *Gateway) OnStart() {
 
 	go g.Receiver()
 
-	if g.Info.TypeGateway {
+	if g.Info.TypeGateway { //real
 		go g.SenderReal()
-	} else {
+	} else { //virtual
 		go g.SenderVirtual()
 	}
-
-}
-
-func (g *Gateway) OnStop() {
-
-	g.BufferUplink.NewUplinkCh <- struct{}{} //signal to sender
-	g.Info.Connection.Close()                //signal to receiver
-
-}
-
-func (g *Gateway) TurnON() {
-
-	g.Info.Active = true
-
-	g.OnStart()
 
 	g.Print("Turn ON", nil, util.PrintBoth)
 }
 
 func (g *Gateway) TurnOFF() {
-	g.Info.Active = false
-	g.OnStop()
+
+	g.State = util.Stopped
+
+	g.BufferUplink.Signal()   //signal to sender
+	g.Info.Connection.Close() //signal to receiver
+
+}
+
+func (g *Gateway) IsOn() bool {
+
+	if g.State == util.Running {
+		return true
+	}
+
+	return false
+
 }

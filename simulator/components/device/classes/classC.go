@@ -9,26 +9,33 @@ import (
 	dl "github.com/arslab/lwnsimulator/simulator/components/device/frames/downlink"
 	"github.com/arslab/lwnsimulator/simulator/components/device/models"
 	pkt "github.com/arslab/lwnsimulator/simulator/resources/communication/packets"
+	"github.com/arslab/lwnsimulator/simulator/util"
 	"github.com/brocaar/lorawan"
 )
 
-//ClassC mode
-type ClassC struct {
-	Info      *models.InformationDevice
-	Supported bool `json:"Supported"`
+const (
+	Close = iota
+	Open
+	Exit
+)
 
-	Mux      sync.Mutex `json:"-"`
-	Open     bool       `json:"-"`
+//TypeC mode
+type TypeC struct {
+	Info      *models.InformationDevice
+	Supported bool `json:"supported"`
+
+	Mutex    sync.Mutex `json:"-"`
+	Open     int        `json:"-"`
 	CondOpen *sync.Cond `json:"-"`
 }
 
-func (c *ClassC) Setup(info *models.InformationDevice) {
+func (c *TypeC) Setup(info *models.InformationDevice) {
 	c.Info = info
-	c.CondOpen = sync.NewCond(&c.Mux)
+	c.CondOpen = sync.NewCond(&c.Mutex)
 	go c.RX2()
 }
 
-func (c *ClassC) SendData(rxpk pkt.RXPK) {
+func (c *TypeC) SendData(rxpk pkt.RXPK) {
 
 	var indexChannelRX1 int
 
@@ -44,7 +51,7 @@ func (c *ClassC) SendData(rxpk pkt.RXPK) {
 	c.Info.RX[0].Channel = c.Info.Configuration.Channels[indexChannelRX1]
 }
 
-func (c *ClassC) ReceiveWindows(delayRX1 time.Duration, delayRX2 time.Duration) *lorawan.PHYPayload {
+func (c *TypeC) ReceiveWindows(delayRX1 time.Duration, delayRX2 time.Duration) *lorawan.PHYPayload {
 
 	c.CloseWindow()
 	defer c.OpenWindow()
@@ -53,13 +60,13 @@ func (c *ClassC) ReceiveWindows(delayRX1 time.Duration, delayRX2 time.Duration) 
 
 	resp := c.Info.RX[0].OpenWindow(0, &c.Info.ReceivedDownlink)
 
-	c.Info.Forwarder.UnRegister(c.Info.RX[0].GetListeningFrequency(), &c.Info.ReceivedDownlink)
+	c.Info.Forwarder.UnRegister(c.Info.RX[0].GetListeningFrequency(), c.Info.DevEUI)
 
 	return resp
 
 }
 
-func (c *ClassC) RetransmissionCData(downlink *dl.InformationDownlink) error {
+func (c *TypeC) RetransmissionCData(downlink *dl.InformationDownlink) error {
 
 	if c.Info.Status.CounterRepConfirmedDataUp < c.Info.Configuration.NbRepConfirmedDataUp {
 
@@ -67,20 +74,20 @@ func (c *ClassC) RetransmissionCData(downlink *dl.InformationDownlink) error {
 
 			if downlink.ACK { // ACK ricevuto
 				c.Info.Status.CounterRepConfirmedDataUp = 0
-				c.Info.Status.RetransmissionActive = false
+				c.Info.Status.Mode = util.Normal
 				return nil
 			}
 
 		}
 
-		c.Info.Status.RetransmissionActive = true
+		c.Info.Status.Mode = util.Retransmission
 		c.Info.Status.CounterRepConfirmedDataUp++
 		//nessun ACK ricevuto
 		return nil
 
 	} else {
 
-		c.Info.Status.RetransmissionActive = false
+		c.Info.Status.Mode = util.Normal
 		c.Info.Status.CounterRepConfirmedDataUp = 0
 		err := fmt.Sprintf("Last Uplink sent %v times", c.Info.Configuration.NbRepConfirmedDataUp)
 
@@ -90,11 +97,11 @@ func (c *ClassC) RetransmissionCData(downlink *dl.InformationDownlink) error {
 
 }
 
-func (c *ClassC) RetransmissionUnCData(downlink *dl.InformationDownlink) error {
+func (c *TypeC) RetransmissionUnCData(downlink *dl.InformationDownlink) error {
 
 	if c.Info.Status.CounterRepUnConfirmedDataUp < c.Info.Configuration.NbRepUnconfirmedDataUp {
 
-		c.Info.Status.RetransmissionActive = true
+		c.Info.Status.Mode = util.Retransmission
 		c.Info.Status.CounterRepConfirmedDataUp++
 		//nessun ACK ricevuto
 		return nil
@@ -105,9 +112,9 @@ func (c *ClassC) RetransmissionUnCData(downlink *dl.InformationDownlink) error {
 
 		c.Info.Status.CounterRepConfirmedDataUp = 0
 
-		if c.Info.Status.RetransmissionActive {
+		if c.Info.Status.Mode == util.Retransmission {
 
-			c.Info.Status.RetransmissionActive = false
+			c.Info.Status.Mode = util.Normal
 			err = fmt.Sprintf("Last Uplink sent %v times", c.Info.Configuration.NbRepConfirmedDataUp)
 
 		}
@@ -118,66 +125,67 @@ func (c *ClassC) RetransmissionUnCData(downlink *dl.InformationDownlink) error {
 
 }
 
-func (c *ClassC) GetMode() int {
-	return ModeC
+func (c *TypeC) GetClass() int {
+	return ClassC
 }
 
-func (c *ClassC) ToString() string {
+func (c *TypeC) ToString() string {
 	return "C"
 }
 
-func (c *ClassC) RX2() {
+func (c *TypeC) RX2() {
+
+	c.Info.Forwarder.Register(c.Info.RX[1].GetListeningFrequency(), c.Info.DevEUI, &c.Info.ReceivedDownlink)
 
 	for {
 
-		c.Info.Forwarder.Register(c.Info.RX[1].GetListeningFrequency(), c.Info.DevEUI, &c.Info.ReceivedDownlink)
+		switch c.isOpenWindow() {
+		case Exit:
+			c.Info.Forwarder.UnRegister(c.Info.RX[1].GetListeningFrequency(), c.Info.DevEUI)
+			return
 
-		state := c.GetStateWindow()
-		if !state {
+		case Close:
+			c.Info.Forwarder.UnRegister(c.Info.RX[1].GetListeningFrequency(), c.Info.DevEUI)
 
-			c.Info.Forwarder.UnRegister(c.Info.RX[1].GetListeningFrequency(), &c.Info.ReceivedDownlink)
-
-			c.Mux.Lock()
+			c.Mutex.Lock()
 			c.CondOpen.Wait()
-			c.Mux.Unlock()
+			c.Mutex.Unlock()
 
-		} else {
+			c.Info.Forwarder.Register(c.Info.RX[1].GetListeningFrequency(), c.Info.DevEUI, &c.Info.ReceivedDownlink)
 
-			select {
+			continue
+		}
 
-			case <-c.Info.Status.InfoClassC.Exit:
-				return
+		c.Info.ReceivedDownlink.Wait()
 
-			case <-c.Info.ReceivedDownlink.Notify:
+		switch c.isOpenWindow() {
+		case Exit:
+			c.Info.Forwarder.UnRegister(c.Info.RX[1].GetListeningFrequency(), c.Info.DevEUI)
+			return
 
-				state := c.GetStateWindow()
-				if !state {
+		case Close:
+			c.Info.Forwarder.UnRegister(c.Info.RX[1].GetListeningFrequency(), c.Info.DevEUI)
 
-					c.Info.ReceivedDownlink.Notify <- struct{}{}
-					c.Info.Forwarder.UnRegister(c.Info.RX[1].GetListeningFrequency(), &c.Info.ReceivedDownlink)
+			c.Mutex.Lock()
+			c.CondOpen.Wait()
+			c.Mutex.Unlock()
 
-					c.Mux.Lock()
-					c.CondOpen.Wait()
-					c.Mux.Unlock()
+			c.Info.Forwarder.Register(c.Info.RX[1].GetListeningFrequency(), c.Info.DevEUI, &c.Info.ReceivedDownlink)
 
-					continue
-				}
+			continue
+		}
 
-				phy := c.Info.ReceivedDownlink.Pull()
-				if phy != nil { //response
+		phy := c.Info.ReceivedDownlink.Pull()
+		if phy != nil { //response
 
-					downlink, err := dl.GetDownlink(*phy, c.Info.Configuration.DisableFCntDown, c.Info.Status.FCntDown,
-						c.Info.NwkSKey, c.Info.AppSKey)
-					if err != nil {
-						continue
-					}
-
-					c.Info.Status.InfoClassC.InsertDownlink(*downlink)
-					c.Info.Status.InfoClassC.WaitClass()
-
-				}
-
+			downlink, err := dl.GetDownlink(*phy, c.Info.Configuration.DisableFCntDown, c.Info.Status.FCntDown,
+				c.Info.NwkSKey, c.Info.AppSKey)
+			if err != nil {
+				continue
 			}
+
+			c.Info.Status.InfoClassC.InsertDownlink(*downlink)
+			c.Info.Status.InfoClassC.WaitClass()
 
 		}
 
@@ -185,34 +193,35 @@ func (c *ClassC) RX2() {
 
 }
 
-func (c *ClassC) OpenWindow() {
+func (c *TypeC) OpenWindow() {
 
-	c.Mux.Lock()
-	c.Open = true
-	c.CondOpen.Signal()
+	c.Mutex.Lock()
+	c.Open = Open
+	c.CondOpen.Broadcast()
 
-	c.Mux.Unlock()
-
-}
-
-func (c *ClassC) CloseWindow() {
-
-	c.Mux.Lock()
-	c.Open = false
-	c.Mux.Unlock()
+	c.Mutex.Unlock()
 
 }
 
-func (c *ClassC) GetStateWindow() bool {
+func (c *TypeC) CloseWindow() {
 
-	c.Mux.Lock()
-	defer c.Mux.Unlock()
+	c.Mutex.Lock()
+	c.Open = Close
+	c.Mutex.Unlock()
+
+}
+
+func (c *TypeC) isOpenWindow() int {
+
+	c.Mutex.Lock()
+	defer c.Mutex.Unlock()
 
 	return c.Open
 }
 
-func (c *ClassC) CloseRX2() {
-	c.Mux.Lock()
-	c.CondOpen.Signal()
-	c.Mux.Unlock()
+func (c *TypeC) CloseRX2() {
+	c.Mutex.Lock()
+	c.Open = Exit
+	c.CondOpen.Broadcast()
+	c.Mutex.Unlock()
 }

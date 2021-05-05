@@ -6,12 +6,12 @@ import (
 )
 
 type InfoClassB struct {
-	Periodicity uint8 `json:"Periodicity"`
+	Periodicity uint8 `json:"periodicity"`
 
-	DataRate        uint8  `json:"DataRate"`
-	FrequencyBeacon uint32 `json:"FrequencyBeacon"`
+	DataRate        uint8  `json:"dataRate"`
+	FrequencyBeacon uint32 `json:"frequencyBeacon"`
 
-	PingSlot features.Window `json:"PingSlot"`
+	PingSlot features.Window `json:"pingSlot"`
 }
 
 func (b *InfoClassB) Setup(freqBeacon uint32, freqPingSlot uint32, datarate uint8, minDr uint8, maxDr uint8) {

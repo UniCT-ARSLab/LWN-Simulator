@@ -7,20 +7,21 @@ import (
 
 	dl "github.com/arslab/lwnsimulator/simulator/components/device/frames/downlink"
 	pkt "github.com/arslab/lwnsimulator/simulator/resources/communication/packets"
+	"github.com/arslab/lwnsimulator/simulator/util"
 	"github.com/brocaar/lorawan"
 
 	"github.com/arslab/lwnsimulator/simulator/components/device/models"
 )
 
-type ClassA struct {
+type TypeA struct {
 	Info *models.InformationDevice
 }
 
-func (a *ClassA) Setup(info *models.InformationDevice) {
+func (a *TypeA) Setup(info *models.InformationDevice) {
 	a.Info = info
 }
 
-func (a *ClassA) SendData(rxpk pkt.RXPK) {
+func (a *TypeA) SendData(rxpk pkt.RXPK) {
 
 	var indexChannelRX1 int
 
@@ -34,7 +35,7 @@ func (a *ClassA) SendData(rxpk pkt.RXPK) {
 
 }
 
-func (a *ClassA) ReceiveWindows(delayRX1 time.Duration, delayRX2 time.Duration) *lorawan.PHYPayload {
+func (a *TypeA) ReceiveWindows(delayRX1 time.Duration, delayRX2 time.Duration) *lorawan.PHYPayload {
 
 	for i := 0; i < 2; i++ {
 
@@ -49,7 +50,7 @@ func (a *ClassA) ReceiveWindows(delayRX1 time.Duration, delayRX2 time.Duration) 
 
 		resp := a.Info.RX[i].OpenWindow(delay, &a.Info.ReceivedDownlink)
 
-		a.Info.Forwarder.UnRegister(a.Info.RX[i].GetListeningFrequency(), &a.Info.ReceivedDownlink)
+		a.Info.Forwarder.UnRegister(a.Info.RX[i].GetListeningFrequency(), a.Info.DevEUI)
 
 		if resp != nil {
 			return resp
@@ -61,7 +62,7 @@ func (a *ClassA) ReceiveWindows(delayRX1 time.Duration, delayRX2 time.Duration) 
 
 }
 
-func (a *ClassA) RetransmissionCData(downlink *dl.InformationDownlink) error {
+func (a *TypeA) RetransmissionCData(downlink *dl.InformationDownlink) error {
 
 	if a.Info.Status.CounterRepConfirmedDataUp < a.Info.Configuration.NbRepConfirmedDataUp {
 
@@ -69,19 +70,19 @@ func (a *ClassA) RetransmissionCData(downlink *dl.InformationDownlink) error {
 
 			if downlink.ACK { // ACK ricevuto
 				a.Info.Status.CounterRepConfirmedDataUp = 0
-				a.Info.Status.RetransmissionActive = false
+				a.Info.Status.Mode = util.Normal
 				return nil
 			}
 
 		}
 
-		a.Info.Status.RetransmissionActive = true
+		a.Info.Status.Mode = util.Retransmission
 		a.Info.Status.CounterRepConfirmedDataUp++
 		//nessun ACK ricevuto
 		return nil
 	} else {
 
-		a.Info.Status.RetransmissionActive = false
+		a.Info.Status.Mode = util.Normal
 		a.Info.Status.CounterRepConfirmedDataUp = 0
 		err := fmt.Sprintf("Last Uplink sent %v times", a.Info.Configuration.NbRepConfirmedDataUp)
 
@@ -91,11 +92,11 @@ func (a *ClassA) RetransmissionCData(downlink *dl.InformationDownlink) error {
 
 }
 
-func (a *ClassA) RetransmissionUnCData(downlink *dl.InformationDownlink) error {
+func (a *TypeA) RetransmissionUnCData(downlink *dl.InformationDownlink) error {
 
 	if a.Info.Status.CounterRepUnConfirmedDataUp < a.Info.Configuration.NbRepUnconfirmedDataUp {
 
-		a.Info.Status.RetransmissionActive = true
+		a.Info.Status.Mode = util.Retransmission
 		a.Info.Status.CounterRepUnConfirmedDataUp++
 
 		return nil
@@ -104,9 +105,9 @@ func (a *ClassA) RetransmissionUnCData(downlink *dl.InformationDownlink) error {
 
 		a.Info.Status.CounterRepUnConfirmedDataUp = 1
 
-		if a.Info.Status.RetransmissionActive {
+		if a.Info.Status.Mode == util.Retransmission {
 
-			a.Info.Status.RetransmissionActive = false
+			a.Info.Status.Mode = util.Normal
 
 			err := fmt.Sprintf("Last Uplink sent %v times", a.Info.Configuration.NbRepUnconfirmedDataUp)
 			return errors.New(err)
@@ -119,12 +120,12 @@ func (a *ClassA) RetransmissionUnCData(downlink *dl.InformationDownlink) error {
 
 }
 
-func (a *ClassA) GetMode() int {
-	return ModeA
+func (a *TypeA) GetClass() int {
+	return ClassA
 }
 
-func (a *ClassA) ToString() string {
+func (a *TypeA) ToString() string {
 	return "A"
 }
 
-func (a *ClassA) CloseRX2() {}
+func (a *TypeA) CloseRX2() {}

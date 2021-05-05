@@ -22,7 +22,15 @@ func (adr *ADRInfo) Setup(ADRValue bool) {
 }
 
 //Reset struct
-func (adr *ADRInfo) Reset() {
+func (adr *ADRInfo) Reset() string {
+
 	adr.ADRACKCnt = 0
+
+	result := ""
+	if adr.ADRACKReq {
+		result = "UNSET ADRACKReq flag"
+	}
 	adr.ADRACKReq = false
+
+	return result
 }

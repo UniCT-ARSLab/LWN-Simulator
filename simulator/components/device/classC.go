@@ -1,20 +1,21 @@
 package device
 
-import "github.com/arslab/lwnsimulator/simulator/components/device/classes"
+import (
+	"github.com/arslab/lwnsimulator/simulator/components/device/classes"
+	"github.com/arslab/lwnsimulator/simulator/util"
+)
 
 func (d *Device) DownlinkReceivedRX2ClassC() {
 
-	for d.Mode.GetMode() == classes.ModeC {
+	for d.Class.GetClass() == classes.ClassC {
 
-		ok := d.CanExecute()
-		if !ok {
+		if !d.CanExecute() {
 			return
 		}
 
 		d.Info.Status.InfoClassC.WaitDevice()
 
-		ok = d.CanExecute()
-		if !ok {
+		if !d.CanExecute() {
 			return
 		}
 
@@ -26,8 +27,8 @@ func (d *Device) DownlinkReceivedRX2ClassC() {
 
 		d.ADRProcedure()
 
-		if !d.Info.Status.RetransmissionActive {
-			d.FPendingProcedure(downlink)
+		if d.Info.Status.Mode != util.Retransmission {
+			d.FPendingProcedure(&downlink)
 		}
 
 		d.Info.Status.InfoClassC.WakeUpClass()

@@ -7,45 +7,57 @@ A LoRaWAN nodes' simulator to simulate a LoRaWAN Network.
 * [Installation](#installation)
 
 ## General Info
-LWN Simulator is a LoRaWAN nodes' simulator equipped with web interface. NS
+LWN Simulator is a LoRaWAN nodes' simulator equipped with web interface. It allows to comunicate with a real infrastructure LoRaWAN or ad-hoc infrastructure, such as [Chirpstack](https://www.chirpstack.io/).
 
 ![dashboard](./readme/dashboard.png)
 
-The project consists of three main components: nodes, forwarder and gateways. 
+The project consists of three main components: devices, forwarder and gateways. 
 
-### The node
+### The device
 * Based [specification LoRAWAN v1.0.3](https://lora-alliance.org/resource_hub/lorawan-specification-v1-0-3/);
-* Bear all [LoRaWAN Regional Parameters v1.0.3](https://lora-alliance.org/resource_hub/lorawan-regional-parameters-v1-0-3reva/).
+* Supports all [LoRaWAN Regional Parameters v1.0.3](https://lora-alliance.org/resource_hub/lorawan-regional-parameters-v1-0-3reva/).
 * Implements class A,C and partially even the B class;
 * Implements ADR Algorithm;
-* Send periodically a frame that including some configurable payload;
+* Sends periodically a frame that including some configurable payload;
 * Supports MAC Command;
 * Implements FPending procedure;
 * It is possibile to interact with it in real-time;
 
 ### The forwarder
-It receive the frames from devices and create a datagram including them and forward to gateways.
+It receives the frames from devices, creates a RXPK object including them within and forwards to gateways.
 
 ### The gateway
-* A virtual gateway configuration specifies that the virtual gateway communicates with the gateway bridge;
-* A real gateway configuration specifies that the real gateway istance communicates with the real gateway.
+There are two types of gateway:
+* A virtual gateway that comunicates with a real gateway bridge (if it exists);
+* A real gateway to which datagrams UDP are forwarded.
 
 ## Requirements
-You must install [Go](https://golang.org/ "Go website"). Version >= 1.12.9
+* If you don't have a real infrastracture, you can download [ChirpStack open-source LoRaWAN® Network Server](https://www.chirpstack.io/project/), or a similar software, to prove it;
+* You must install [Go](https://golang.org/ "Go website"). Version >= 1.12.9
 
 ## Installation
 
-Firsly, you must clone this repository:
+Firstly, you must clone this repository:
 ```bash
-git clone github.com/...
+git clone https://github.com/UniCT-ARSLab/LWN-Simulator.git
 ```
 After the download, you must enter in main directory
 
 ```bash
 cd LWNSimulator
 ```
-and types 
+There are two mode to start the simulator:
+* In realese mode 
 
-```golang
-go run main.go
+```bash
+make run-release
 ```
+
+* Or ???
+```bash
+make run
+```
+
+After, you open a browser and connect to 127.0.0.1:8000.
+
+Good job :)

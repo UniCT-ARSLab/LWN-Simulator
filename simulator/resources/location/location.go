@@ -6,9 +6,9 @@ const RADIUS = float64(6378.16)
 
 //Location is a position of device
 type Location struct {
-	Latitude  float64 `json:"Latitude"`
-	Longitude float64 `json:"Longitude"`
-	Altitude  int32   `json:"Altitude"`
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+	Altitude  int32   `json:"altitude"`
 }
 
 func Radians(x float64) float64 {

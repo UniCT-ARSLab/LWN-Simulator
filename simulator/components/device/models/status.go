@@ -7,31 +7,32 @@ import (
 	"github.com/arslab/lwnsimulator/simulator/components/device/features/channels"
 	dl "github.com/arslab/lwnsimulator/simulator/components/device/frames/downlink"
 	up "github.com/arslab/lwnsimulator/simulator/components/device/frames/uplink"
+	mup "github.com/arslab/lwnsimulator/simulator/components/device/frames/uplink/models"
 	"github.com/brocaar/lorawan"
 )
 
 type Status struct {
-	Active bool `json:"Active"`
+	Active bool `json:"active"`
 	Joined bool `json:"-"`
+	Mode   int  `json:"-"`
 
-	DataUplink    up.Uplink       `json:"InfoUplink"`
-	MType         lorawan.MType   `json:"MType"`   // from UI
-	Payload       lorawan.Payload `json:"Payload"` // from UI
-	BufferUplinks []up.InfoFrame  `json:"-"`       // from socket
+	DataUplink    up.InfoUplink   `json:"infoUplink"`
+	MType         lorawan.MType   `json:"mtype"`   // from UI
+	Payload       lorawan.Payload `json:"payload"` // from UI
+	BufferUplinks []mup.InfoFrame `json:"-"`       // from socket
 
 	DataDownlink dl.InformationDownlink `json:"-"`
-	FCntDown     uint32                 `json:"FCntDown"`
+	FCntDown     uint32                 `json:"fcntDown"`
 
-	DataRate uint8 `json:"DataRate"`
-	TXPower  uint8 `json:"TXPower"`
-	Battery  uint8 `json:"Battery"`
+	DataRate uint8 `json:"dataRate"`
+	TXPower  uint8 `json:"txPower"`
+	Battery  uint8 `json:"battery"`
 
 	InfoClassB         modelClass.InfoClassB      `json:"-"`
 	InfoClassC         modelClass.InfoClassC      `json:"-"`
 	IndexchannelActive uint16                     `json:"-"`
 	InfoChannelsUS915  channels.InfoChannelsUS915 `json:"-"`
 
-	RetransmissionActive        bool          `json:"-"`
 	CounterRepConfirmedDataUp   int           `json:"-"`
 	CounterRepUnConfirmedDataUp uint8         `json:"-"`
 	LastMType                   lorawan.MType `json:"-"`
@@ -50,8 +51,8 @@ func (s *Status) MarshalJSON() ([]byte, error) {
 	PayloadBytes, _ := s.Payload.MarshalBinary()
 
 	return json.Marshal(&struct {
-		MType   string `json:"MType"`
-		Payload string `json:"Payload"`
+		MType   string `json:"mtype"`
+		Payload string `json:"payload"`
 		*Alias
 	}{
 		MType:   mtype,
@@ -66,8 +67,8 @@ func (s *Status) UnmarshalJSON(data []byte) error {
 	type Alias Status
 
 	aux := &struct {
-		MType   string `json:"MType"`
-		Payload string `json:"Payload"`
+		MType   string `json:"mtype"`
+		Payload string `json:"payload"`
 		*Alias
 	}{
 		Alias: (*Alias)(s),

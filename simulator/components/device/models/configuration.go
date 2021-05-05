@@ -10,27 +10,27 @@ import (
 
 //Configuration contains conf of device
 type Configuration struct {
-	Region rp.Region `json:"Region"`
+	Region rp.Region `json:"region"`
 
-	SendInterval time.Duration `json:"SendInterval"` // interval to send data
-	AckTimeout   time.Duration `json:"AckTimeout"`   // timer to wait ack frame
+	SendInterval time.Duration `json:"sendInterval"` // interval to send data
+	AckTimeout   time.Duration `json:"ackTimeout"`   // timer to wait ack frame
 
-	Range float64 `json:"Range"`
+	Range float64 `json:"range"`
 
-	DisableFCntDown bool `json:"DisableFCntDown"`
+	DisableFCntDown bool `json:"disableFCntDown"`
 
-	SupportedOtaa     bool `json:"SupportedOtaa"`     //false not supported
-	SupportedADR      bool `json:"SupportedADR"`      //false not supported
-	SupportedFragment bool `json:"SupportedFragment"` //fragmentation true, false truncate
-	SupportedClassB   bool `json:"SupportedClassB"`   //false not supported
-	SupportedClassC   bool `json:"SupportedClassC"`   //false not supported
+	SupportedOtaa     bool `json:"supportedOtaa"`     //false not supported
+	SupportedADR      bool `json:"supportedADR"`      //false not supported
+	SupportedFragment bool `json:"supportedFragment"` //fragmentation true, false truncate
+	SupportedClassB   bool `json:"supportedClassB"`   //false not supported
+	SupportedClassC   bool `json:"supportedClassC"`   //false not supported
 
 	//RX1
-	RX1DROffset uint8 `json:"RX1DROffset"`
+	RX1DROffset uint8 `json:"rx1DROffset"`
 
-	Channels []channels.Channel `json:"Channels"`
+	Channels []channels.Channel `json:"-"`
 
-	NbRepConfirmedDataUp   int   `json:"NbRetransmission"` //Nb retrasmission of ConfirmedDataUp
+	NbRepConfirmedDataUp   int   `json:"nbRetransmission"` //Nb retrasmission of ConfirmedDataUp
 	NbRepUnconfirmedDataUp uint8 `json:"-"`                // Nb retrasmission of UnconfirmedDataUp
 
 }
@@ -39,9 +39,9 @@ func (c *Configuration) MarshalJSON() ([]byte, error) {
 	type Alias Configuration
 
 	return json.Marshal(&struct {
-		Region       int `json:"Region"`
-		SendInterval int `json:"SendInterval"`
-		AckTimeout   int `json:"AckTimeout"`
+		Region       int `json:"region"`
+		SendInterval int `json:"sendInterval"`
+		AckTimeout   int `json:"ackTimeout"`
 
 		*Alias
 	}{
@@ -59,9 +59,9 @@ func (c *Configuration) UnmarshalJSON(data []byte) error {
 	type Alias Configuration
 
 	aux := &struct {
-		Region       int `json:"Region"`
-		SendInterval int `json:"SendInterval"`
-		AckTimeout   int `json:"AckTimeout"`
+		Region       int `json:"region"`
+		SendInterval int `json:"sendInterval"`
+		AckTimeout   int `json:"ackTimeout"`
 
 		*Alias
 	}{

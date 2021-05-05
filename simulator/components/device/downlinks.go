@@ -1,6 +1,8 @@
 package device
 
 import (
+	"github.com/arslab/lwnsimulator/simulator/util"
+
 	act "github.com/arslab/lwnsimulator/simulator/components/device/activation"
 	"github.com/arslab/lwnsimulator/simulator/components/device/classes"
 	dl "github.com/arslab/lwnsimulator/simulator/components/device/frames/downlink"
@@ -9,7 +11,6 @@ import (
 
 func (d *Device) ProcessDownlink(phy lorawan.PHYPayload) (*dl.InformationDownlink, error) {
 
-	downlink := false
 	var payload *dl.InformationDownlink
 	var err error
 
@@ -27,35 +28,44 @@ func (d *Device) ProcessDownlink(phy lorawan.PHYPayload) (*dl.InformationDownlin
 		return d.ProcessJoinAccept(Ja)
 
 	case lorawan.UnconfirmedDataDown:
+
 		payload, err = dl.GetDownlink(phy, d.Info.Configuration.DisableFCntDown, d.Info.Status.FCntDown,
 			d.Info.NwkSKey, d.Info.AppSKey)
-		downlink = true
+		if err != nil {
+			return nil, err
+		}
 
 	case lorawan.ConfirmedDataDown: //ack
+
 		payload, err = dl.GetDownlink(phy, d.Info.Configuration.DisableFCntDown, d.Info.Status.FCntDown,
 			d.Info.NwkSKey, d.Info.AppSKey)
-		downlink = true
+		if err != nil {
+			return nil, err
+		}
 
 		d.SendAck()
 
 	}
 
-	if downlink {
+	d.Info.Status.FCntDown = (d.Info.Status.FCntDown + 1) % util.MAXFCNTGAP
 
-		if d.Info.Configuration.SupportedClassC {
-			d.Info.Status.InfoClassC.SetACK(false) //Reset
-		}
+	switch d.Class.GetClass() {
 
-		d.Info.Status.DataUplink.ADR.Reset()
+	case classes.ClassA:
+		d.Info.Status.DataUplink.AckMacCommand.CleanFOptsRXParamSetupAns()
+		d.Info.Status.DataUplink.AckMacCommand.CleanFOptsRXTimingSetupAns()
+		break
 
-		d.Info.Status.DataUplink.AckMacCommand.CleanFOptsDLChannelAns()
-
-		if d.Mode.GetMode() == classes.ModeA {
-			d.Info.Status.DataUplink.AckMacCommand.CleanFOptsRXParamSetupAns()
-			d.Info.Status.DataUplink.AckMacCommand.CleanFOptsRXTimingSetupAns()
-		}
-
+	case classes.ClassC:
+		d.Info.Status.InfoClassC.SetACK(false) //Reset
 	}
+
+	msg := d.Info.Status.DataUplink.ADR.Reset()
+	if msg != "" {
+		d.Print(msg, nil, util.PrintBoth)
+	}
+
+	d.Info.Status.DataUplink.AckMacCommand.CleanFOptsDLChannelAns()
 
 	return payload, err
 }

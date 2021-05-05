@@ -10,6 +10,7 @@ import (
 	"github.com/arslab/lwnsimulator/simulator/components/device/classes"
 	"github.com/arslab/lwnsimulator/simulator/components/device/features"
 	dl "github.com/arslab/lwnsimulator/simulator/components/device/frames/downlink"
+	mac "github.com/arslab/lwnsimulator/simulator/components/device/macCommands"
 	rp "github.com/arslab/lwnsimulator/simulator/components/device/regional_parameters"
 	"github.com/arslab/lwnsimulator/simulator/util"
 	"github.com/brocaar/lorawan"
@@ -27,8 +28,10 @@ func (d *Device) newMACComands(CmdS []lorawan.Payload) {
 
 	nCommand := len(CmdS) + len(d.Info.Status.DataUplink.FOpts)
 	if nCommand > 15 {
+
 		msg := fmt.Sprintf("Insert %d MACCommands(max 15)", nCommand)
-		d.Print(msg, nil, util.PrintOnlySocket)
+		d.Print(msg, nil, util.PrintBoth)
+
 		return
 	}
 
@@ -36,18 +39,15 @@ func (d *Device) newMACComands(CmdS []lorawan.Payload) {
 
 }
 
-//*********************dowlink***********************************
+//*********************downlink***********************************
 
-//ExecuteMACCommand esegue i MAC Command arrivati dal Downlink
 func (d *Device) ExecuteMACCommand(downlink dl.InformationDownlink) {
 
-	ok := d.CanExecute()
-	if !ok {
+	if !d.CanExecute() {
 		return
 	}
 
 	var LinkADRReqCommands [][]byte
-	var payloadBytes []byte
 	msg := ""
 
 	if len(downlink.FOptsReceived) == 0 {
@@ -56,54 +56,17 @@ func (d *Device) ExecuteMACCommand(downlink dl.InformationDownlink) {
 		msg = "Execute MAC Commands"
 	}
 
-	d.Print(msg, nil, util.PrintOnlySocket)
+	d.Print(msg, nil, util.PrintBoth)
 
 	for _, cmd := range downlink.FOptsReceived {
 
-		MACcmd := lorawan.MACCommand{}
-
-		bytesCMD, err := cmd.MarshalBinary() //MAC Command in bytes
+		cid, payloadBytes, err := mac.ParseMACCommand(cmd, false)
 		if err != nil {
 			d.Print("", err, util.PrintBoth)
 			return
 		}
 
-		err = MACcmd.UnmarshalBinary(false, bytesCMD) //insert mac command in struct
-		if err != nil {
-			d.Print("", err, util.PrintBoth)
-
-			return
-
-		}
-
-		if MACcmd.Payload != nil {
-
-			MACCmdPLBytes, err := MACcmd.Payload.MarshalBinary() //Payload in bytes
-			if err != nil {
-				d.Print("", err, util.PrintBoth)
-				return
-			}
-
-			//create type struct payload
-			MACpayload, _, err := lorawan.GetMACPayloadAndSize(false, MACcmd.CID)
-			if err != nil {
-				d.Print("", err, util.PrintBoth)
-				return
-			}
-
-			MACpayload.UnmarshalBinary(MACCmdPLBytes)      //insert mac cmd payload in struct
-			payloadBytes, err = MACpayload.MarshalBinary() //mac payload in bytes
-			if err != nil {
-
-				d.Print("", err, util.PrintBoth)
-
-				return
-
-			}
-
-		}
-
-		switch MACcmd.CID {
+		switch cid {
 		case lorawan.LinkCheckAns:
 			d.executeLinkCheckAns(payloadBytes)
 		case lorawan.LinkADRReq:
@@ -150,7 +113,7 @@ func (d *Device) executeLinkCheckAns(payload []byte) {
 	}
 
 	msg := fmt.Sprintf("LinkCheckAns | Margin[%v], GwCnt[%v] |", c.Margin, c.GwCnt)
-	d.Print(msg, nil, util.PrintOnlySocket)
+	d.Print(msg, nil, util.PrintBoth)
 
 }
 
@@ -177,10 +140,11 @@ func (d *Device) executeLinkADRReq(commands [][]byte) {
 		}
 
 		_, acks, err = d.Info.Configuration.Region.LinkAdrReq(c.Redundancy.ChMaskCntl,
-			c.ChMask, c.DataRate, channels)
+			c.ChMask, c.DataRate, &channels)
 
 		if err != nil {
-			d.Print(err.Error(), nil, util.PrintOnlySocket)
+			msg := PrintMACCommand("LinkADRReq", err.Error())
+			d.Print(msg, nil, util.PrintBoth)
 			continue
 		}
 
@@ -214,11 +178,11 @@ func (d *Device) executeLinkADRReq(commands [][]byte) {
 		d.Info.Configuration.Channels = channels
 
 		msg := PrintMACCommand("LinkADRReq", "Executed successfully")
-		d.Print(msg, nil, util.PrintOnlySocket)
+		d.Print(msg, nil, util.PrintBoth)
 
 	} else {
 		msg := PrintMACCommand("LinkADRReq", "Command refused")
-		d.Print(msg, nil, util.PrintOnlySocket)
+		d.Print(msg, nil, util.PrintBoth)
 	}
 
 }
@@ -242,7 +206,7 @@ func (d *Device) executeDutyCycleReq(payload []byte) {
 
 	cont := fmt.Sprintf("Aggregated duty cycle is %v", aggregatedDC)
 	msg := PrintMACCommand("DutyCycleReq", cont)
-	d.Print(msg, nil, util.PrintOnlySocket)
+	d.Print(msg, nil, util.PrintBoth)
 
 	//ack
 	response := []lorawan.Payload{
@@ -271,7 +235,7 @@ func (d *Device) executeRXParamSetupReq(payload []byte) {
 
 	if err = d.Info.Configuration.Region.RX1DROffsetSupported(c.DLSettings.RX1DROffset); err != nil {
 		msg := PrintMACCommand("RXParamSetupReq", err.Error())
-		d.Print(msg, nil, util.PrintOnlySocket)
+		d.Print(msg, nil, util.PrintBoth)
 	} else {
 		RX1DROffsetACK = true
 	}
@@ -280,7 +244,7 @@ func (d *Device) executeRXParamSetupReq(payload []byte) {
 	ChannelACK := false
 	if err = d.isSupportedFrequency(c.Frequency); err != nil {
 		msg := PrintMACCommand("RXParamSetupReq", err.Error())
-		d.Print(msg, nil, util.PrintOnlySocket)
+		d.Print(msg, nil, util.PrintBoth)
 	} else {
 		ChannelACK = true
 	}
@@ -288,7 +252,7 @@ func (d *Device) executeRXParamSetupReq(payload []byte) {
 	RX2DataRateACK := false
 	if err = d.isSupportedDR(c.DLSettings.RX2DataRate); err != nil {
 		msg := PrintMACCommand("RXParamSetupReq", err.Error())
-		d.Print(msg, nil, util.PrintOnlySocket)
+		d.Print(msg, nil, util.PrintBoth)
 	} else {
 		RX2DataRateACK = true
 	}
@@ -299,10 +263,10 @@ func (d *Device) executeRXParamSetupReq(payload []byte) {
 		d.Info.RX[1].DataRate = c.DLSettings.RX2DataRate            //RX2DataRate
 
 		msg := PrintMACCommand("RXParamSetupReq", "Executed successfully")
-		d.Print(msg, nil, util.PrintOnlySocket)
+		d.Print(msg, nil, util.PrintBoth)
 	} else {
 		msg := PrintMACCommand("RXParamSetupReq", "Command refused")
-		d.Print(msg, nil, util.PrintOnlySocket)
+		d.Print(msg, nil, util.PrintBoth)
 	}
 
 	//ack
@@ -344,7 +308,7 @@ func (d *Device) executeDevStatusReq() {
 	}
 
 	msg := PrintMACCommand("DevStatusReq", "Executed successfully")
-	d.Print(msg, nil, util.PrintOnlySocket)
+	d.Print(msg, nil, util.PrintBoth)
 
 	d.newMACComands(response)
 }
@@ -368,12 +332,12 @@ func (d *Device) executeNewChannelReq(payload []byte) {
 	if DataRateOK && FreqOK {
 
 		msg := PrintMACCommand("NewChannelReq", "Executed successfully")
-		d.Print(msg, nil, util.PrintOnlySocket)
+		d.Print(msg, nil, util.PrintBoth)
 
 	} else {
 
 		msg := PrintMACCommand("NewChannelReq", "Command refused")
-		d.Print(msg, nil, util.PrintOnlySocket)
+		d.Print(msg, nil, util.PrintBoth)
 
 	}
 
@@ -411,7 +375,7 @@ func (d *Device) executeRXTimingSetupReq(payload []byte) {
 	d.Info.RX[0].Delay = time.Duration(delay) * time.Second
 
 	msg := PrintMACCommand("RXTimingSetupReq", "Executed successfully")
-	d.Print(msg, nil, util.PrintOnlySocket)
+	d.Print(msg, nil, util.PrintBoth)
 	//ack
 	response := []lorawan.Payload{
 		&lorawan.MACCommand{
@@ -449,12 +413,12 @@ func (d *Device) executeDLChannelReq(payload []byte) {
 	if FreqUpExists && FreqOk {
 
 		msg := PrintMACCommand("DLChannelReq", "Executed successfully")
-		d.Print(msg, nil, util.PrintOnlySocket)
+		d.Print(msg, nil, util.PrintBoth)
 
 	} else {
 
 		msg := PrintMACCommand("DLChannelReq", "Command refused")
-		d.Print(msg, nil, util.PrintOnlySocket)
+		d.Print(msg, nil, util.PrintBoth)
 
 	}
 
@@ -488,7 +452,7 @@ func (d *Device) executeDeviceTimeAns(payload []byte) {
 	content := fmt.Sprintf("TimeSinceGPSEpoch[%v]", c.TimeSinceGPSEpoch)
 
 	msg := PrintMACCommand("DeviceTimeAns", content)
-	d.Print(msg, nil, util.PrintOnlySocket)
+	d.Print(msg, nil, util.PrintBoth)
 
 }
 
@@ -498,7 +462,7 @@ func (d *Device) executeTXParamSetupReq(payload []byte) {
 	case rp.Code_Au915, rp.Code_As923:
 	default:
 		msg := PrintMACCommand("TXParamSetupReq", "Is not implemented in this region")
-		d.Print(msg, nil, util.PrintOnlySocket)
+		d.Print(msg, nil, util.PrintBoth)
 		return
 	}
 
@@ -521,7 +485,7 @@ func (d *Device) executeTXParamSetupReq(payload []byte) {
 	}
 
 	msg := PrintMACCommand("TXParamSetupReq", "Executed successfully")
-	d.Print(msg, nil, util.PrintOnlySocket)
+	d.Print(msg, nil, util.PrintBoth)
 
 	d.newMACComands(response)
 }
@@ -534,7 +498,7 @@ func (d *Device) executePingSlotInfoAns(payload []byte) {
 		return
 	}
 
-	d.SwitchClass(classes.ModeB)
+	d.SwitchClass(classes.ClassB)
 
 }
 

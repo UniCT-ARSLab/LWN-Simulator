@@ -40,7 +40,7 @@ type Region interface {
 	GetDataRateBeacon() uint8
 	GetCodR(uint8) string
 	SetupInfoRequest(int) (string, int)
-	LinkAdrReq(uint8, lorawan.ChMask, uint8, []c.Channel) (int, []bool, error)
+	LinkAdrReq(uint8, lorawan.ChMask, uint8, *[]c.Channel) (int, []bool, error)
 	SetupRX1(uint8, uint8, int, lorawan.DwellTime) (uint8, int)
 	GetPayloadSize(uint8, lorawan.DwellTime) (int, int)
 	GetParameters() models.Parameters

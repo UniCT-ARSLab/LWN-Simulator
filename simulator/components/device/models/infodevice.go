@@ -12,23 +12,22 @@ import (
 )
 
 type InformationDevice struct {
-	Name      string            `json:"Name"`
-	DevEUI    lorawan.EUI64     `json:"DevEUI"`
-	DevAddr   lorawan.DevAddr   `json:"DevAddr"`
-	NwkSKey   [16]byte          `json:"NwkSKey"`
-	AppSKey   [16]byte          `json:"AppSKey"`
-	AppKey    [16]byte          `json:"AppKey"`
+	Name      string            `json:"name"`
+	DevEUI    lorawan.EUI64     `json:"devEUI"`
+	DevAddr   lorawan.DevAddr   `json:"devAddr"`
+	NwkSKey   [16]byte          `json:"nwkSKey"`
+	AppSKey   [16]byte          `json:"appSKey"`
+	AppKey    [16]byte          `json:"appKey"`
 	DevNonce  lorawan.DevNonce  `json:"-"`
 	JoinNonce lorawan.JoinNonce `json:"-"`
 	NetID     lorawan.NetID     `json:"-"`
 	JoinEUI   lorawan.EUI64     `json:"-"`
 
-	StateSimulator *uint8        `json:"-"`
-	Status         Status        `json:"Status"`
-	Configuration  Configuration `json:"Configuration"`
+	Status        Status        `json:"status"`
+	Configuration Configuration `json:"configuration"`
 
-	Location location.Location `json:"Location"`
-	RX       []features.Window `json:"RXs"` //RX[0] = rx1 RX[1] = rx2
+	Location location.Location `json:"location"`
+	RX       []features.Window `json:"rxs"` //RX[0] = rx1 RX[1] = rx2
 
 	Forwarder        *f.Forwarder        `json:"-"`
 	ReceivedDownlink dl.ReceivedDownlink `json:"-"`
@@ -39,11 +38,11 @@ func (d *InformationDevice) MarshalJSON() ([]byte, error) {
 	type Alias InformationDevice
 
 	return json.Marshal(&struct {
-		DevEUI  string `json:"DevEUI"`
-		DevAddr string `json:"DevAddr"`
-		NwkSKey string `json:"NwkSKey"`
-		AppSKey string `json:"AppSKey"`
-		AppKey  string `json:"AppKey"`
+		DevEUI  string `json:"devEUI"`
+		DevAddr string `json:"devAddr"`
+		NwkSKey string `json:"nwkSKey"`
+		AppSKey string `json:"appSKey"`
+		AppKey  string `json:"appKey"`
 		*Alias
 	}{
 		DevEUI:  hex.EncodeToString(d.DevEUI[:]),
@@ -61,11 +60,11 @@ func (d *InformationDevice) UnmarshalJSON(data []byte) error {
 	type Alias InformationDevice
 
 	aux := &struct {
-		DevEUI  string `json:"DevEUI"`
-		DevAddr string `json:"DevAddr"`
-		NwkSKey string `json:"NwkSKey"`
-		AppSKey string `json:"AppSKey"`
-		AppKey  string `json:"AppKey"`
+		DevEUI  string `json:"devEUI"`
+		DevAddr string `json:"devAddr"`
+		NwkSKey string `json:"nwkSKey"`
+		AppSKey string `json:"appSKey"`
+		AppKey  string `json:"appKey"`
 
 		*Alias
 	}{

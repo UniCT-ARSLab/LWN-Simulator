@@ -2,20 +2,23 @@ package device
 
 import (
 	"errors"
-
-	"github.com/brocaar/lorawan"
+	"sync"
 
 	"github.com/arslab/lwnsimulator/simulator/components/device/classes"
 	dl "github.com/arslab/lwnsimulator/simulator/components/device/frames/downlink"
-	up "github.com/arslab/lwnsimulator/simulator/components/device/frames/uplink"
+	mup "github.com/arslab/lwnsimulator/simulator/components/device/frames/uplink/models"
 	f "github.com/arslab/lwnsimulator/simulator/components/forwarder"
 	res "github.com/arslab/lwnsimulator/simulator/resources"
 	"github.com/arslab/lwnsimulator/simulator/util"
+	"github.com/brocaar/lorawan"
 )
 
-func (d *Device) Setup(Resources *res.Resources, StateSimulator *uint8, forwarder *f.Forwarder) {
+func (d *Device) Setup(Resources *res.Resources, forwarder *f.Forwarder) {
 
-	d.Info.StateSimulator = StateSimulator
+	d.State = util.Stopped
+	d.Info.Status.Mode = util.Normal
+	d.Exit = make(chan struct{})
+
 	d.Info.JoinEUI = lorawan.EUI64{0, 0, 0, 0, 0, 0, 0, 0}
 	d.Info.NetID = lorawan.NetID{0, 0, 0}
 
@@ -43,53 +46,54 @@ func (d *Device) Setup(Resources *res.Resources, StateSimulator *uint8, forwarde
 	d.Resources = Resources
 	d.Info.Forwarder = forwarder
 
-	d.Info.ReceivedDownlink = dl.ReceivedDownlink{
-		Notify: make(chan struct{}),
-	}
+	d.Info.ReceivedDownlink = dl.ReceivedDownlink{}
+	d.Info.ReceivedDownlink.Notify = sync.NewCond(&d.Info.ReceivedDownlink.Mutex)
 
 	d.Info.Configuration.Channels = d.Info.Configuration.Region.GetChannels()
 
-	d.Mode = classes.GetClass(classes.ModeA)
-	d.Mode.Setup(&d.Info)
+	d.Class = classes.GetClass(classes.ClassA)
+	d.Class.Setup(&d.Info)
 
-	d.Print("Setup OK!", nil, util.PrintBoth)
+	d.Print("Setup OK!", nil, util.PrintOnlyConsole)
 
-}
-
-func (d *Device) OnStart() {
-	go d.Run()
 }
 
 func (d *Device) TurnOFF() {
 
 	d.Mutex.Lock()
-
-	d.Info.Status.Active = false
-
+	d.State = util.Stopped
 	d.Mutex.Unlock()
+
+	d.Exit <- struct{}{}
 
 }
 
 func (d *Device) TurnON() {
 
-	d.Info.Status.Active = true
+	d.State = util.Running
 
 	go d.Run()
 
 	d.Print("Turn ON", nil, util.PrintBoth)
 }
 
+func (d *Device) IsOn() bool {
+
+	if d.State == util.Running {
+		return true
+	}
+
+	return false
+}
+
 func (d *Device) SendMACCommand(cid lorawan.CID, periodicity uint8) error {
+
 	var command []lorawan.Payload
 
 	if cid == lorawan.PingSlotInfoReq {
 
 		if !d.Info.Configuration.SupportedClassB {
 			return errors.New("Device don't support Class B")
-		}
-
-		if d.Mode.GetMode() == classes.ModeB {
-			d.SwitchClass(classes.ModeA)
 		}
 
 		command = []lorawan.Payload{
@@ -123,7 +127,7 @@ func (d *Device) NewUplink(mtype lorawan.MType, payload string) {
 		Bytes: []byte(payload),
 	}
 
-	info := up.InfoFrame{
+	info := mup.InfoFrame{
 		MType:   mtype,
 		Payload: FRMPayload,
 	}

@@ -1,23 +1,20 @@
 package webserver
 
 import (
-	"encoding/hex"
 	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 
-	"github.com/brocaar/lorawan"
-
 	cnt "github.com/arslab/lwnsimulator/controllers"
 	"github.com/arslab/lwnsimulator/models"
-	repo "github.com/arslab/lwnsimulator/repositories"
+	dev "github.com/arslab/lwnsimulator/simulator/components/device"
 	rp "github.com/arslab/lwnsimulator/simulator/components/device/regional_parameters"
 	mrp "github.com/arslab/lwnsimulator/simulator/components/device/regional_parameters/models_rp"
 	gw "github.com/arslab/lwnsimulator/simulator/components/gateway"
 	"github.com/arslab/lwnsimulator/socket"
-	"github.com/arslab/lwnsimulator/types"
 	_ "github.com/arslab/lwnsimulator/webserver/statik"
+	"github.com/brocaar/lorawan"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	socketio "github.com/googollee/go-socket.io"
@@ -33,16 +30,16 @@ type WebServer struct {
 }
 
 var (
-	simulatorRepository repo.SimulatorRepository = repo.NewSimulatorRepository()
-	simulatorController cnt.SimulatorController  = cnt.NewSimulatorController(simulatorRepository)
+	simulatorController cnt.SimulatorController
 	configuration       *models.ServerConfig
 )
 
-func NewWebServer(config *models.ServerConfig) *WebServer {
+func NewWebServer(config *models.ServerConfig, controller cnt.SimulatorController) *WebServer {
 
 	serverSocket := newServerSocket()
 
 	configuration = config
+	simulatorController = controller
 
 	go func() {
 
@@ -118,7 +115,7 @@ func stopSimulator(c *gin.Context) {
 
 func saveInfoBridge(c *gin.Context) {
 
-	var ns types.AddressIP
+	var ns models.AddressIP
 	c.BindJSON(&ns)
 
 	c.JSON(http.StatusOK, gin.H{"status": simulatorController.SaveBridgeAddress(ns)})
@@ -129,38 +126,44 @@ func getRemoteAddress(c *gin.Context) {
 }
 
 func getGateways(c *gin.Context) {
-	c.JSON(http.StatusOK, simulatorController.GetGateways())
+
+	gws := simulatorController.GetGateways()
+	c.JSON(http.StatusOK, gws)
 }
 
 func addGateway(c *gin.Context) {
 
-	var g types.Gateway
+	var g gw.Gateway
 	c.BindJSON(&g)
 
-	code, err := simulatorController.AddGateway(g.Gw)
+	code, id, err := simulatorController.AddGateway(&g)
 	errString := fmt.Sprintf("%v", err)
 
-	c.JSON(http.StatusOK, gin.H{"status": errString, "code": code})
+	c.JSON(http.StatusOK, gin.H{"status": errString, "code": code, "id": id})
 
 }
 
 func updateGateway(c *gin.Context) {
 
-	var g types.Gateway
+	var g gw.Gateway
 	c.BindJSON(&g)
 
-	code, err := simulatorController.UpdateGateway(g.Gw, g.Index)
+	code, err := simulatorController.UpdateGateway(&g)
 	errString := fmt.Sprintf("%v", err)
+
 	c.JSON(http.StatusOK, gin.H{"status": errString, "code": code})
 
 }
 
 func deleteGateway(c *gin.Context) {
-	var g gw.Gateway
 
-	c.BindJSON(&g)
+	Identifier := struct {
+		Id int `json:"id"`
+	}{}
 
-	c.JSON(http.StatusOK, gin.H{"status": simulatorController.DeleteGateway(g.Info.MACAddress)})
+	c.BindJSON(&Identifier)
+
+	c.JSON(http.StatusOK, gin.H{"status": simulatorController.DeleteGateway(Identifier.Id)})
 
 }
 
@@ -170,22 +173,22 @@ func getDevices(c *gin.Context) {
 
 func addDevice(c *gin.Context) {
 
-	var d types.Device
-	c.BindJSON(&d)
+	var device dev.Device
+	c.BindJSON(&device)
 
-	code, err := simulatorController.AddDevice(d.Dev)
+	code, id, err := simulatorController.AddDevice(&device)
 	errString := fmt.Sprintf("%v", err)
 
-	c.JSON(http.StatusOK, gin.H{"status": errString, "code": code})
+	c.JSON(http.StatusOK, gin.H{"status": errString, "code": code, "id": id})
 
 }
 
 func updateDevice(c *gin.Context) {
 
-	var g types.Device
-	c.BindJSON(&g)
+	var device dev.Device
+	c.BindJSON(&device)
 
-	code, err := simulatorController.UpdateDevice(g.Dev, g.Index)
+	code, err := simulatorController.UpdateDevice(&device)
 	errString := fmt.Sprintf("%v", err)
 
 	c.JSON(http.StatusOK, gin.H{"status": errString, "code": code})
@@ -194,13 +197,13 @@ func updateDevice(c *gin.Context) {
 
 func deleteDevice(c *gin.Context) {
 
-	g := struct {
-		DevEUI lorawan.EUI64
+	Identifier := struct {
+		Id int `json:"id"`
 	}{}
 
-	c.BindJSON(&g)
+	c.BindJSON(&Identifier)
 
-	c.JSON(http.StatusOK, gin.H{"status": simulatorController.DeleteDevice(g.DevEUI)})
+	c.JSON(http.StatusOK, gin.H{"status": simulatorController.DeleteDevice(Identifier.Id)})
 }
 
 func newServerSocket() *socketio.Server {
@@ -209,55 +212,25 @@ func newServerSocket() *socketio.Server {
 
 	serverSocket.OnConnect("/", func(s socketio.Conn) error {
 
-		s.SetContext("")
-		simulatorController.Setup(s)
-
 		log.Println("[WS]: Socket connected")
 
+		s.SetContext("")
+		simulatorController.AddWebSocket(&s)
+
 		return nil
+
 	})
 
 	serverSocket.OnDisconnect("/", func(s socketio.Conn, reason string) {
 		s.Close()
 	})
 
-	serverSocket.OnEvent("/", socket.EventTurnOnDevice, func(s socketio.Conn, DevEUI string) (string, bool) {
-
-		var paramDevEUI lorawan.EUI64
-		DevEUITmp, _ := hex.DecodeString(DevEUI)
-		copy(paramDevEUI[:8], DevEUITmp)
-
-		return DevEUI, simulatorController.TurnONDevice(paramDevEUI)
-
+	serverSocket.OnEvent("/", socket.EventToggleStateDevice, func(s socketio.Conn, Id int) {
+		simulatorController.ToggleStateDevice(Id)
 	})
 
-	serverSocket.OnEvent("/", socket.EventTurnOffDevice, func(s socketio.Conn, DevEUI string) (string, bool) {
-
-		var paramDevEUI lorawan.EUI64
-		DevEUITmp, _ := hex.DecodeString(DevEUI)
-		copy(paramDevEUI[:8], DevEUITmp)
-
-		return DevEUI, simulatorController.TurnOFFDevice(paramDevEUI)
-
-	})
-
-	serverSocket.OnEvent("/", socket.EventTurnOnGateway, func(s socketio.Conn, MACaddress string) (string, bool) {
-		var Mac lorawan.EUI64
-		MACtmp, _ := hex.DecodeString(MACaddress)
-		copy(Mac[:8], MACtmp)
-
-		return MACaddress, simulatorController.TurnONGateway(Mac)
-
-	})
-
-	serverSocket.OnEvent("/", socket.EventTurnOffGateway, func(s socketio.Conn, MACaddress string) (string, bool) {
-
-		var Mac lorawan.EUI64
-		MACtmp, _ := hex.DecodeString(MACaddress)
-		copy(Mac[:8], MACtmp)
-
-		return MACaddress, simulatorController.TurnOFFGateway(Mac)
-
+	serverSocket.OnEvent("/", socket.EventToggleStateGateway, func(s socketio.Conn, Id int) {
+		simulatorController.ToggleStateGateway(Id)
 	})
 
 	serverSocket.OnEvent("/", socket.EventMacCommand, func(s socketio.Conn, data socket.MacCommand) {
@@ -274,8 +247,8 @@ func newServerSocket() *socketio.Server {
 
 	})
 
-	serverSocket.OnEvent("/", socket.EventChangePayload, func(s socketio.Conn, data socket.NewPayload) {
-		simulatorController.ChangePayload(data)
+	serverSocket.OnEvent("/", socket.EventChangePayload, func(s socketio.Conn, data socket.NewPayload) (string, bool) {
+		return simulatorController.ChangePayload(data)
 	})
 
 	serverSocket.OnEvent("/", socket.EventSendUplink, func(s socketio.Conn, data socket.NewPayload) {
@@ -293,10 +266,10 @@ func newServerSocket() *socketio.Server {
 	return serverSocket
 }
 
-//Run a webserver
 func (ws *WebServer) Run() {
 
 	log.Println("[WS]: Listen [", ws.Address+":"+strconv.Itoa(ws.Port), "]")
+
 	err := ws.Router.Run(ws.Address + ":" + strconv.Itoa(ws.Port))
 	if err != nil {
 		log.Println("[WS] [ERROR]:", err.Error())

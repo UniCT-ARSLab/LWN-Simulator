@@ -21,31 +21,32 @@ func (d *Device) OtaaActivation() {
 
 	for !d.Info.Status.Joined {
 
-		ok := d.CanExecute()
-		if !ok { //stop simulator
+		if !d.CanExecute() { //stop simulator
 			return
 		}
 
-		d.SwitchClass(classes.ModeA)
+		d.SwitchClass(classes.ClassA)
 
 		d.SendJoinRequest()
 
-		d.Print("Open RXs", nil, util.PrintOnlySocket)
+		d.Print("Open RXs", nil, util.PrintBoth)
 
-		phy := d.Mode.ReceiveWindows(JOINACCEPTDELAY1, JOINACCEPTDELAY2)
+		phy := d.Class.ReceiveWindows(JOINACCEPTDELAY1, JOINACCEPTDELAY2)
 		if phy != nil {
 
-			d.Print("Downlink Received", nil, util.PrintOnlySocket)
+			d.Print("Downlink received", nil, util.PrintBoth)
 
 			_, err := d.ProcessDownlink(*phy)
 			if err != nil {
-				d.Print("", err, util.PrintOnlySocket)
+				d.Print("", err, util.PrintBoth)
 
 				timerAckTimeout := time.NewTimer(d.Info.Configuration.AckTimeout)
 				<-timerAckTimeout.C
 
-				d.Print("ACK Timeout", nil, util.PrintOnlySocket)
+				d.Print("ACK Timeout", nil, util.PrintBoth)
 			}
+		} else {
+			d.Print("None downlink received", nil, util.PrintBoth)
 		}
 
 		if d.Info.Status.Joined {
@@ -120,7 +121,7 @@ func (d *Device) ProcessJoinAccept(JoinAccPayload *lorawan.JoinAcceptPayload) (*
 
 		cflist, err := JoinAccPayload.CFList.Payload.MarshalBinary()
 		if err != nil {
-			d.Print("", nil, util.PrintBoth)
+			return nil, err
 		}
 
 		if JoinAccPayload.CFList.CFListType == lorawan.CFListChannel { //list of channel
@@ -129,7 +130,7 @@ func (d *Device) ProcessJoinAccept(JoinAccPayload *lorawan.JoinAcceptPayload) (*
 
 			err = CFList.UnmarshalBinary(false, cflist)
 			if err != nil {
-				d.Print("", nil, util.PrintBoth)
+				return nil, err
 			}
 
 			for i, c := range CFList.Channels {
@@ -142,7 +143,7 @@ func (d *Device) ProcessJoinAccept(JoinAccPayload *lorawan.JoinAcceptPayload) (*
 			var CFList lorawan.CFListChannelMaskPayload
 			err = CFList.UnmarshalBinary(false, cflist)
 			if err != nil {
-				d.Print("", nil, util.PrintBoth)
+				return nil, err
 			}
 
 			for i, mask := range CFList.ChannelMasks {
@@ -158,8 +159,15 @@ func (d *Device) ProcessJoinAccept(JoinAccPayload *lorawan.JoinAcceptPayload) (*
 	d.Info.JoinNonce = JoinAccPayload.JoinNonce
 	d.Info.DevAddr = JoinAccPayload.DevAddr
 	d.Info.NetID = JoinAccPayload.HomeNetID
-	d.Info.RX[0].Delay = time.Duration(JoinAccPayload.RXDelay)
-	d.Info.RX[1].Delay = time.Duration(JoinAccPayload.RXDelay)
+
+	Delay := 1000
+	if JoinAccPayload.RXDelay != 0 {
+		Delay = Delay * int(JoinAccPayload.RXDelay)
+	}
+
+	d.Info.RX[0].Delay = time.Duration(Delay) * time.Millisecond
+	d.Info.RX[1].Delay = time.Duration(Delay) * time.Millisecond
+
 	d.Info.Configuration.RX1DROffset = JoinAccPayload.DLSettings.RX1DROffset
 	d.Info.RX[1].DataRate = JoinAccPayload.DLSettings.RX2DataRate
 	downlink.MType = lorawan.JoinAccept

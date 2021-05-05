@@ -1,4 +1,4 @@
-package packetforwarder
+package gateway
 
 import (
 	"fmt"
@@ -9,16 +9,19 @@ import (
 	"github.com/arslab/lwnsimulator/simulator/components/gateway/models"
 	res "github.com/arslab/lwnsimulator/simulator/resources"
 	"github.com/arslab/lwnsimulator/simulator/resources/communication/buffer"
+
 	"github.com/arslab/lwnsimulator/simulator/util"
 	"github.com/arslab/lwnsimulator/socket"
 )
 
 type Gateway struct {
-	Info models.InfoGateway `json:"Info"`
+	Id   int                `json:"id"`
+	Info models.InfoGateway `json:"info"`
 
-	StateSimulator *uint8         `json:"-"`
-	Resources      *res.Resources `json:"-"` //is a pointer
-	Forwarder      *f.Forwarder   `json:"-"` //is a pointer
+	State int `json:"-"`
+
+	Resources *res.Resources `json:"-"` //is a pointer
+	Forwarder *f.Forwarder   `json:"-"` //is a pointer
 
 	Stat models.Stat `json:"-"`
 
@@ -27,8 +30,7 @@ type Gateway struct {
 
 func (g *Gateway) CanExecute() bool {
 
-	if *g.StateSimulator == util.Stopped ||
-		!g.Info.Active {
+	if g.State == util.Stopped {
 		return false
 	}
 
@@ -44,11 +46,11 @@ func (g *Gateway) Print(content string, err error, printType int) {
 	event := socket.EventGw
 
 	if err == nil {
-		message = fmt.Sprintf("[ %s ] GW[%s] : %s", now.Format(time.Stamp), g.Info.Name, content)
-		messageLog = fmt.Sprintf(" GW[%s] : %s", g.Info.Name, content)
+		message = fmt.Sprintf("[ %s ] GW[%s]: %s", now.Format(time.Stamp), g.Info.Name, content)
+		messageLog = fmt.Sprintf("GW[%s]: %s", g.Info.Name, content)
 	} else {
 		message = fmt.Sprintf("[ %s ] GW[%s] [ERROR]: %s", now.Format(time.Stamp), g.Info.Name, err)
-		messageLog = fmt.Sprintf(" GW[%s] [ERROR]: %s", g.Info.Name, err)
+		messageLog = fmt.Sprintf("GW[%s] [ERROR]: %s", g.Info.Name, err)
 		event = socket.EventError
 	}
 

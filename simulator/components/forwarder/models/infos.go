@@ -13,6 +13,7 @@ type InfoDevice struct {
 }
 
 type InfoGateway struct {
-	Buf      *buffer.BufferUplink
-	Location loc.Location
+	MACAddress lorawan.EUI64
+	Buffer     *buffer.BufferUplink
+	Location   loc.Location
 }

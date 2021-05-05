@@ -11,15 +11,15 @@ import (
 )
 
 type InfoGateway struct {
-	Active        bool          `json:"Active"`
-	TypeGateway   bool          `json:"TypeGateway"` //true real
-	Name          string        `json:"Name"`
-	MACAddress    lorawan.EUI64 `json:"MACAddress"`
-	Location      loc.Location  `json:"Location"`
-	KeepAlive     time.Duration `json:"KeepAlive"`
+	Active        bool          `json:"active"`
+	TypeGateway   bool          `json:"typeGateway"` //true real
+	Name          string        `json:"name"`
+	MACAddress    lorawan.EUI64 `json:"macAddress"`
+	Location      loc.Location  `json:"location"`
+	KeepAlive     time.Duration `json:"keepAlive"`
 	Connection    *net.UDPConn  `json:"-"`
-	AddrIP        string        `json:"Address"`
-	Port          string        `json:"Port"`
+	AddrIP        string        `json:"ip"`
+	Port          string        `json:"port"`
 	BridgeAddress *string       `json:"-"` //is a pointer
 }
 
@@ -28,8 +28,8 @@ func (g *InfoGateway) MarshalJSON() ([]byte, error) {
 	type Alias InfoGateway
 
 	return json.Marshal(&struct {
-		MACAddress string `json:"MACAddress"`
-		KeepAlive  int    `json:"KeepAlive"`
+		MACAddress string `json:"macAddress"`
+		KeepAlive  int    `json:"keepAlive"`
 
 		*Alias
 	}{
@@ -46,8 +46,8 @@ func (g *InfoGateway) UnmarshalJSON(data []byte) error {
 	type Alias InfoGateway
 
 	aux := &struct {
-		MACAddress string `json:"MACAddress"`
-		KeepAlive  int    `json:"KeepAlive"`
+		MACAddress string `json:"macAddress"`
+		KeepAlive  int    `json:"keepAlive"`
 		*Alias
 	}{
 		Alias: (*Alias)(g),

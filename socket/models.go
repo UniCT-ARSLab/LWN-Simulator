@@ -3,34 +3,34 @@ package socket
 import "github.com/brocaar/lorawan"
 
 type ConsoleLog struct {
-	Name string `json:"Name"`
-	Msg  string `json:"Msg"`
+	Name string `json:"name"`
+	Msg  string `json:"message"`
 }
 
-type InfoStatus struct {
-	DevEUI   lorawan.EUI64   `json:"DevEUI"`
-	DevAddr  lorawan.DevAddr `json:"DevAddr"`
-	NwkSKey  string          `json:"NwkSKey"`
-	AppSKey  string          `json:"AppSKey"`
-	FCntDown uint32          `json:"FCntDown"`
-	FCnt     uint32          `json:"FCnt"`
+type NewStatusDev struct {
+	DevEUI   lorawan.EUI64   `json:"devEUI"`
+	DevAddr  lorawan.DevAddr `json:"devAddr"`
+	NwkSKey  string          `json:"nwkSKey"`
+	AppSKey  string          `json:"appSKey"`
+	FCntDown uint32          `json:"fcntDown"`
+	FCnt     uint32          `json:"fcnt"`
 }
 
 type NewPayload struct {
-	DevEUI  string `json:"DevEUI"`
-	MType   string `json:"MType"`
-	Payload string `json:"Payload"`
+	Id      int    `json:"id"`
+	MType   string `json:"mtype"`
+	Payload string `json:"payload"`
 }
 
 type NewLocation struct {
-	DevEUI    string  `json:"DevEUI"`
-	Latitude  float64 `json:"Latitude"`
-	Longitude float64 `json:"Longitude"`
-	Altitude  int32   `json:"Altitude"`
+	Id        int     `json:"id"`
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+	Altitude  int32   `json:"altitude"`
 }
 
 type MacCommand struct {
-	DevEUI      lorawan.EUI64 `json:"DevEUI"`
-	CID         string        `json:"CID"`
-	Periodicity uint8         `json:"Periodicity"`
+	Id          int    `json:"id"`
+	CID         string `json:"cid"`
+	Periodicity uint8  `json:"periodicity"`
 }

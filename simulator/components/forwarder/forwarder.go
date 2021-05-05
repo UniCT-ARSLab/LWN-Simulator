@@ -8,14 +8,15 @@ import (
 	m "github.com/arslab/lwnsimulator/simulator/components/forwarder/models"
 	"github.com/arslab/lwnsimulator/simulator/resources/communication/buffer"
 	pkt "github.com/arslab/lwnsimulator/simulator/resources/communication/packets"
+	loc "github.com/arslab/lwnsimulator/simulator/resources/location"
 	"github.com/brocaar/lorawan"
 )
 
 type Forwarder struct {
-	DevToGw  map[lorawan.EUI64][]*buffer.BufferUplink //si popola nel setup e può aggiornarsi
-	GwtoDev  map[uint32][]*dl.ReceivedDownlink        // si popola con register/unRegister
-	devices  []m.InfoDevice
-	gateways []m.InfoGateway
+	DevToGw  map[lorawan.EUI64]map[lorawan.EUI64]*buffer.BufferUplink            //si popola nel setup e può aggiornarsi
+	GwtoDev  map[uint32]map[lorawan.EUI64]map[lorawan.EUI64]*dl.ReceivedDownlink // si popola con register/unRegister
+	Devices  map[lorawan.EUI64]m.InfoDevice
+	Gateways map[lorawan.EUI64]m.InfoGateway
 	Mutex    sync.Mutex
 }
 
@@ -45,4 +46,16 @@ func createPacket(info pkt.RXPK) pkt.RXPK {
 	}
 
 	return rxpk
+}
+
+func inRange(d m.InfoDevice, g m.InfoGateway) bool {
+
+	distance := loc.GetDistance(d.Location.Latitude, d.Location.Longitude,
+		g.Location.Latitude, g.Location.Longitude)
+
+	if distance <= (d.Range / 1000.0) {
+		return true
+	}
+
+	return false
 }

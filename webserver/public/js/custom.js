@@ -13,24 +13,24 @@ const KeepAliveDefault = 30;
 const ZeroDefault = 0;
 const ACKTimeoutDefault = 2;
 const UplinkIntervalDefault = 10;
-const RangeDefault = 10000;
+const rangeDefault = 10000;
 const MaxValueCounter = 16384;
 const UnConfirmedData_uplink ="UnConfirmedDataUp"
 const ConfirmedData_uplink ="ConfirmedDataUp"
 
-var PairsEUI64 = 8;
-var PairsDevAddr = 4;
+var LengthEUI64 = 16;
+var LengthDevAddr = 8;
 
 var StateSimulator = false;//true in running
 
 //checks
 var DataRates = [];
-var MinFrequency = 100;
-var Maxfrequency = 100;
+var minFrequency = 100;
+var maxFrequency = 100;
 var TablePayload = [];
 var TablePayloadDT = [];
-var FrequencyRX2Default = 0;
-var DatarateRX2Default = 0;
+var frequencyRX2Default = 0;
+var dataRateRX2Default = 0;
 
 //maps
 var MapGateway;
@@ -40,40 +40,59 @@ var MapModal;
 
 var MarkerGateway = {};
 var MarkerDevice = {};
-var MarkersHome = [];
+var MarkersHome = new Map();
 var MarkerModal = {};
 var Circle;
 
 var TurnMap = 0;
 
-var Gateways = [];
-var Devices = [];
-var DeviceRunning = [];
-var GatewaysRunning = [];
+var Gateways = new Map();
+var Devices = new Map();
+
 //socket
-var socket = io('http://127.0.0.1:8000');
+var socket = io({
+                path:'/socket.io/',
+                reconnectionDelay:5000});
 
 $(document).ready(function(){
 
-    Init();
     Initmap();
     setTimeout(() => {
-        MapGateway.invalidateSize() 
-    }, 500)
+        MapGateway.invalidateSize();
+    }, 500);
 
-    MapGateway.on('click',Change_Marker);
-    MapDevice.on('click',Change_Marker);
-    MapModal.on('click',Change_Marker);
+    MapGateway.on('click',function(e){
+
+        if ($(this._container).parents("#location").find("#coords").find("input").prop("disabled"))
+            return;
+
+        Click_Change_Marker(e);
+    });
+    
+    MapDevice.on('click',function(e){
+
+        if ($(this._container).siblings("#coords").find("input").prop("disabled"))
+            return;
+
+        Click_Change_Marker(e);
+    });
+
+    MapModal.on('click',Click_Change_Marker);
 
     // ********************** socket event *********************
 
     socket.on('connect',()=>{
-        console.log("socket connessa");
-    })
+        //console.log("socket connessa");
+        Init();
+    });
+
+    socket.on('disconnect',()=>{
+        console.log("socket disconnessa");
+    });
 
     socket.on('console-sim',(data)=>{
 
-        var row = "<p class=\"text-break text-start bg-secondary m-0\">"+data.Msg+"</p>";
+        var row = "<p class=\"text-break text-start bg-secondary m-0\">"+data.message+"</p>";
         $('#console-body').append(row);
 
         $('#console-body').animate({
@@ -84,7 +103,7 @@ $(document).ready(function(){
 
     socket.on('console-error',(data)=>{
       
-        var row = "<p class=\"text-break text-white bg-danger m-0\">"+data.Msg+"</p>";             
+        var row = "<p class=\"text-break text-white bg-danger m-0\">"+data.message+"</p>";             
         $('#console-body').append(row);
 
         $('#console-body').animate({
@@ -95,16 +114,16 @@ $(document).ready(function(){
 
     socket.on('log-dev',(data)=>{
 
-        var classesP = $("[name=\""+data.Name+"\"]").attr("class");//p
+        var classesP = $("[name=\""+data.name+"\"]").attr("class");//p
         
-        $("span[data-name=\""+data.Name+"\"]").attr("class");
+        $("span[data-name=\""+data.name+"\"]").attr("class");
 
         var row;
 
         if (classesP == undefined)
-            row = "<p class=\"text-break text-start text-info clickable me-1 mb-0\" name=\""+data.Name+"\" data-name=\""+data.Name+"\">"+data.Msg+"</p>";
+            row = "<p class=\"text-break text-start text-info clickable me-1 mb-0\" name=\""+data.name+"\" data-name=\""+data.name+"\">"+data.message+"</p>";
         else
-            row = "<p class=\""+classesP+"\" name=\""+data.Name+"\" data-name=\""+data.Name+"\">"+data.Msg+"</p>";
+            row = "<p class=\""+classesP+"\" name=\""+data.name+"\" data-name=\""+data.name+"\">"+data.message+"</p>";
     
         $('#console-body').append(row);
 
@@ -116,14 +135,14 @@ $(document).ready(function(){
 
     socket.on('log-gw',(data)=>{ 
 
-        var valueName = "gw-"+data.Name;     
+        var valueName = "gw-"+data.name;     
         var classesP = $("[name="+valueName+"]").attr("class");//p
         var row;
 
         if (classesP == undefined)
-            row = "<p class=\"text-break clickable text-start text-warning me-1 mb-0\" data-name=\""+valueName+"\" name=\""+valueName+"\">"+data.Msg+"</p>";
+            row = "<p class=\"text-break clickable text-start text-warning me-1 mb-0\" data-name=\""+valueName+"\" name=\""+valueName+"\">"+data.message+"</p>";
         else
-            row = "<p class=\""+classesP+"\" name="+valueName+" data-name=\""+valueName+"\">"+data.Msg+"</p>";
+            row = "<p class=\""+classesP+"\" name="+valueName+" data-name=\""+valueName+"\">"+data.message+"</p>";
     
         $('#console-body').append(row);
 
@@ -135,13 +154,13 @@ $(document).ready(function(){
 
     socket.on('save-status',(data)=>{
 
-        var index = Devices.findIndex((x) => x.Info.DevEUI == data.DevEUI);
+        var dev = Devices.get(data.devEUI);
 
-        Devices[index].Info.DevAddr = data.DevAddr;
-        Devices[index].Info.NwkSKey = data.NwkSKey;
-        Devices[index].Info.AppSKey = data.AppSKey;
-        Devices[index].Info.Status.FCntDown = data.FCntDown;
-        Devices[index].Info.Status.InfoUplink.FCnt = data.FCnt;
+        dev.info.devAddr = data.devAddr;
+        dev.info.nwkSKey = data.nwkSKey;
+        dev.info.appSKey = data.appSKey;
+        dev.info.status.fcntDown = data.fcntDown;
+        dev.info.status.infoUplink.fcnt = data.fcnt;
 
     });
 
@@ -151,7 +170,7 @@ $(document).ready(function(){
 
     // ********************** nav bar *********************
 
-    $("a > i.btn-play").on("click",function(){
+    $(".btn-play").parent("button").on("click",function(){
         
         if (!socket.connected){
             Show_ErrorSweetToast("Socket not connected","");
@@ -163,8 +182,7 @@ $(document).ready(function(){
             return;
         }
 
-        $(this).parent("a").addClass("beep");
-        $("#state").attr("src","img/yellow_circle.png");
+        $("#state").attr("src","img/yellow_circle.svg");
 
         $.ajax({
             url:"http://127.0.0.1:8000/api/start",
@@ -177,33 +195,23 @@ $(document).ready(function(){
             if (data){
                 
                 StateSimulator = true;
-                DeviceRunning = [];
-                Devices.forEach(element =>{
-                    DeviceRunning.push({"DevEUI":element.Info.DevEUI,
-                                        "Active": element.Info.Status.Active
-                                        });
-                });
-
-                GatewaysRunning = [];
-                Gateways.forEach(element =>{
-                    GatewaysRunning.push({"MACAddress":element.Info.MACAddress,
-                                        "Active": element.Info.Active
-                                        });
-                });
 
                 Show_iziToast("Simulator started","");
-                $("#state").attr("src","img/green_circle.png");
+                $("#state").attr("src","img/green_circle.svg");
+                $(".btn-play").parent("button").toggleClass("hide");
+                $(".btn-stop").parent("button").toggleClass("hide");
+
             }               
             else{
                 Show_ErrorSweetToast("Error","Simulator didn't started");
-                $("#state").attr("src","img/red_circle.png");
+                $("#state").attr("src","img/red_circle.svg");
             }
                 
 
                   
         }).fail((data)=>{
 
-            $("#state").attr("src","img/red_circle.png");
+            $("#state").attr("src","img/red_circle.svg");
             Show_ErrorSweetToast("Error",data.statusText); 
             
         }).always(()=>{
@@ -212,7 +220,7 @@ $(document).ready(function(){
 
     });
 
-    $("a > i.btn-stop").on("click",function(){
+    $(".btn-stop").parent("button").on("click",function(){
 
         if(!StateSimulator){
             Show_ErrorSweetToast("Simulator already stop","");
@@ -220,9 +228,8 @@ $(document).ready(function(){
         }
         
         StateSimulator = false;
-
-        $(this).parent("a").addClass("beep");
-        $("#state").attr("src","img/yellow_circle.png");
+        
+        $("#state").attr("src","img/yellow_circle.svg");
 
         $.get("http://127.0.0.1:8000/api/stop",{
         
@@ -230,18 +237,20 @@ $(document).ready(function(){
         
             if (data){
 
-                $("#state").attr("src","img/red_circle.png");
-                Show_iziToast("Simulator stopped","");
+                $("#state").attr("src","img/red_circle.svg");
+                $(".btn-play").parent("button").toggleClass("hide");
+                $(".btn-stop").parent("button").toggleClass("hide");
 
+                Show_iziToast("Simulator stopped","");
             }
             else{
-                $("#state").attr("src","img/green_circle.png");
+                $("#state").attr("src","img/green_circle.svg");
             }
             
 
         }).fail(()=>{
 
-            $("#state").attr("src","img/green_circle.png");
+            $("#state").attr("src","img/green_circle.svg");
 
         }).always(()=>{
 
@@ -251,9 +260,12 @@ $(document).ready(function(){
     });
     
     // ********************** sidebar *********************
-
-    $("#sidebar a").on("click", function () {
     
+    $("#sidebar a").on("click", function () {
+        
+        if($(this).hasClass("has-dropdown"))
+            return;
+
         $(".main-content > div").removeClass("show active");
         $($(this).data("tab")).addClass("show active");
 
@@ -263,7 +275,33 @@ $(document).ready(function(){
 
             LoadListHome();
         }
+
+        $(this).parent("li").siblings("li").removeClass("active");
+        $(this).parent("li").addClass("active");
                             
+    });
+
+    $("#sidebar a:not(.has-dropdown)").on('click',function(){
+        
+        var parentUL = $(this).parents("ul.dropdown-menu");
+        if (parentUL.length != 0)
+            return;
+
+        $(".main-sidebar .sidebar-menu li.dropdown > .dropdown-menu").slideUp(500, function() {            
+            
+            let a = setInterval(function() {
+
+                var sidebar_nicescroll = $(".main-sidebar").getNiceScroll();
+                if(sidebar_nicescroll != null)
+                    sidebar_nicescroll.resize();
+
+                }, 10);
+            
+                setTimeout(function() {
+                    clearInterval(a);
+                }, 600);
+        });
+
     });
 
     $("[data-tab*=dev]").on("click",function(){
@@ -295,6 +333,7 @@ $(document).ready(function(){
 
     $(".btn-clean").on("click",function(){
         $("#console-body").empty();
+        $(this).blur();
     })
 
     $("#console-body").on('click',"p",function(){
@@ -312,14 +351,14 @@ $(document).ready(function(){
     $("#list-home").on("click","a",function(){ 
 
         var address = $(this).attr("data-addr");
-        var index = MarkersHome.findIndex((x) => x.Address == address);
-        var indexDev = Devices.findIndex((x) => x.Info.DevEUI == address);
+        var marker = MarkersHome.get(address).Marker;
+        var dev = Devices.get(address);
         
-        ChangeView(MarkersHome[index].Marker.getLatLng())
-        MarkersHome[index].Marker.openPopup();
+        ChangeView(marker.getLatLng())
+        marker.openPopup();
 
-        if(indexDev != -1)
-            DrawRange(MarkersHome[index].Marker.getLatLng(), Devices[indexDev].Info.Configuration.Range);
+        if(dev != undefined)
+            DrawRange(marker.getLatLng(), dev.info.configuration.range);
     });
 
     // ********************** map *********************
@@ -366,14 +405,15 @@ $(document).ready(function(){
     // ********************** sidebar/dropdown: list devices *********************
     
     //click item list
-    $("#list-devices").on("click","a",function(){ 
+    $("#list-devices").on("click","tr .clickable",function(){ 
 
-        var address = $(this).attr("data-addr");
-        var index = Devices.findIndex((x) => x.Info.DevEUI == address);
+        var address = $(this).parents("tr").attr("data-addr");
 
         CleanInputDevice();
-        LoadDevice(Devices[index]);
+        LoadDevice(Devices.get(address));
+
         $("#header-sidebar-dev h4").text($(this).text());
+    
     });
     
     // ********************** sidebar/dropdown: add new device *********************
@@ -385,18 +425,22 @@ $(document).ready(function(){
         
     });
 
-    $("[name=input-devEUI]").on('blur keyup',function(e){
-        var valid = KeyUp_ValidAddress(this, e, PairsEUI64*2);   
+    $("[name=input-devEUI]").on('blur keyup',function(){
+
+        if ($(this).val().length == 0){
+            $(this).removeClass("is-valid is-invalid"); 
+            return 
+        }
+
+        var valid = IsValidAddress($(this).val(), true)  
 
         ValidationInput($(this),valid); 
-
-        if ($(this).val().length == 0)
-            $(this).removeClass("is-valid is-invalid");   
+      
     });
 
-    //generate DevEUI
+    //generate devEUI
     $('[name=btn-new-devEUI]').on('click',function(){
-        Click_GenerateAddress($("[name=input-devEUI]"), PairsEUI64);
+        Click_GenerateAddress($("[name=input-devEUI]"), LengthEUI64);
     });
 
     $("#region").on('change',function(){
@@ -426,18 +470,22 @@ $(document).ready(function(){
     });
 
     //dev addr
-    $('[name=input-devAddr]').on('blur keyup',function(e){
-        var valid = KeyUp_ValidAddress(this, e, PairsDevAddr*2);   
-        
+    $('[name=input-devAddr]').on('blur keyup',function(){
+
+        if ($(this).val().length == 0){
+            $(this).removeClass("is-valid is-invalid"); 
+            return 
+        }
+
+        var valid = IsValidAddress($(this).val(), false)  
+
         ValidationInput($(this),valid); 
-        
-        if ($(this).val().length ==0)
-            $(this).removeClass("is-valid is-invalid");
+
     });
 
-    //generate DevAddr
+    //generate devAddr
     $('[name=btn-new-devAddr]').on('click',function(){
-        Click_GenerateAddress($("[name=input-devAddr]"),PairsDevAddr);
+        Click_GenerateAddress($("[name=input-devAddr]"),LengthDevAddr);
     });
 
     //watch key
@@ -471,7 +519,7 @@ $(document).ready(function(){
     //controllo sula frequenza
     $("[name=input-frequency-rx-2]").on("blur keyup", function(){
 
-        var valid = IsValidNumber($(this).val(),MinFrequency, Maxfrequency);
+        var valid = IsValidNumber($(this).val(),minFrequency, maxFrequency);
         ValidationInput($(this), valid);
         
     });
@@ -541,7 +589,7 @@ $(document).ready(function(){
     });
 
     $("[name=input-sendInterval]").on("blur keyup", function(e){
-        var valid = IsValidNumber(this,0, Infinity);
+        var valid = IsValidNumber($(this).val(),0, Infinity);
         ValidationInput($(this),valid);
     });
 
@@ -560,42 +608,51 @@ $(document).ready(function(){
 
     // ********************** sidebar/dropdown: list gateways *********************
     //click item list
-    $("#list-gateways").on("click","a",function(){
+    $("#list-gateways").on("click","tr .clickable",function(){
         
-        var MACAddress = $(this).attr("data-addr");
-        var index = Gateways.findIndex((x) => x.Info.MACAddress == MACAddress);//to modify existed gateway
-        
-        Load_Gateway(Gateways[index]);
+        var address = $(this).parents("tr").attr("data-addr");
+
+        CleanInputGateway();
+        LoadGateway(Gateways.get(address));
     });
 
     // ********************** sidebar/dropdown: add new gateway *********************
 
-    $("#choose-type label").on("click", function(){
-        setTimeout(()=>{
-            MapGateway.invalidateSize();
-        },300);
-    });
-
     //input MAC 
     $("[name=input-MAC-gw]").on("blur keyup",function(e){
 
-        var valid = KeyUp_ValidAddress(this, e, PairsEUI64*2);   
+        if ($(this).val().length == 0){
+            $(this).removeClass("is-valid is-invalid"); 
+            return 
+        }
+
+        var valid = IsValidAddress($(this).val(), true)  
 
         ValidationInput($(this),valid); 
 
-        if ($(this).val().length ==0)
-            $(this).removeClass("is-valid is-invalid");
     });
 
     //generate new mac address
     $("[name=btn-new-MACAddress]").on("click",function(){
-        Click_GenerateAddress($(this).siblings("[name=input-MAC-gw]"),PairsEUI64);
+        Click_GenerateAddress($(this).siblings("[name=input-MAC-gw]"),LengthEUI64);
     });
 
-    $("#choose-type label").on('click',function(){
+    $("#choose-type button").on('click',function(){
+
+        if ($(this).prop("disabled"))
+            return;
+
+        setTimeout(()=>{
+            MapGateway.invalidateSize();
+        },300);
+
+
+        $(this).siblings().removeClass("active");
+        $(this).addClass("active");
+
         $("#info-gw").removeClass("hide");
         
-        if ($(this).children("input").attr("id") == "virtual-gw"){
+        if ($(this).attr("id") == "virtual-gw"){
             $("#info-virtual-gw").removeClass("hide");
             $("#info-real-gw").addClass("hide");
         }            
@@ -607,7 +664,7 @@ $(document).ready(function(){
     });
 
    //keep Alive
-   $("[name=input-KeepAlive]").on("blur keyup",function(){
+    $("[name=input-KeepAlive]").on("blur keyup",function(){
 
         var value = $(this).val();
         var valid = IsValidNumber(value,0, Infinity);     
@@ -643,11 +700,11 @@ $(document).ready(function(){
 
         }).done((data)=>{
 
-            if (data.ServerIP != "")
-                $('[name=input-IP-bridge]').val(data.ServerIP)
+            if (data.ip != "")
+                $('[name=input-IP-bridge]').val(data.ip)
                          
-            if (data.Port != "")
-                $('[name=input-port-bridge]').val(data.Port)                
+            if (data.port != "")
+                $('[name=input-port-bridge]').val(data.port)                
             
         }).fail(()=>{
             Show_ErrorSweetToast("Error","Unable to upload info from server");       
@@ -658,22 +715,23 @@ $(document).ready(function(){
     //btn save bridge's info
     $("[name=save-bridge]").on("click",function(){
 
-        if (StateSimulator) {
+        if (!CanExecute()) {
             Show_ErrorSweetToast("Simulator in running", "Unable change data");
             return
         }
         
-        var IPAddr = $("[name=input-IP-bridge]").val();
-        var Port = $("[name=input-port-bridge]").val();
+        var ipAddr = $("[name=input-IP-bridge]").val();
+        var port = $("[name=input-port-bridge]").val();
 
         //validation
-        var ValidIP = IsValidIP(IPAddr);
-        var ValidPort = Port < 65536 && Port > 0 ? true : false;
+        var validIP = IsValidIP(ipAddr);
+        var validPort = port < 65536 && port > 0 ? true : false;
 
-        var val = ValidIP && ValidPort;
+        var val = validIP && validPort;
         if(!val){
-            ValidationInput($("[name=input-IP-bridge]"), ValidIP)
-            ValidationInput($("[name=input-port-bridge]"), ValidPort)
+
+            ValidationInput($("[name=input-IP-bridge]"), validIP)
+            ValidationInput($("[name=input-port-bridge]"), validPort)
             
             Show_ErrorSweetToast("Error", "Values are incorrect")
 
@@ -682,8 +740,8 @@ $(document).ready(function(){
 
         //create file JSON
         var jsonData = JSON.stringify({
-            "ServerIP" : IPAddr,
-            "Port" : Port
+            "ip" : ipAddr,
+            "port" : port
         });
 
         //ajax
@@ -694,9 +752,7 @@ $(document).ready(function(){
                 Show_SweetToast("Data saved","");  
            
         }).fail((data)=>{
-            
-            Show_ErrorSweetToast("Error", data.statusText); 
-
+            console.log("Error", data.statusText); 
         });
 
     });
@@ -749,18 +805,18 @@ $(document).ready(function(){
     });
 
     $("#submit-send-payload").on('click',function(){
-
-        var address = $(this).parents("#modal-send-data").attr("data-addr");
-
+        
         var ok = CanExecute();
         if (ok) //ok true: SIM off e DEV off
            Show_ErrorSweetToast("Unable send uplink","Simulator is stopped");
         else{
 
+            var address = $(this).parents("#modal-send-data").attr("data-addr");
+            
             var data ={
-                "DevEUI": address,
-                "MType": $(this).parents("#modal-send-data").attr("data-mtype"),
-                "Payload": $(this).parents("#modal-send-data").find("[name=send-payload]").val()
+                "id": Devices.get(address).id,
+                "mtype": $(this).parents("#modal-send-data").attr("data-mtype"),
+                "payload": $(this).parents("#modal-send-data").find("[name=send-payload]").val()
             };
   
             socket.emit("send-uplink",data);
@@ -773,6 +829,11 @@ $(document).ready(function(){
 
     $("[name=periodicity]").on("blur keyup",function(){
 
+        if($(this).val() == ""){
+            $(this).removeClass("is-valid is-invalid");
+            return
+        }
+            
         var value = $(this).val();
         var valid = IsValidNumber(value,-1, 8);     
         
@@ -782,24 +843,34 @@ $(document).ready(function(){
 
     $("#submit-send-mac-command").on("click",function(){
 
-        var address = $(this).parents("#modal-pingSlotInfoReq").attr("data-addr");
-
         var ok = CanExecute();
         if (ok)
             Show_ErrorSweetToast("Unable send MAC Command","Simulator is stopped");
         else{
 
-            var valid = IsValidNumber($("[name=periodicity]").val(),-1, 8);
+            var address = $(this).parents("#modal-pingSlotInfoReq").attr("data-addr");
+            var valid;
+
+            if($("[name=periodicity]").val() == ""){
+                valid = false;
+            }else{
+                valid = IsValidNumber($("[name=periodicity]").val(),-1, 8);
+            }
+            
             if (valid){
+
                 var data = {
-                    "DevEUI": address,
-                    "CID": "PingSlotInfoReq",
-                    "Periodicity": Number($(this).parents("#modal-pingSlotInfoReq").find(" [name=periodicity]").val()),
+                    "id": Devices.get(address).id,
+                    "cid": "PingSlotInfoReq",
+                    "periodicity": Number($(this).parents("#modal-pingSlotInfoReq").find(" [name=periodicity]").val()),
                 }
         
                 socket.emit("send-MACCommand",data);
-            }else
-                return
+            }else{
+                Show_ErrorSweetToast("error","Value of periodicity is incorrect. it's between 0 and 7.")
+                return;
+            }
+                
            
         }        
         
@@ -809,12 +880,12 @@ $(document).ready(function(){
 
     $("#submit-new-location").on("click",function(){
 
-        var address = $(this).parents("#modal-location").attr("data-addr");
-        
         var ok = CanExecute();
         if (ok)
             Show_ErrorSweetToast("Unable change location","Simulator is stopped");
         else{
+
+            var address = $(this).parents("#modal-location").attr("data-addr");
 
             var latitude = $(this).parents("#modal-location").find("[name=input-latitude]");
             var longitude = $(this).parents("#modal-location").find("[name=input-longitude]");
@@ -835,29 +906,30 @@ $(document).ready(function(){
             }
 
             var data = {
-                "DevEUI": address,
-                "Latitude":Number(latitude.val()),
-                "Longitude":Number(longitude.val()),
-                "Altitude":Number(altitude.val())
+                "id": Devices.get(address).id,
+                "latitude":Number(latitude.val()),
+                "longitude":Number(longitude.val()),
+                "altitude":Number(altitude.val())
             }
 
             socket.emit("change-location",data,(response)=>{
 
-                var index = Devices.findIndex((x) => x.Info.DevEUI == address);
+                var dev = Devices.get(address);
 
                 if (response){
 
-                    Devices[index].Info.Location.Latitude = Number(latitude.val());
-                    Devices[index].Info.Location.Longitude = Number(longitude.val());
-                    Devices[index].Info.Location.Altitude = Number(altitude.val());
+                    dev.info.location.latitude = Number(latitude.val());
+                    dev.info.location.longitude = Number(longitude.val());
+                    dev.info.location.Altitude = Number(altitude.val());
 
                     var latlng = L.latLng(Number(latitude.val()),Number(longitude.val()));
 
-                    UpdateMarker(address, null, latlng, false);
+                    UpdateMarker(address, address, dev.info.name, latlng, false);
 
-                    Show_iziToast(Devices[index].Info.Name+" changed location","");
+                    Show_iziToast(dev.info.name+" changed location","");
+
                 }else
-                    Show_iziToast(Devices[index].Info.Name+" may be turned off","");
+                    Show_iziToast(dev.info.name+" may be turned off","");
                 
             });
 
@@ -877,26 +949,25 @@ $(document).ready(function(){
         if (ok)
             Show_ErrorSweetToast("Unable change payload","Simulator is stopped");
         else{
+            var dev = Devices.get(address);
 
             var data ={
-                "DevEUI": address,
-                "MType": mtype,
-                "Payload": $("#payload-modal").val()
+                "id": dev.id,
+                "mtype": mtype,
+                "payload": $("#payload-modal").val()
             };
     
-            socket.emit("change-payload",data);
-    
-            for (var i=0; i < Devices.length ; i++){
-                
-                if (Devices[i].Info.DevEUI == data.DevEUI){
-    
-                    Devices[i].Info.Status.MType = data.MType;
-                    Devices[i].Info.Status.Payload = data.Payload;
-                    break;
-                    
+            socket.emit("change-payload",data, (devEUI, ok) => {
+
+                if (ok){
+                    var dev = Devices.get(devEUI);
+
+                    dev.info.status.mtype = data.mtype;
+                    dev.info.status.payload = data.payload;
                 }
+
+            });
     
-            }
         }
 
         $('#modal-change-payload').modal('toggle');
@@ -917,14 +988,16 @@ function Init(){
 
     }).done((data)=>{
 
-        Gateways = data
+        $("#list-gateways").empty();
 
         data.forEach(element => {
-            
-            Add_ItemList($("#list-gateways"),element.Info.MACAddress, element.Info.Name);
+
+            Gateways.set(element.info.macAddress, element);
+
+            Add_ItemList_Gateways(element);
    
-            AddMarker(element.Info.MACAddress,element.Info.Name,
-                L.latLng(element.Info.Location.Latitude, element.Info.Location.Longitude),
+            AddMarker(element.info.macAddress,element.info.name,
+                L.latLng(element.info.location.latitude, element.info.location.longitude),
                 true);           
                   
         });
@@ -932,10 +1005,11 @@ function Init(){
         LoadListHome();
 
     }).fail((data)=>{
-        console.log("fail:"+data)
+        console.log("fail:",data)
     });
 
     //list of devices
+    
     $.ajax({
         url: "http://127.0.0.1:8000/api/devices",
         type:"GET",
@@ -945,14 +1019,16 @@ function Init(){
 
     }).done((data)=>{
 
-        Devices = data;
+        $("#list-devices").empty();
         
         data.forEach(element => {
 
-            Add_ItemList($("#list-devices"),element.Info.DevEUI, element.Info.Name);
+            Devices.set(element.info.devEUI,element)
             
-            AddMarker(element.Info.DevEUI, element.Info.Name,
-                L.latLng(element.Info.Location.Latitude, element.Info.Location.Longitude),
+            Add_ItemList_Devices(element);
+            
+            AddMarker(element.info.devEUI, element.info.name,
+                L.latLng(element.info.location.latitude, element.info.location.longitude),
                 false);               
 
         });
@@ -960,37 +1036,16 @@ function Init(){
         LoadListHome();
 
     }).fail((data)=>{
-        console.log("fail:"+ data)
+        console.log("fail:", data)
     });
 
 }
 
 //********************* Event *********************
-function KeyUp_ValidAddress(element, event, bytes){
 
-    var value = $(element).val().replaceAll(' ','');
-    value = value.toLowerCase();
+function Click_GenerateAddress(selector,bytes){
 
-    if(event.keyCode!=8){
-
-        if (value.length !=0 && event.which !=32){//insert :
-            
-            let valtmp = value.replaceAll(':','');
-
-            if (valtmp.length % 2 == 0 && valtmp.length < bytes)                 
-                $(element).val(value + ":");
-            else
-                $(element).val(value);
-        }
-    }
-    
-    return IsValidAddress($(element).val(),bytes == 16 ? true : false);
-
-}
-
-function Click_GenerateAddress(selector,pairs){
-
-    var ok = SetData(selector,GenerateAddress(pairs));
+    var ok = SetData(selector,GenerateAddress(bytes));
     if (ok)
         ValidationInput(selector,true);
     
@@ -1017,65 +1072,119 @@ function Show_ErrorSweetToast(title,message){
 
 //********************* List *********************
 
-function Add_ItemList(selector, mac, name){  
+function Add_ItemList_Gateways(element){  
 
-    var item = "<a href=\"#\" class=\"list-group-item list-group-item-action\" data-addr=\""+mac+"\">"+name+"</a>";
-    selector.append(item);
+    var img ="./img/green_circle.svg";
+    if(!element.info.active)
+        img ="./img/red_circle.svg";
+    
+    var type = "Virtual";
+    if(element.info.typeGateway)
+        type = "Real";
+
+    var item = "<tr data-addr=\""+element.info.macAddress+"\" class=\"p-5\">\
+                    <th id=\"state-gw\" scope=\"row\"> \
+                        <img src=\""+img+"\">\
+                    </th>\
+                    <td id=\"name-gw\" class=\"clickable text-orange font-weight-bold font-italic\" >"+element.info.name+"</td>\
+                    <td id=\"mac\">"+element.info.macAddress+"</td> \
+                    <td id=\"type\">"+type+"</td>\
+                </tr>";
+
+    $("#list-gateways").append(item);
 
 }
 
-function ShowList(selector, title){
+function Add_ItemList_Devices(element){  
+
+    var img ="./img/green_circle.svg";
+    if(!element.info.status.active)
+        img ="./img/red_circle.svg";
+
+    var item = "<tr data-addr=\""+element.info.devEUI+"\" class=\"p-5\">\
+                    <th id=\"state-dev\" scope=\"row\"> \
+                        <img src=\""+img+"\">\
+                    </th>\
+                    <td id=\"name-dev\" class=\"clickable text-blue font-weight-bold font-italic\" >"+element.info.name+"</td>\
+                    <td id=\"devEUI\" > "+element.info.devEUI+"</td> \
+                </tr>";
+
+    $("#list-devices").append(item);
+
+}
+
+function ShowList(selector, title, update){
 
     selector.addClass("active show");
     selector.siblings().removeClass("active show");
     $(".section-header h1").text(title);
-
+    
+    if (!update){
+        $("a[id *=dev]").parents("li").toggleClass("active");
+        $("a[id *=gw]").parents("li").toggleClass("active");  
+    }
 }
 
-function UpdateList(selector, obj, OldAddress, gw){
+function UpdateList(element, oldAddress, isGw){
 
-    selector.children("a[data-addr=\""+OldAddress+"\"]").text(obj.Name); 
-    selector.children("a[data-addr=\""+OldAddress+"\"]").text(obj.Info.Name);
-    if(gw)
-        selector.children("a[data-addr=\""+OldAddress+"\"]").attr("data-addr",obj.Info.MACAddress);         
-    else
-        selector.children("a[data-addr=\""+OldAddress+"\"]").attr("data-addr",obj.Info.DevEUI);
+    var img = "./img/green_circle.svg";
+    var newAddress;
+
+    $("tr[data-addr="+oldAddress+"] [id ^=name-]").text(element.info.name); 
+
+    if(isGw){
+        newAddress = element.info.macAddress;
+
+        if(!element.info.active)
+            img ="./img/red_circle.svg";
     
+        var type = "Virtual";
+        if(element.info.typeGateway)
+            type = "Real";
         
+        $("tr[data-addr="+oldAddress+"]").find("#type").text(type);
+        $("tr[data-addr="+oldAddress+"] #mac").text(element.info.macAddress);
+        
+        $("tr[data-addr="+oldAddress+"]").attr("data-addr",element.info.macAddress);
+    }            
+    else{
+        newAddress = element.info.devEUI;
+
+        if(!element.info.status.active)
+            img ="./img/red_circle.svg";
+
+        $("tr[data-addr="+oldAddress+"] #devEUI").text(element.info.devEUI);
+
+        $("tr[data-addr="+oldAddress+"]").attr("data-addr",element.info.devEUI);
+    }
+        
+    $("tr[data-addr="+newAddress+"] [id^=state-]").find("img").attr("src", img);
+    
 }
 
 function LoadListHome(){
     $("#list-home").empty();
 
     Devices.forEach(element =>{
-        $("#list-home").append("<a href=\"#list-home\" class=\"text-blue list-group-item list-group-item-action\" data-addr=\""+element.Info.DevEUI+"\">"+element.Info.Name+"</a>");
+        $("#list-home").append("<a href=\"#list-home\" class=\"text-blue list-group-item list-group-item-action\" data-addr=\""+element.info.devEUI+"\">"+element.info.name+"</a>");
     })
 
     Gateways.forEach(element =>{
-        $("#list-home").append("<a href=\"#list-home\" class=\"text-orange list-group-item list-group-item-action\" data-addr=\""+element.Info.MACAddress+"\">"+element.Info.Name+"</a>");
-    })
+        $("#list-home").append("<a href=\"#list-home\" class=\"text-orange list-group-item list-group-item-action\" data-addr=\""+element.info.macAddress+"\">"+element.info.name+"</a>");
+    });
     
 }
+
 //********************* Validation ********************* 
 function IsValidAddress(addr,eui64){
 
-    var addrFormat, len;
-
     if (addr == "") return false;
 
-    var value = addr.replaceAll(' ','');
-    addr = value;
-
-    if (eui64){//addr 64 bit
-        addrFormat = /^(([a-f0-9]{2}[:]){7}[a-f0-9]{2}[,]?)/;
-        len = value.length !=23 ? false:true;
-    }else{ //addr 16 bit
-        addrFormat = /^(([a-f0-9]{2}[:]){3}[a-f0-9]{2}[,]?)/;
-        len = value.length !=11 ? false:true;
-    }
-
-    return addrFormat.test(value) && len;
-    
+    if (eui64)//addr 64 bit
+        return /[0-9A-Fa-f]{16}/.test(addr) && addr.length == LengthEUI64;
+    else //addr 16 bit
+        return /[0-9A-Fa-f]{8}/.test(addr) && addr.length == LengthDevAddr;
+         
 }
 
 function ValidationInput(selector, cond){
@@ -1128,31 +1237,16 @@ function CanExecute(){
                       
 }
 
-function GenerateAddress(pairs){
+function GenerateAddress(bytes){
 
     var hexDigits = "0123456789abcdef";
     var Address = "";
 
-    for (var i = 0; i < pairs; i++) {
+    for (var i = 0; i < bytes; i++) {
         Address += hexDigits.charAt(Math.round(Math.random() * 15));
-        Address += hexDigits.charAt(Math.round(Math.random() * 15));
-        if (i != pairs-1) Address += ":";
     }
 
     return Address;
-}
-
-function ChangeFormatValue(value, dot){
-
-    if (dot){
-        
-        var parts = value.match(/.{1,2}/g);
-        var new_value = parts.join(":");
-    
-        return new_value;
-    }
-
-    return value.replaceAll(":","");
 }
 
 //keys
@@ -1189,10 +1283,7 @@ function SeeKey(selector, selector_image){
 }
 
 function GenerateKey(){
-
-    var tmp = GenerateAddress(PairsEUI64*2);//genera 16 valori separati da :
-
-    return tmp.replaceAll(":","");
+    return GenerateAddress(LengthEUI64*2);
 }
 
 //********************* Setting generated data ********************* 
@@ -1218,44 +1309,44 @@ function SetParameters(code, loadDevice, dev){
         $("#datarate-rx-2").append("<option value=\"-1\"> </option>");
         $("#table-body").empty();
 
-        for (var i = 0; i <= data.MaxRX1DROffset; i++)
+        for (var i = 0; i <= data.maxRX1DROffset; i++)
             $("#dr-offset-rx1").append("<option value=\""+i+"\">"+i+"</option>");
 
-        for (var i = 0; i < data.DataRate.length; i++){
+        for (var i = 0; i < data.dataRate.length; i++){
 
-            if (data.DataRate[i] != -1){
+            if (data.dataRate[i] != -1){
 
-                DataRates.push(data.DataRate[i]);
+                DataRates.push(data.dataRate[i]);
                 $("#datarate-uplink").append("<option value=\""+i+"\">"+i+"</option>");
                 $("#datarate-rx-2").append("<option value=\""+i+"\">"+i+"</option>");
 
-                var row = "<tr><th scope=\"row\">"+data.DataRate[i]+"</th>";
-                row += "<td>"+data.Configuration[i]+"</td>";
-                row += "<td>"+data.PayloadSize[i][0]+"</td>";
-                row += "<td>"+data.PayloadSize[i][1]+"</tr>";
+                var row = "<tr><th scope=\"row\">"+data.dataRate[i]+"</th>";
+                row += "<td>"+data.configuration[i]+"</td>";
+                row += "<td>"+data.payloadSize[i][0]+"</td>";
+                row += "<td>"+data.payloadSize[i][1]+"</td></tr>";
                 
                 $("#table-body").append(row);
             }
                 
         }
         
-        FrequencyRX2Default = data.FrequencyRX2;
-        DatarateRX2Default = data.DataRateRX2;
-        MinFrequency = data.MinFrequency;
-        Maxfrequency = data.MaxFrequency;
+        frequencyRX2Default = data.frequencyRX2;
+        dataRateRX2Default = data.dataRateRX2;
+        minFrequency = data.minFrequency;
+        maxFrequency = data.maxFrequency;
 
         var table = "<a href=\"#\" class=\"show-table\" data-toggle=\"modal\" data-target=\"#modal-table\">(Show Table)</a>";
         
-        $("#label-freq-rx2").text("Value in Hz. Default value is "+data.FrequencyRX2);  
-        $("#label-datarate-rx2").html("Default value is "+data.DataRateRX2+". "+table);
+        $("#label-freq-rx2").text("Value in Hz. Default value is "+data.frequencyRX2);  
+        $("#label-datarate-rx2").html("Default value is "+data.dataRateRX2+". "+table);
         $("#label-datarate-uplink").html(table);
 
         //da gestire il payload
 
         if (loadDevice){
-            $("#dr-offset-rx1").val(dev.Info.Configuration.RX1DROffset);
-            $("#datarate-rx-2").val(dev.Info.RXs[1].DataRate);
-            $("#datarate-uplink").val(dev.Info.Status.DataRate);
+            $("#dr-offset-rx1").val(dev.info.configuration.rx1DROffset);
+            $("#datarate-rx-2").val(dev.info.rxs[1].dataRate);
+            $("#datarate-uplink").val(dev.info.status.dataRate);
         }
 
     });
@@ -1288,9 +1379,26 @@ function Initmap(){
        MapModal = new L.Map('map-modal').addLayer(osmModal).setView([CoordDefault,CoordDefault], 8);
        MapModal.addControl(osmGeocoderModal);
 
-       MarkerGateway = L.marker([CoordDefault, CoordDefault]).addTo(MapGateway);
-       MarkerDevice = L.marker([CoordDefault, CoordDefault]).addTo(MapDevice);
-       MarkerModal = L.marker([CoordDefault, CoordDefault]).addTo(MapModal);
+       var icon = L.icon({
+            iconUrl: './img/orange_marker.svg',
+            iconSize: [32, 41],
+            iconAnchor:[19,41],
+            popupAnchor:[1,-34],
+            tooltipAnchor:[16,-28]
+        });
+
+       MarkerGateway = L.marker([CoordDefault, CoordDefault],{icon:icon}).addTo(MapGateway);
+
+       icon = L.icon({
+            iconUrl: './img/blue_marker.svg',
+            iconSize: [32, 41],
+            iconAnchor:[19,41],
+            popupAnchor:[1,-34],
+            tooltipAnchor:[16,-28]
+        });
+
+       MarkerDevice = L.marker([CoordDefault, CoordDefault],{icon:icon}).addTo(MapDevice);
+       MarkerModal = L.marker([CoordDefault, CoordDefault],{icon:icon}).addTo(MapModal);
 
 }
 
@@ -1310,7 +1418,8 @@ function GetMap(){
     return null;
 }
 
-function Change_Marker(e){
+function Click_Change_Marker(e){
+    
     ChangePositionMarker(-1, e.latlng);
     ChangeCoords(e.latlng);
 }
@@ -1376,7 +1485,7 @@ function AddMarker(Address, Name, latlng, isGw){
     if(!isGw){
 
         icon = L.icon({
-            iconUrl: './img/marker-icon.png',
+            iconUrl: './img/blue_marker.svg',
             iconSize: [32, 41],
             iconAnchor:[19,41],
             popupAnchor:[1,-34],
@@ -1386,12 +1495,12 @@ function AddMarker(Address, Name, latlng, isGw){
         Marker = L.marker(latlng,{icon:icon});
         Marker.bindPopup(GetMenuDevicePopup(Address,Name)).on("popupopen",RegisterEventsPopup);
         Marker.on("click", Click_marker);
-        Marker.on("popupclose", ClosePopup);
+        Marker.on("popupclose", FadeCircle);
     }    
     else{
 
         icon = L.icon({
-            iconUrl: './img/marker-yellow.png',
+            iconUrl: './img/orange_marker.svg',
             iconSize: [32, 41],
             iconAnchor:[19,41],
             popupAnchor:[1,-34],
@@ -1399,31 +1508,41 @@ function AddMarker(Address, Name, latlng, isGw){
         });
 
         Marker = L.marker(latlng,{icon:icon});
-        Marker.bindPopup(GetMenuGatewayPopup(Address, Name,latlng)).on("popupopen",RegisterEventsPopupGw);    
+        Marker.bindPopup(GetMenuGatewayPopup(Address, Name, latlng)).on("popupopen",RegisterEventsPopupGw);    
     }
         
-    MarkersHome.push({Address,Marker});
+    MarkersHome.set(Address,{Address,Marker});
     Marker.addTo(MapHome);
   
 }
 
-function UpdateMarker(address, name, latlng, isGw){
+function UpdateMarker(oldAddress, newAddress, name, latlng, isGw){
+    
+    var element = MarkersHome.get(oldAddress); 
+    if (element != undefined){
 
-    var index = MarkersHome.findIndex((x) => x.Address == address); 
-    if (index != -1)
-        MarkersHome[index].Marker.setLatLng(latlng);
-    else
-        AddMarker(address,name,latlng,isGw);
+        if(isGw)
+            element.Marker._popup.setContent(GetMenuGatewayPopup(newAddress, name, latlng))
+        else
+            element.Marker._popup.setContent(GetMenuDevicePopup(newAddress,name))
+
+        MapHome.closePopup();
+
+        element.Address = newAddress;
+        element.Marker.setLatLng(latlng);
+
+    }else
+        AddMarker(oldAddress, name, latlng, isGw);       
     
 }
 
-function ChangePositionMarker(address,latlng){
+function ChangePositionMarker(address, latlng){
 
     switch (TurnMap){
         case 0:     
-            var index = MarkersHome.findIndex((x) => x.Address == address); 
-            if (index != -1)
-                MarkersHome[index].Marker.setLatLng(latlng);
+            var element = MarkersHome.get(address); 
+            if (element != undefined)
+                element.Marker.setLatLng(latlng);
 
             break;
 
@@ -1444,20 +1563,19 @@ function ChangePositionMarker(address,latlng){
 
 function RemoveMarker(address){
 
-    var index = MarkersHome.findIndex((x) => x.Address == address);
-    if(index != -1)
-        MarkersHome[index].Marker.removeFrom(MapHome);
-
+    MarkersHome.get(address).Marker.removeFrom(MapHome);
+    MarkersHome.delete(address);
 }
 
-function GetMenuGatewayPopup(Address,Name, latlng){
+function GetMenuGatewayPopup(address, name, latlng){
 
-    var menu = "<p class=\"text-center m-0 \">"+Name+"</p>";
-        menu +="<p class=\"m-0 \">Latitude:"+latlng.lat+"</p>";
-        menu +="<p class=\"m-0 \">Longitude:"+latlng.lng+"</p>";
-        menu +="<div id=\"menu-actions\" data-addr=\""+Address+"\" class=\"mh-100 mt-1 overflow-auto list-group list-group-flush\">";
+    var menu = "<p class=\"text-center m-0 \">"+name+"</p>";
+        menu +="<p class=\"m-0 \">Latitude: "+latlng.lat+"</p>";
+        menu +="<p class=\"m-0 \">Longitude: "+latlng.lng+"</p>";
+        menu +="<div id=\"menu-actions\" data-addr=\""+address+"\" class=\"mh-100 mt-1 overflow-auto list-group list-group-flush\">";
         menu += "<a href=\"#Turn\" class=\"list-group-item item-action p-2\" id=\"turn-gw\"> Toggle On/Off</a>";
-        return menu;
+    
+    return menu;
 }
 
 function RegisterEventsPopupGw(){
@@ -1469,38 +1587,19 @@ function RegisterEventsPopupGw(){
             return
         }
 
-        var event = "Turn-OFF-gw";
         var address = $(this).parent("#menu-actions").attr("data-addr");
-        var index = GatewaysRunning.findIndex((x) => x.MACAddress == address);
-        var active = GatewaysRunning[index].Active;
-        
-        if (!active)
-            event = "Turn-ON-gw";
 
-        socket.emit(event, address, (address, response)=>{
+        socket.emit("toggleState-gw", Gateways.get(address).id);
 
-            var index = GatewaysRunning.findIndex((x) => x.MACAddress == address);
-
-            if(response){
-                GatewaysRunning[index].Active = !GatewaysRunning[index].Active;
-                if (GatewaysRunning[index].Active)
-                    Show_iziToast(Gateways[index].Info.Name +" Turn ON","");
-                else
-                    Show_iziToast(Gateways[index].Info.Name +" Turn OFF","");
-            }                  
-            
-        });
-
-        index = MarkersHome.findIndex((x) => x.Address == address);
-        MarkersHome[index].Marker.closePopup();
+        MarkersHome.get(address).Marker.closePopup();
        
     });
 }
 
-function GetMenuDevicePopup(Address, Name){
+function GetMenuDevicePopup(address, name){
 
-    var menu = "<p id=\"name-clicked-dev\" class=\"text-center m-0 \">"+Name+"</p>";
-    menu +="<div id=\"menu-actions\" data-addr=\""+Address+"\" class=\"mh-100 mt-1 overflow-auto list-group list-group-flush\">";
+    var menu = "<p id=\"name-clicked-dev\" class=\"text-center m-0 \">"+name+"</p>";
+    menu +="<div id=\"menu-actions\" data-addr=\""+address+"\" class=\"mh-100 mt-1 overflow-auto list-group list-group-flush\">";
     menu += "<a href=\"#Turn\" class=\"list-group-item item-action p-2\" id=\"Turn\"> Toggle On/Off</a>";
     menu += "<a href=\"#send-cdataUp\" class=\"list-group-item item-action p-2\" data-toggle=\"modal\" data-target=\"#modal-send-data\" id=\"send-cdataUp\"> Send ConfirmedDataUp</a>";
     menu += "<a href=\"#send-uncdataUp\" class=\"list-group-item item-action p-2\" data-toggle=\"modal\" data-target=\"#modal-send-data\" id=\"send-uncdataUp\"> Send UnConfirmedDataUp</a>";
@@ -1524,60 +1623,35 @@ function RegisterEventsPopup(){
             return
         }
 
-        var event = "Turn-OFF-dev";
         var address = $(this).parent("#menu-actions").attr("data-addr");
-        var index = DeviceRunning.findIndex((x) => x.DevEUI == address);
-        var active = DeviceRunning[index].Active;
+        
+        socket.emit("toggleState-dev", Devices.get(address).id);
 
-        if (!active)
-            event = "Turn-ON-dev";
-
-        socket.emit(event,address, (address, response)=>{
-            
-            var index = DeviceRunning.findIndex((x) => x.DevEUI == address);
-            var i = Devices.findIndex((x) => x.Info.DevEUI == address);
-
-            if(response){
-
-                DeviceRunning[index].Active = !DeviceRunning[index].Active;  
-
-                if (DeviceRunning[index].Active)
-                    Show_iziToast(Devices[i].Info.Name +" Turn ON","");
-                else
-                    Show_iziToast(Devices[i].Info.Name +" Turn OFF","");         
-
-            }
-            else
-                Show_iziToast(Devices[i].Info.Name, "Unable execute command");           
-            
-        });
-
-        index = MarkersHome.findIndex((x) => x.Address == address);
-        MarkersHome[index].Marker.closePopup();
+        MarkersHome.get(address).Marker.closePopup();
        
     });
 
     $("#send-cdataUp").on('click',function(){
 
         var address = $(this).parent("#menu-actions").attr("data-addr");
+
         $('#modal-send-data').attr("data-addr",address);
         $('#modal-send-data').attr("data-mtype",ConfirmedData_uplink);
         $("#modal-send-data").find("[name=send-payload]").val("");
 
-        var index = MarkersHome.findIndex((x) => x.Address == address);
-        MarkersHome[index].Marker.closePopup();
+        MarkersHome.get(address).Marker.closePopup();
 
     });
 
     $("#send-uncdataUp").on('click',function(){
 
         var address = $(this).parent("#menu-actions").attr("data-addr");
+
         $('#modal-send-data').attr("data-addr",address);
         $('#modal-send-data').attr("data-mtype",UnConfirmedData_uplink);
         $("#modal-send-data").find("[name=send-payload]").val("");
 
-        var index = MarkersHome.findIndex((x) => x.Address == address);
-        MarkersHome[index].Marker.closePopup();
+        MarkersHome.get(address).Marker.closePopup();
 
     });
 
@@ -1587,20 +1661,20 @@ function RegisterEventsPopup(){
         var cmd = $(this).attr("data-cmd");
 
         if (cmd == "PingSlotInfoReq"){
+            $("[name=periodicity]").removeClass("is-valid is-invalid");
             $("[name=periodicity]").val("");
             $('#modal-pingSlotInfoReq').attr("data-addr",address);
-            return;
-        }
-        else{
+            
+        }else{
 
             var ok = CanExecute();
             if (ok){
                 Show_ErrorSweetToast("Unable send MAC Command","Simulator is stopped");
             }else{
-                
+
                 var data = {
-                    "DevEUI": address,
-                    "CID":cmd
+                    "id": Devices.get(address).id,
+                    "cid":cmd
                 }
                
                 socket.emit("send-MACCommand",data);
@@ -1608,8 +1682,7 @@ function RegisterEventsPopup(){
 
         }
 
-        var index = MarkersHome.findIndex((x) => x.Address == address);
-        MarkersHome[index].Marker.closePopup();
+        MarkersHome.get(address).Marker.closePopup();
 
     });
 
@@ -1618,12 +1691,10 @@ function RegisterEventsPopup(){
         var address = $(this).parent("#menu-actions").attr("data-addr");
         $('#modal-location').attr("data-addr",address);
 
-        $("[name=input-latitude]").val("");
-        $("[name=input-longitude]").val("");
-        $("[name=input-altitude]").val("");
+        $("#modal-location input").removeClass("is-valid is-invalid");
+        $("#modal-location input").not("[type=submit]").val("");
 
-        var index = MarkersHome.findIndex((x) => x.Address == address);
-        MarkersHome[index].Marker.closePopup();
+        MarkersHome.get(address).Marker.closePopup();
         TurnMap = 3;
 
     });
@@ -1634,53 +1705,56 @@ function RegisterEventsPopup(){
         $('#modal-change-payload').attr("data-addr",address);
 
         $("#payload-modal").val("")
-
-        var index = MarkersHome.findIndex((x) => x.Address == address);
-        MarkersHome[index].Marker.closePopup();
+        
+        MarkersHome.get(address).Marker.closePopup();
 
     });
   
 }
 
-function DrawRange(latLng, range){
-    Circle = new L.circle([latLng.lat, latLng.lng], {
-        color: '#008AFF',
-        fillColor: '#008AFF',
-        fillOpacity: 0.5,
-        radius: range
-    }).addTo(MapHome);
-}
-
 function Click_marker(){
     
+    //ottengo l'indirizzo dal popup del marker
     var content = this._popup._content;
     var start = content.indexOf("data-addr=\"")
     var address = content.substring(start+11, start+27);
-    //ottengo l'indirizzo dal popup del marker
-    //non può essere recuperato dall'evento popupopen in quanto l'indirizzo non è aggiornato
+    //non può essere recuperato dall'evento popupopen 
+    //in quanto l'indirizzo non è ancora aggiornato
 
-    var index = Devices.findIndex((x) => x.Info.DevEUI == address);
-    var range = Devices[index].Info.Configuration.Range;
-    var lat = Devices[index].Info.Location.Latitude;
-    var lng = Devices[index].Info.Location.Longitude;
+    var dev = Devices.get(address);
+    var range = dev.info.configuration.range;
+    var lat = dev.info.location.latitude;
+    var lng = dev.info.location.longitude;
     var latlng = new L.latLng(lat,lng);
 
     DrawRange(latlng, range);
 }
 
-function ClosePopup(){
-    Circle.removeFrom(MapHome);
+function FadeCircle(){
+    if (Circle != undefined) 
+        Circle.removeFrom(MapHome);
+}
+
+function DrawRange(latLng, range){
+
+    FadeCircle();
+
+    Circle = new L.circle([latLng.lat, latLng.lng], {
+        color: '#0D47A1',
+        fillColor: '#0D47A1',
+        fillOpacity: 0.5,
+        radius: range
+    }).addTo(MapHome);
+    
 }
 
 //********************* Gateway *********************
 function CleanInputGateway(){
 
-    $(".section-header h1").text("Add new Gateway");
-
-    $("#add-gw input").val("");
+    $("#add-gw input").not("[type=submit]").val("");
     $("#add-gw input").removeClass("is-valid is-invalid");
 
-    $("#choose-type label").removeClass("focus active");
+    $("#choose-type button").removeClass("active");
 
     $("[id$=-gw]").prop("checked",false);
     $("#info-gw").addClass("hide");
@@ -1693,20 +1767,18 @@ function CleanInputGateway(){
 
 }
 
-function Load_Gateway(gw) {
+function LoadGateway(gw) {
 
-    var MAC = ChangeFormatValue(gw.Info.MACAddress, true);
+    $("[name=input-name-gw]").val(gw.info.name);
+    $("[name=input-MAC-gw]").val(gw.info.macAddress);
+    $("#checkbox-active-gw").prop("checked",gw.info.active);
 
-    $("[name=input-name-gw]").val(gw.Info.Name);
-    $("[name=input-MAC-gw]").val(MAC);
-    $("#checkbox-active-gw").prop("checked",gw.Info.Active);
-
-    if (!gw.Info.TypeGateway){
-        $("#virtual-gw").parent("label").addClass("focus active");
+    if (!gw.info.typeGateway){
+        $("#virtual-gw").addClass("active");
         $("#info-virtual-gw").removeClass("hide");
         $("#info-real-gw").addClass("hide");
     }else{
-        $("#real-gw").parent("label").addClass("focus active");
+        $("#real-gw").addClass("active");
         $("#info-virtual-gw").addClass("hide");
         $("#info-real-gw").removeClass("hide");
     }
@@ -1714,25 +1786,25 @@ function Load_Gateway(gw) {
     $("#info-gw").removeClass("hide");
 
     //virtual
-    $("[name=input-KeepAlive]").val(gw.Info.KeepAlive);
+    $("[name=input-KeepAlive]").val(gw.info.keepAlive);
 
     //real
-    $("[name=input-IP-gw]").val(gw.Info.Address);
-    $("[name=input-port-gw]").val(gw.Info.Port);
+    $("[name=input-IP-gw]").val(gw.info.ip);
+    $("[name=input-port-gw]").val(gw.info.port);
     
     //map
-    var latlng =  L.latLng(gw.Info.Location.Latitude, gw.Info.Location.Longitude); 
+    var latlng =  L.latLng(gw.info.location.latitude, gw.info.location.longitude); 
     ChangePositionMarker(-1,latlng);
     ChangeView(latlng);
 
     ChangeCoords(latlng);
-    $("#add-gw [name=input-altitude]").val(gw.Info.Location.Altitude);
+    $("#add-gw [name=input-altitude]").val(gw.info.location.altitude);
            
     $("#gws").removeClass("show active");
     $("#add-gw").addClass("show active");
     $(".section-header h1").text("Update Gateway");
 
-    ChangeStateInputGateway(true, gw.Info.MACAddress);
+    ChangeStateInputGateway(true, gw.info.macAddress);
     setTimeout(()=>{
         MapGateway.invalidateSize();
     },300);
@@ -1742,8 +1814,7 @@ function Load_Gateway(gw) {
 function ChangeStateInputGateway(value,mac){
 
     $("#add-gw input").prop({"disabled":value,"readonly":value});
-    $("#choose-type label").prop({"disabled":value,"readonly":value});
-    
+    $("#choose-type button").prop({"disabled":value,"readonly":value});
     if (!value){//new gateway
         $("[name=btn-edit-gw]").hide();
         $("[name=btn-delete-gw]").hide();
@@ -1758,7 +1829,7 @@ function ChangeStateInputGateway(value,mac){
 
 function Click_DeleteGateway(){
 
-    var MACAddress = $("#div-buttons-gw").data("addr");
+    var macAddress = $("#div-buttons-gw").data("addr");
     
     swal({
         title: 'Are you sure?',
@@ -1770,12 +1841,10 @@ function Click_DeleteGateway(){
         .then((willDelete) => {
         if (willDelete) {
 
+            var gw = Gateways.get(macAddress);
+            
             var jsonData = JSON.stringify({
-
-                "Info":{
-                    "MACAddress" : MACAddress
-                }
- 
+                "id":gw.id
             });
 
             //ajax
@@ -1784,14 +1853,12 @@ function Click_DeleteGateway(){
             
                 if (data.status){
 
-                    $("#list-gateways").children("a[data-addr=\""+MACAddress+"\"]").remove();
+                    $("tr[data-addr=\""+macAddress+"\"]").remove();
 
-                    var index = Gateways.findIndex((x) => x.Info.MACAddress == MACAddress);
-                    if (index > -1) 
-                        Gateways.splice(index, 1);
+                    Gateways.delete(macAddress);
 
-                    RemoveMarker(MACAddress);
-                    ShowList($("#gws"),"List gateways");
+                    RemoveMarker(macAddress);
+                    ShowList($("#gws"),"List gateways",true);
                     Show_SweetToast('Gateway has been deleted!',"");
 
                 }
@@ -1810,19 +1877,19 @@ function Click_DeleteGateway(){
 
 function Click_SaveGateway(){
 
-    var MACAddress = $("#div-buttons-gw").data("addr");
+    var macAddress = $("#div-buttons-gw").data("addr");
 
-    var Location, TypeGateway, valid;
-    var index = -1;
+    var TypeGateway, valid;
+    var id = -1;
 
     var NameGateway = $("[name=input-name-gw]");
     var MACGateway = $("[name=input-MAC-gw]");
-    var IsActive = $("#checkbox-active-gw").prop("checked");  
+    var isActive = $("#checkbox-active-gw").prop("checked");  
     var KeepAlive = $("[name=input-KeepAlive]");
     var IPGateway = $("[name=input-IP-gw]");
     var PortGateway = $("[name=input-port-gw]");
-    
-    if ($("#virtual-gw").parent("label").hasClass("active")){//virtual
+
+    if ($("#virtual-gw").hasClass("active")){//virtual
 
         TypeGateway = false;
 
@@ -1835,8 +1902,11 @@ function Click_SaveGateway(){
             valid = KeepAlive.val() <= 0 ? false : true; 
 
         ValidationInput(KeepAlive, valid);
+        IPGateway.val("");
+        PortGateway.val("");
 
-    }else if ($("#real-gw").parent("label").hasClass("active")){//real
+
+    }else if ($("#real-gw").hasClass("active")){//real
 
         TypeGateway = true;
         
@@ -1847,6 +1917,8 @@ function Click_SaveGateway(){
         ValidationInput(IPGateway, validPort);
 
         valid = validPort ? valid : false;
+
+        KeepAlive.val("");
     }
 
     //map
@@ -1858,74 +1930,74 @@ function Click_SaveGateway(){
     latitude.val(latitude.val()=="" ? 0 : latitude.val());
     longitude.val(longitude.val()=="" ? 0 : longitude.val());
     altitude.val(altitude.val()=="" ? 0 : altitude.val());
+
     var validLat = IsValidNumber(Number(latitude.val()),-90.01, 90.01);
     var validLng = IsValidNumber(Number(longitude.val()),-180.01, 180.01);
 
-    Location = {
-        "Latitude":Number(latitude.val()),
-        "Longitude": Number(longitude.val()),
-        "Altitude": Number(altitude.val())
+    var location = {
+        "latitude":Number(latitude.val()),
+        "longitude": Number(longitude.val()),
+        "altitude": Number(altitude.val())
     }
-
-    ValidationInput(latitude, validLat);
-    ValidationInput(longitude, validLng);
-    ValidationInput(altitude, true);
-
-    if (MACAddress != undefined && MACAddress != "")// update gateway
-        index = Gateways.findIndex((x) => x.Info.MACAddress == MACAddress);    
 
     //validation
     var validNameGateway = NameGateway.val() == "" ? false : true;  
     var validMACGateway = IsValidAddress(MACGateway.val(),true) ? true : false; 
 
-    ValidationInput(NameGateway, validNameGateway);   
-    ValidationInput(MACGateway, validMACGateway);
-
-    if(!validMACGateway || !validNameGateway || !valid || 
-        !validLat || !validLng ){//Error
-         
+    if(!validMACGateway || !validNameGateway || !valid || !validLat || !validLng ){//Error
+       
         Show_ErrorSweetToast("Error: values are incorrect","");
+
+        ValidationInput(NameGateway, validNameGateway);   
+        ValidationInput(MACGateway, validMACGateway);
+        ValidationInput(latitude, validLat);
+        ValidationInput(longitude, validLng);
+        ValidationInput(altitude, true); 
+
         return;
     }
 
-    var gw ={
-        "Info":{
-            "Active": IsActive,
-            "Name" : NameGateway.val(),
-            "MACAddress" : ChangeFormatValue(MACGateway.val(),false),//tolgo i :
-            "KeepAlive": Number(KeepAlive.val()),
-            "TypeGateway":TypeGateway,
-            "Address":IPGateway.val(),
-            "Port": PortGateway.val(),
-            "Location":Location
+    if (macAddress != undefined && macAddress != "") // update gateway
+        id = Gateways.get(macAddress).id;  
+
+    var gw = {
+        "id": id,
+        "info":{
+            "active": isActive,
+            "name" : NameGateway.val(),
+            "macAddress" : MACGateway.val().toLowerCase(),
+            "keepAlive": Number(KeepAlive.val()),
+            "typeGateway":TypeGateway,
+            "ip":IPGateway.val(),
+            "port": PortGateway.val(),
+            "location":location
         }
     };
 
     //file JSON
-    var jsonData= JSON.stringify({
-        "Gateway":gw,
-        "Index":index        
-    });
+    var jsonData= JSON.stringify(gw);
 
-    if (MACAddress == undefined ||
-        MACAddress == ""){//new gateway
-        //ajax  
+    if (macAddress == undefined || macAddress == ""){//new gateway
+  
         $.post("http://localhost:8000/api/add-gateway",jsonData, "json")
         .done((data)=>{
 
             switch (data.code){
                 case 0:
-                
-                    Gateways.push(gw);
 
-                    AddMarker(gw.Info.MACAddress,gw.Info.Name,
-                        L.latLng(gw.Info.Location.Latitude,gw.Info.Location.Longitude),
+                    gw.id = data.id;
+
+                    Gateways.set(gw.info.macAddress,gw);
+
+                    AddMarker(gw.info.macAddress,gw.info.name,
+                        L.latLng(gw.info.location.latitude,gw.info.location.longitude),
                         true);
- 
-                    
-                    Add_ItemList($("#list-gateways"),gw.Info.MACAddress, gw.Info.Name);
+            
+                    Add_ItemList_Gateways(gw);
+
                     CleanInputGateway();
 
+                    ShowList($("#gws"),"List gateways",false);
                     Show_SweetToast("Gateway Saved","");
 
                     return;
@@ -1964,13 +2036,14 @@ function Click_SaveGateway(){
             switch (data.code){
                 case 0:
 
-                    Gateways[index] = gw;
+                    Gateways.delete(macAddress);
+                    Gateways.set(gw.info.macAddress, gw);
 
-                    var latlng = L.latLng(gw.Info.Location.Latitude, gw.Info.Location.Longitude);      
-                    UpdateMarker(gw.Info.MACAddress,gw.Info.Name,latlng,true);
+                    var latlng = L.latLng(gw.info.location.latitude, gw.info.location.longitude);      
+                    UpdateMarker(macAddress, gw.info.macAddress, gw.info.name, latlng, true);
                 
-                    UpdateList($("#list-gateways"),gw, MACAddress, true);
-                    ShowList($("#gws"),"List gateways");
+                    UpdateList(gw, macAddress, true);
+                    ShowList($("#gws"),"List gateways",true);
 
                     Show_SweetToast("Gateway updated","");
     
@@ -2021,7 +2094,7 @@ function CleanActivation(){
 
 function CleanInputDevice(){
 
-    $("#add-dev input").val("");
+    $("#add-dev input").not("[type=submit]").val("");
     $("#add-dev input").removeClass("is-valid is-invalid");
     $("#add-dev [type=checkbox]").prop("checked",false);
 
@@ -2114,67 +2187,65 @@ function ChangeStateInputDevice(value,eui){
 
 function LoadDevice(dev){
 
-    var valDevEUI = ChangeFormatValue(dev.Info.DevEUI,true);
-
     //general
-    $("[name=checkbox-active-dev]").prop("checked",dev.Info.Status.Active);
-    $("[name=input-name-dev]").val(dev.Info.Name);
-    $("[name=input-devEUI]").val(valDevEUI);
-    $("#region").val(dev.Info.Configuration.Region);
+    $("[name=checkbox-active-dev]").prop("checked",dev.info.status.active);
+    $("[name=input-name-dev]").val(dev.info.name);
+    $("[name=input-devEUI]").val(dev.info.devEUI);
+    $("#region").val(dev.info.configuration.region);
     
-    SetParameters(dev.Info.Configuration.Region, true,dev);
+    SetParameters(dev.info.configuration.region, true,dev);
 
     //activation
-    $("#checkbox-otaa-dev").prop("checked",dev.Info.Configuration.SupportedOtaa);
-    if(dev.Info.Configuration.SupportedOtaa)
-        $("[name=input-key-app]").val(dev.Info.AppKey);    
+    $("#checkbox-otaa-dev").prop("checked",dev.info.configuration.supportedOtaa);
+    if(dev.info.configuration.supportedOtaa)
+        $("[name=input-key-app]").val(dev.info.appKey);    
     else{
-        $("[name=input-devAddr]").val(ChangeFormatValue(dev.Info.DevAddr,true));
-        $("[name=input-key-nwkS]").val(dev.Info.NwkSKey);
-        $("[name=input-key-appS").val(dev.Info.AppSKey);
+        $("[name=input-devAddr]").val(dev.info.devAddr);
+        $("[name=input-key-nwkS]").val(dev.info.nwkSKey);
+        $("[name=input-key-appS").val(dev.info.appSKey);
     }
 
     //class A
-    $("[name=input-rx-1-delay]").val(dev.Info.RXs[0].Delay);
-    $("[name=input-rx-1-duration]").val(dev.Info.RXs[0].DurationOpen);   
-    $("[name=input-rx-2-delay]").val(dev.Info.RXs[1].Delay);
-    $("[name=input-rx-2-duration]").val(dev.Info.RXs[1].DurationOpen);
-    $("[name=input-frequency-rx-2]").val(dev.Info.RXs[1].Channel.FreqDownlink);   
-    $("[name=input-ackTimeout]").val(dev.Info.Configuration.AckTimeout);
-    $("#dr-offset-rx1").val(dev.Info.Configuration.RX1DROffset);
+    $("[name=input-rx-1-delay]").val(dev.info.rxs[0].delay);
+    $("[name=input-rx-1-duration]").val(dev.info.rxs[0].durationOpen);   
+    $("[name=input-rx-2-delay]").val(dev.info.rxs[1].delay);
+    $("[name=input-rx-2-duration]").val(dev.info.rxs[1].durationOpen);
+    $("[name=input-frequency-rx-2]").val(dev.info.rxs[1].channel.freqDownlink);   
+    $("[name=input-ackTimeout]").val(dev.info.configuration.ackTimeout);
+    $("#dr-offset-rx1").val(dev.info.configuration.rx1DROffset);
 
     //ClassB,C
-    $("#classB-dev").prop("checked", dev.Info.Configuration.SupportedClassB);
-    $("#classC-dev").prop("checked", dev.Info.Configuration.SupportedClassC);
+    $("#classB-dev").prop("checked", dev.info.configuration.supportedClassB);
+    $("#classC-dev").prop("checked", dev.info.configuration.supportedClassC);
 
     //frame settings
     
-    $("[name=input-fport]").val(dev.Info.Status.InfoUplink.FPort);
-    $("[name=input-retransmission]").val(dev.Info.Configuration.NbRetransmission)
-    $("[name=input-fcnt]").val(dev.Info.Status.InfoUplink.FCnt);
-    $("#datarate-uplink").val(dev.Info.Status.DataRate);
+    $("[name=input-fport]").val(dev.info.status.infoUplink.fport);
+    $("[name=input-retransmission]").val(dev.info.configuration.nbRetransmission)
+    $("[name=input-fcnt]").val(dev.info.status.infoUplink.fcnt);
+    $("#datarate-uplink").val(dev.info.status.dataRate);
 
-    $("[name=input-validate-counter]").prop("checked",dev.Info.Configuration.DisableFCntDown);  
-    if (!dev.Info.Configuration.DisableFCntDown)
-        $("[name=input-fcnt-downlink]").val(dev.Info.Status.FCntDown);
+    $("[name=input-validate-counter]").prop("checked",dev.info.configuration.disablefcntDown);  
+    if (!dev.info.configuration.disablefcntDown)
+        $("[name=input-fcnt-downlink]").val(dev.info.status.fcntDown);
 
     //features
-    $("[name=input-ADR]").prop("checked", dev.Info.Configuration.SupportedADR);
-    $("[name=input-range]").val(dev.Info.Configuration.Range);
+    $("[name=input-ADR]").prop("checked", dev.info.configuration.supportedADR);
+    $("[name=input-range]").val(dev.info.configuration.range);
     
     //location
-    var latlng =  L.latLng(dev.Info.Location.Latitude, dev.Info.Location.Longitude); 
+    var latlng =  L.latLng(dev.info.location.latitude, dev.info.location.longitude); 
     ChangePositionMarker(-1,latlng);
     ChangeView(latlng);
 
     ChangeCoords(latlng);
-    $("#add-dev [name=input-altitude]").val(dev.Info.Location.Altitude);
+    $("#add-dev [name=input-altitude]").val(dev.info.location.altitude);
     
 
     //payload
-    $("[name=input-sendInterval]").val(dev.Info.Configuration.SendInterval);
+    $("[name=input-sendInterval]").val(dev.info.configuration.sendInterval);
 
-    if(dev.Info.Status.MType == ConfirmedData_uplink){
+    if(dev.info.status.mtype == ConfirmedData_uplink){
         $("#confirmed").prop("checked",true);
         $("#unconfirmed").prop("checked",false);
     }else{
@@ -2182,12 +2253,12 @@ function LoadDevice(dev){
         $("#unconfirmed").prop("checked",true);
     }
 
-    $("#fragments").prop("checked",dev.Info.Configuration.SupportedFragment);
-    $("#truncates").prop("checked",!dev.Info.Configuration.SupportedFragment);
+    $("#fragments").prop("checked",dev.info.configuration.supportedFragment);
+    $("#truncates").prop("checked",!dev.info.configuration.supportedFragment);
   
-    $("#textarea-payload").val(dev.Info.Status.Payload);
+    $("#textarea-payload").val(dev.info.status.payload);
 
-    ChangeStateInputDevice(true,dev.Info.DevEUI);
+    ChangeStateInputDevice(true,dev.info.devEUI);
 
 
     $("#devs").removeClass("show active");
@@ -2198,8 +2269,6 @@ function LoadDevice(dev){
 
 function Click_DeleteDevice(){
 
-    var devEUI = $("#div-buttons-dev").data("addr");
-
     swal({
         title: 'Are you sure?',
         text: 'Once deleted, you will not be able to recover this device!',
@@ -2209,9 +2278,11 @@ function Click_DeleteDevice(){
         })
         .then((willDelete) => {
         if (willDelete) {
-    
+
+            var devEUI = $("#div-buttons-dev").data("addr");
+
             var jsonData = JSON.stringify({
-                "DevEUI" : devEUI
+                "id" : Devices.get(devEUI).id
             });
 
             //ajax
@@ -2220,15 +2291,12 @@ function Click_DeleteDevice(){
         
                 if (data.status){
         
-                    $("[id^=list-devices]").children("a[data-addr=\""+devEUI+"\"]").remove();
+                    $("tr[data-addr=\""+devEUI+"\"]").remove();
 
-                    var index = Devices.findIndex((x) => x.Info.DevEUI == devEUI);
-                    if (index > -1) {
-                        Devices.splice(index, 1);
-                    }
+                    Devices.delete(devEUI);
 
                     RemoveMarker(devEUI);
-                    ShowList($("#devs"),"List devices");
+                    ShowList($("#devs"),"List devices",true);
                     Show_SweetToast("Device Deleted","");
 
                 }
@@ -2245,7 +2313,6 @@ function Click_DeleteDevice(){
 
 function Click_SaveDevice(){
 
-    var index = -1;
     var validation;
 
     //******************* general ***************************
@@ -2256,46 +2323,43 @@ function Click_SaveDevice(){
     var region = $("#region");
 
     var validNameDevice = name.val() == "" ? false : true;  
-    var validDevEUI = IsValidAddress(devEUI.val(),true);
-    var validRegion = region.val() == -1 ? false: true;
-    ValidationInput(name, validNameDevice);
-    ValidationInput(devEUI, validDevEUI);
-    ValidationInput(region, validRegion);
-
-    validation = validDevEUI && validNameDevice && validRegion;
+    var validdevEUI = IsValidAddress(devEUI.val(),true);
+    var validregion = region.val() == -1 ? false: true;
+    
+    validation = validdevEUI && validNameDevice && validregion;
 
     //******************* activation ***************************
 
     var supportedOtaa = $("#checkbox-otaa-dev").prop("checked");
     var devAddr = $("[name=input-devAddr]");
-    var NwkSKey = $("[name=input-key-nwkS]");
-    var AppSKey = $("[name=input-key-appS");
-    var AppKey = $("[name=input-key-app]");
+    var nwkSKey = $("[name=input-key-nwkS]");
+    var appSKey = $("[name=input-key-appS");
+    var appKey = $("[name=input-key-app]");
 
-    var valueDevAddr = "";
-    var valueNwkSKey = "";
-    var valueAppSKey = "";
+    var valuedevAddr = "";
+    var valuenwkSKey = "";
+    var valueappSKey = "";
 
     if (supportedOtaa){
 
-        ValidationInput(AppKey, IsValidKey(AppKey.val()));
-        validation = validation && IsValidKey(AppKey.val());
+        ValidationInput(appKey, IsValidKey(appKey.val()));
+        validation = validation && IsValidKey(appKey.val());
 
     }else{
 
-        var validDevAddr = IsValidAddress(devAddr.val(), false);       
-        var validNwkSkey = IsValidKey(NwkSKey.val());        
-        var validAppSKey = IsValidKey(AppSKey.val());
+        var validdevAddr = IsValidAddress(devAddr.val(), false);       
+        var validnwkSKey = IsValidKey(nwkSKey.val());        
+        var validappSKey = IsValidKey(appSKey.val());
 
-        valueDevAddr = devAddr.val();
-        valueNwkSKey = NwkSKey.val();
-        valueAppSKey = AppSKey.val(); 
+        valuedevAddr = devAddr.val();
+        valuenwkSKey = nwkSKey.val();
+        valueappSKey = appSKey.val(); 
 
-        ValidationInput(devAddr, validDevAddr);
-        ValidationInput(NwkSKey, validNwkSkey);
-        ValidationInput(AppSKey, validAppSKey);
+        ValidationInput(devAddr, validdevAddr);
+        ValidationInput(nwkSKey, validnwkSKey);
+        ValidationInput(appSKey, validappSKey);
 
-        validation = validation && validDevAddr && validNwkSkey && validAppSKey;
+        validation = validation && validdevAddr && validnwkSKey && validappSKey;
     }
     
     //******************* class A ***************************
@@ -2306,7 +2370,7 @@ function Click_SaveDevice(){
     var delayRX2 = $("[name=input-rx-2-delay]");
     var durationRX2 = $("[name=input-rx-2-duration]");
     var frequencyRX2 = $("[name=input-frequency-rx-2]");
-    var datarateRX2 = $("#datarate-rx-2");
+    var dataRateRX2 = $("#datarate-rx-2");
     var ackTimeout = $("[name=input-ackTimeout]");
 
     delayRX1.val(delayRX1.val() == "" ? DelayDefault : delayRX1.val());
@@ -2321,29 +2385,21 @@ function Click_SaveDevice(){
     durationRX2.val(durationRX2.val() == "" ? DurationDefault : durationRX2.val());
     var validDurationRX2 = IsValidNumber(durationRX2.val(),0,Infinity);
  
-    frequencyRX2.val(frequencyRX2.val() == "" ? FrequencyRX2Default : frequencyRX2.val());
-    var validFrequencyRX2 = IsValidNumber(frequencyRX2.val(),MinFrequency-0.01,Maxfrequency+0.01);
+    frequencyRX2.val(frequencyRX2.val() == "" ? frequencyRX2Default : frequencyRX2.val());
+    var validfrequencyRX2 = IsValidNumber(frequencyRX2.val(),minFrequency-0.01,maxFrequency+0.01);
 
-    datarateRX2.val(datarateRX2.val() == -1 ? DatarateRX2Default : datarateRX2.val());
-    ValidationInput(datarateRX2,true);
-
+    dataRateRX2.val(dataRateRX2.val() == -1 ? dataRateRX2Default : dataRateRX2.val());
+    
     ackTimeout.val(ackTimeout.val() == "" ? ACKTimeoutDefault : ackTimeout.val());
-    var validAckTimeout= IsValidNumber(ackTimeout.val(),-1,4);
-
-    ValidationInput(delayRX1,validDelayRX1);
-    ValidationInput(durationRX1,validDurationRX1);
-    ValidationInput(delayRX2,validDelayRX2);
-    ValidationInput(durationRX2,validDurationRX2);
-    ValidationInput(frequencyRX2,validFrequencyRX2);
-    ValidationInput(ackTimeout,validAckTimeout);
+    var validackTimeout= IsValidNumber(ackTimeout.val(),-1,4);
 
     validation = validation && validDelayRX1 && validDelayRX2 && validDurationRX1;
-    validation = validation && validDurationRX2 && validFrequencyRX2 && validAckTimeout;
+    validation = validation && validDurationRX2 && validfrequencyRX2 && validackTimeout;
 
     //******************* Class B e C ***************************
 
-    var isClassBActive = $("#classB-dev").prop("checked");
-    var isClassCActive = $("#classC-dev").prop("checked");
+    var isClassBactive = $("#classB-dev").prop("checked");
+    var isClassCactive = $("#classC-dev").prop("checked");
 
     //******************* frame's settings ***************************
 
@@ -2351,8 +2407,8 @@ function Click_SaveDevice(){
     var fport = $("[name=input-fport]");
     var retransmission = $("[name=input-retransmission]")
     var Fcnt = $("[name=input-fcnt]");
-    var disableFCntDown = $("[name=input-validate-counter]").prop("checked");
-    var FCntDown = $("[name=input-fcnt-downlink]");
+    var disablefcntDown = $("[name=input-validate-counter]").prop("checked");
+    var fcntDown = $("[name=input-fcnt-downlink]");
 
     var validFport = false;
     if(fport.val() != "")
@@ -2367,32 +2423,25 @@ function Click_SaveDevice(){
         validFcnt = IsValidNumber(Fcnt.val(),-1,MaxValueCounter+1);
     
     var validFcntDown = true;
-    if(!disableFCntDown){
+    if(!disablefcntDown){
     
-        if(FCntDown.val() == "")
+        if(fcntDown.val() == "")
             validFcntDown = false;
         else
-            validFcntDown = IsValidNumber(FCntDown.val(),-1,MaxValueCounter+1);
+            validFcntDown = IsValidNumber(fcntDown.val(),-1,MaxValueCounter+1);
     } 
-    
-    ValidationInput(fport,validFport);
-    ValidationInput(retransmission,validReply);
-    ValidationInput(Fcnt,validFcnt);
-    ValidationInput(FCntDown,validFcntDown);
 
     validation = validation && validFport && validReply && validFcnt && validFcntDown;
 
     //******************* features ***************************
 
-    var SupportedADR = $("[name=input-ADR]").prop("checked");
+    var supportedADR = $("[name=input-ADR]").prop("checked");
     var range = $("[name=input-range]");
 
-    $("[name=input-range]").val($("[name=input-range]").val() == "" ? RangeDefault : $("[name=input-range]").val())
-    var validRange = IsValidNumber(range.val(),0,Infinity);
+    $("[name=input-range]").val($("[name=input-range]").val() == "" ? rangeDefault : $("[name=input-range]").val())
+    var validrange = IsValidNumber(range.val(),0,Infinity);
 
-    ValidationInput(range,validRange);
-
-    validation = validation && validRange;
+    validation = validation && validrange;
 
     //******************* location ***************************
 
@@ -2403,117 +2452,138 @@ function Click_SaveDevice(){
 
     var validLat = IsValidNumber(Number(latitude.val()),-90.01,90.01);
     var validLng = IsValidNumber(Number(longitude.val()),-180.01,180.01);
+    altitude.val(altitude.val() == "" ? altitude.val(0): altitude.val());
 
-    var Location = {
-        "Latitude":Number(latitude.val()),
-        "Longitude": Number(longitude.val()),
-        "Altitude":Number(altitude.val())
+    var location = {
+        "latitude":Number(latitude.val()),
+        "longitude": Number(longitude.val()),
+        "altitude":Number(altitude.val())
     }
-
-    ValidationInput(latitude, validLat);
-    ValidationInput(longitude, validLng);
-    ValidationInput(altitude, true);
 
     validation = validation && validLat && validLng;
  
     //******************* payload ***************************
 
-    var MType = $("#confirmed").prop("checked") ? ConfirmedData_uplink : UnConfirmedData_uplink; //true Confirmed
+    var mtype = $("#confirmed").prop("checked") ? ConfirmedData_uplink : UnConfirmedData_uplink; //true Confirmed
     var upInterval = $("[name=input-sendInterval]");
     var payload = $("#textarea-payload").val();
 
     upInterval.val(upInterval.val() == "" ? UplinkIntervalDefault : upInterval.val());
     var validInterval = IsValidNumber(upInterval.val(),-1,Infinity);
 
-    ValidationInput(upInterval,validInterval);
-
     validation = validation && validInterval;
     
     if (!validation){
         Show_ErrorSweetToast("Error","Values are incorrect");
+
+        ValidationInput(name, validNameDevice);
+        ValidationInput(devEUI, validdevEUI);
+        ValidationInput(region, validregion);
+
+        ValidationInput(delayRX1,validDelayRX1);
+        ValidationInput(durationRX1,validDurationRX1);
+        ValidationInput(DROffsetRX1,true);
+        ValidationInput(delayRX2,validDelayRX2);
+        ValidationInput(durationRX2,validDurationRX2);
+        ValidationInput(dataRateRX2,true);
+        ValidationInput(frequencyRX2,validfrequencyRX2);
+        ValidationInput(ackTimeout,validackTimeout);
+
+        ValidationInput(fport,validFport);
+        ValidationInput(retransmission,validReply);
+        ValidationInput(Fcnt,validFcnt);
+        ValidationInput(fcntDown,validFcntDown);
+
+        ValidationInput(range,validrange);
+
+        ValidationInput(latitude, validLat);
+        ValidationInput(longitude, validLng);
+        ValidationInput(altitude, true);
+
+        ValidationInput(upInterval,validInterval);
+        
         return;
     }
 
-    var id = $("#div-buttons-dev").data("addr");
-    if (id != undefined && id != "")// update device       
-        index = Devices.findIndex((x) => x.Info.DevEUI == id);
+    var eui = $("#div-buttons-dev").data("addr");
+    var id = -1;
 
-
-    //JSON creation
-    var dev ={
-    "Info":{
-            "Name" : name.val(),
-            "DevEUI" : ChangeFormatValue(devEUI.val(),false),
-            "AppKey": AppKey.val(),
-            "DevAddr": ChangeFormatValue(valueDevAddr,false),
-            "NwkSKey": valueNwkSKey,
-            "AppSKey": valueAppSKey,
-            "Location":Location,
-            "Status":{
-                "Active": active,
-                "DataRate": Number(datarate.val()),
-                "InfoUplink":{
-                    "FPort": Number(fport.val()),
-                    "FCnt": Number(Fcnt.val()),
+    if (eui != undefined && eui != "")// update device       
+        id = Devices.get(eui).id;
+    
+    //JSON creation, lo invio tutto sotto forma di stringa (?)
+    var dev = {
+        "id":id,
+        "info":{
+            "name" : name.val(),
+            "devEUI" : devEUI.val().toLowerCase(),
+            "appKey": appKey.val().toLowerCase(),
+            "devAddr": valuedevAddr.toLowerCase(),
+            "nwkSKey": valuenwkSKey.toLowerCase(),
+            "appSKey": valueappSKey.toLowerCase(),
+            "location":location,
+            "status":{
+                "active": active,
+                "dataRate": Number(datarate.val()),
+                "infoUplink":{
+                    "fport": Number(fport.val()),
+                    "fcnt": Number(Fcnt.val()),
                 },
-                "MType": MType,
-                "Payload":payload,
-                "FCntDown": Number(FCntDown.val())
+                "mtype": mtype,
+                "payload":payload,
+                "fcntDown": Number(fcntDown.val())
             },
-            "Configuration":{
-                "Region":Number(region.val()),
-                "AckTimeout":Number(ackTimeout.val()),
-                "RX1DROffset":Number(DROffsetRX1.val()),
-                "SupportedADR":SupportedADR,
-                "SupportedOtaa":supportedOtaa,
-                "SupportedFragment":$("#fragments").prop("checked"),
-                "SupportedClassB":isClassBActive,
-                "SupportedClassC":isClassCActive,
-                "Range":Number(range.val()),
-                "DisableFCntDown":disableFCntDown,
-                "SendInterval":Number(upInterval.val()),
-                "NbRetransmission":Number(retransmission.val()),
+            "configuration":{
+                "region":Number(region.val()),
+                "ackTimeout":Number(ackTimeout.val()),
+                "rx1DROffset":Number(DROffsetRX1.val()),
+                "supportedADR":supportedADR,
+                "supportedOtaa":supportedOtaa,
+                "supportedFragment":$("#fragments").prop("checked"),
+                "supportedClassB":isClassBactive,
+                "supportedClassC":isClassCactive,
+                "range":Number(range.val()),
+                "disablefcntDown":disablefcntDown,
+                "sendInterval":Number(upInterval.val()),
+                "nbRetransmission":Number(retransmission.val()),
             },
-            "RXs":[
+            "rxs":[
                 {
-                    "Delay":Number(delayRX1.val()),
-                    "DurationOpen":Number(durationRX1.val())
+                    "delay":Number(delayRX1.val()),
+                    "durationOpen":Number(durationRX1.val())
                 },{
-                    "Channel":{
-                        "Active":true,
-                        "FreqDownlink": Number(frequencyRX2.val())
+                    "channel":{
+                        "active":true,
+                        "freqDownlink": Number(frequencyRX2.val())
                     },
-                    "Delay":Number(delayRX2.val()),
-                    "DurationOpen":Number(durationRX2.val()),
-                    "DataRate":Number(datarateRX2.val())
+                    "delay":Number(delayRX2.val()),
+                    "durationOpen":Number(durationRX2.val()),
+                    "dataRate":Number(dataRateRX2.val())
                 }
             ]
         }    
     };
     
-    var jsonData = JSON.stringify({
-        "Device":dev,
-        "Index":index     
-    });
-    
-    if (id == undefined ||
-        id == ""){//new device
-        //ajax  
+    var jsonData = JSON.stringify(dev);
+
+    if (eui == undefined || eui == ""){//new device 
 
         $.post("http://localhost:8000/api/add-device",jsonData, "json")
         .done((data)=>{
 
             switch (data.code){
                 case 0: //OK
-                    
-                    AddMarker(dev.Info.DevEUI,dev.Info.Name,
-                        L.latLng(dev.Info.Location.Latitude, dev.Info.Location.Longitude),
+
+                    dev.id = data.id;
+
+                    AddMarker(dev.info.devEUI,dev.info.name,
+                        L.latLng(dev.info.location.latitude, dev.info.location.longitude),
                         false);
     
-                    Devices.push(dev);
+                    Devices.set(dev.info.devEUI, dev);
     
-                    Add_ItemList($("#list-devices"),dev.Info.DevEUI, dev.Info.Name);//ui
-                    ShowList($("#devs"),"List devices" );            
+                    Add_ItemList_Devices(dev);//ui
+                    ShowList($("#devs"),"List devices",false);            
 
                     CleanInputDevice();
 
@@ -2523,16 +2593,16 @@ function Click_SaveDevice(){
 
                 case 1:// same name
 
-                    NameDevice.addClass("is-invalid");
-                    DevEUI.siblings(".invalid-feedback").text(data.status);
+                    $("[name=input-name-dev]").addClass("is-invalid");
+                    $("[name=input-devEUI]").siblings(".invalid-feedback").text(data.status);
 
                     return;
 
                 case 2:
 
-                    NameDevice.addClass("is-invalid");
-                    DevEUI.addClass("is-invalid");
-                    DevEUI.siblings(".invalid-feedback").text(data.status);
+                    $("[name=input-name-dev]").addClass("is-invalid");
+                    $("[name=input-devEUI]").addClass("is-invalid");
+                    $("[name=input-devEUI]").siblings(".invalid-feedback").text(data.status);
 
                     return;
                    
@@ -2550,13 +2620,14 @@ function Click_SaveDevice(){
             switch (data.code){
                 case 0:
 
-                    Devices[index] = dev;            
+                    Devices.delete(eui);
+                    Devices.set(dev.info.devEUI, dev);                 
 
-                    var latlng = L.latLng(dev.Info.Location.Latitude, dev.Info.Location.Longitude);
-                    UpdateMarker(dev.Info.DevEUI,dev.Info.Name,latlng,false);
+                    var latlng = L.latLng(dev.info.location.latitude, dev.info.location.longitude);
+                    UpdateMarker(eui, dev.info.devEUI, dev.info.name, latlng, false);
                     
-                    UpdateList($("#list-devices"),dev, id, false);
-                    ShowList($("#devs"),"List devices");
+                    UpdateList(dev, eui, false);
+                    ShowList($("#devs"),"List devices",true);
 
                     Show_SweetToast("Device updated","");
 
@@ -2566,12 +2637,12 @@ function Click_SaveDevice(){
 
                 case 1:// same name
 
-                    name.addClass("is-invalid");
+                $("[name=input-name-dev]").addClass("is-invalid");
                     break;
 
                 case 2:
 
-                    devEUI.addClass("is-invalid");
+                    $("[name=input-devEUI]").addClass("is-invalid");
                     break;
 
                 case 3:
@@ -2595,12 +2666,6 @@ function Click_Edit(element, FlagGw){
 
     if(FlagGw){
         addr = $("#div-buttons-gw").data("addr");   
-    }
-
-    var ok = CanExecute();
-    if (FlagGw && !ok){
-        Show_ErrorSweetToast("Error","Unable edit gateway because Simulator is running and gateway is active");
-        return
     }
 
     $(element).hide();   

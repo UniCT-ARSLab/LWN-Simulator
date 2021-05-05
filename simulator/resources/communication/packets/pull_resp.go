@@ -37,6 +37,28 @@ type TXPK struct {
 	Data []byte  `json:"data"`           // Base64 encoded RF packet payload, padding optional
 }
 
+func GetInfoPullResp(pullResp []byte) (*lorawan.PHYPayload, *uint32, error) {
+
+	var phy lorawan.PHYPayload
+	var packet PullRespPacket
+	var frequency uint32
+
+	//getPacket
+	if err := packet.UnmarshalBinary(pullResp); err != nil {
+		return nil, nil, err
+	}
+
+	frequency = uint32(packet.Payload.TXPK.Freq * 1000000.0)
+
+	//getPayload
+	if err := phy.UnmarshalBinary(packet.Payload.TXPK.Data); err != nil {
+		return nil, nil, err
+	}
+
+	return &phy, &frequency, nil
+
+}
+
 func (p *PullRespPacket) UnmarshalBinary(data []byte) error {
 
 	if len(data) < MinLenPullResp {
@@ -63,26 +85,4 @@ func (p *PullRespPacket) MarshalJSON() ([]byte, error) {
 	}
 
 	return JSONPayload, nil
-}
-
-func ExtractInfo(pullResp []byte) (*lorawan.PHYPayload, *uint32, error) {
-
-	var phy lorawan.PHYPayload
-	var packet PullRespPacket
-	var frequency uint32
-
-	//getPacket
-	if err := packet.UnmarshalBinary(pullResp); err != nil {
-		return nil, nil, err
-	}
-
-	frequency = uint32(packet.Payload.TXPK.Freq * 1000000.0)
-
-	//getPayload
-	if err := phy.UnmarshalBinary(packet.Payload.TXPK.Data); err != nil {
-		return nil, nil, err
-	}
-
-	return &phy, &frequency, nil
-
 }

@@ -1,6 +1,7 @@
-package packetforwarder
+package gateway
 
 import (
+	"fmt"
 	"time"
 
 	pkt "github.com/arslab/lwnsimulator/simulator/resources/communication/packets"
@@ -11,81 +12,16 @@ import (
 
 func (g *Gateway) SenderVirtual() {
 
-	err := g.sendPullData()
-	if err != nil {
-		g.Print("", err, util.PrintBoth)
-	}
+	defer g.Print("Sender Turn OFF", nil, util.PrintOnlyConsole)
 
-	tickerKeepAlive := time.NewTicker(g.Info.KeepAlive)
+	go g.KeepAlive()
 
 	for {
 
-		select {
+		rxpk := g.BufferUplink.Pop() //wait uplink
 
-		case <-tickerKeepAlive.C:
-
-			if *g.StateSimulator == util.Stopped {
-
-				g.Print("Sender STOP", nil, util.PrintOnlyConsole)
-				return
-
-			} else {
-
-				err := g.sendPullData()
-				if err != nil {
-					g.Print("", err, util.PrintBoth)
-				}
-
-			}
-
-			break
-
-		case <-g.BufferUplink.NewUplinkCh: //wait uplink
-
-			rxpk := g.BufferUplink.Pop()
-
-			ok := g.CanExecute()
-			if !ok {
-
-				g.Print("Sender STOP", nil, util.PrintOnlyConsole)
-				return
-
-			}
-
-			g.Stat.RXNb++
-			g.Stat.RXOK++
-
-			packet, err := g.createPacket(rxpk)
-			if err != nil {
-				g.Print("", err, util.PrintBoth)
-			}
-
-			_, err = udp.SendDataUDP(g.Info.Connection, packet)
-			if err != nil {
-				g.Print("", err, util.PrintBoth)
-			} else {
-				g.Print("PUSH DATA send", nil, util.PrintBoth)
-			}
-
-		}
-
-	}
-}
-
-func (g *Gateway) SenderReal() {
-
-	for {
-
-		<-g.BufferUplink.NewUplinkCh //wait uplink
-
-		rxpk := g.BufferUplink.Pop()
-
-		ok := g.CanExecute()
-		if !ok {
-
-			g.Print("Sender STOP", nil, util.PrintOnlyConsole)
+		if !g.CanExecute() {
 			return
-
 		}
 
 		g.Stat.RXNb++
@@ -100,7 +36,39 @@ func (g *Gateway) SenderReal() {
 		if err != nil {
 			g.Print("", err, util.PrintBoth)
 		} else {
-			g.Print("PUSH DATA send", nil, util.PrintOnlySocket)
+			g.Print("PUSH DATA send", nil, util.PrintBoth)
+		}
+
+	}
+
+}
+
+func (g *Gateway) SenderReal() {
+
+	defer g.Print("Sender Turn OFF", nil, util.PrintOnlyConsole)
+
+	for {
+
+		rxpk := g.BufferUplink.Pop() //wait uplink
+
+		if !g.CanExecute() {
+			return
+		}
+
+		g.Stat.RXNb++
+		g.Stat.RXOK++
+
+		packet, err := g.createPacket(rxpk)
+		if err != nil {
+			g.Print("", err, util.PrintBoth)
+		}
+
+		_, err = udp.SendDataUDP(g.Info.Connection, packet)
+		if err != nil {
+			g.Print("", err, util.PrintBoth)
+		} else {
+			msg := fmt.Sprintf("Forward PUSH DATA to %v:%v", g.Info.AddrIP, g.Info.Port)
+			g.Print(msg, nil, util.PrintBoth)
 		}
 
 	}
@@ -108,20 +76,13 @@ func (g *Gateway) SenderReal() {
 
 func (g *Gateway) sendPullData() error {
 
-	ok := g.CanExecute()
-	if !ok {
-
-		g.Print("Sender STOP", nil, util.PrintOnlyConsole)
+	if !g.CanExecute() {
 		return nil
-
 	}
 
 	pulldata, _ := pkt.CreatePacket(pkt.TypePullData, g.Info.MACAddress, pkt.Stat{}, nil, 0)
 
 	_, err := udp.SendDataUDP(g.Info.Connection, pulldata)
-	if err == nil {
-		g.Print("PULL DATA send", nil, util.PrintBoth)
-	}
 
 	return err
 }
@@ -146,4 +107,29 @@ func (g *Gateway) createPacket(info pkt.RXPK) ([]byte, error) {
 	}
 
 	return pkt.CreatePacket(pkt.TypePushData, g.Info.MACAddress, stat, rxpks, 0)
+}
+
+func (g *Gateway) KeepAlive() {
+
+	tickerKeepAlive := time.NewTicker(g.Info.KeepAlive)
+
+	for {
+		if !g.CanExecute() {
+
+			return
+
+		} else {
+
+			err := g.sendPullData()
+			if err != nil {
+				g.Print("", err, util.PrintBoth)
+			} else {
+				g.Print("PULL DATA send", nil, util.PrintBoth)
+			}
+
+		}
+
+		<-tickerKeepAlive.C
+	}
+
 }

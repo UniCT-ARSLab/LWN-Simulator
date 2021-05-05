@@ -129,20 +129,20 @@ func (in *In865) RX1DROffsetSupported(offset uint8) error {
 	return errors.New("Invalid RX1DROffset")
 }
 
-func (in *In865) LinkAdrReq(ChMaskCntl uint8, ChMask lorawan.ChMask, newDataRate uint8, channels []c.Channel) (int, []bool, error) {
+func (in *In865) LinkAdrReq(ChMaskCntl uint8, ChMask lorawan.ChMask, newDataRate uint8, channels *[]c.Channel) (int, []bool, error) {
 
 	var err error
 
 	chMaskTmp := ChMask
-	channelsCopy := channels
+
 	channelsInactive := 0
 	acks := []bool{false, false, false}
 	err = nil
 
 	switch ChMaskCntl {
 
-	case 0:
-		//only 0 in mask
+	case 0: //only 0 in mask
+
 		for _, enable := range ChMask {
 
 			if !enable {
@@ -153,31 +153,40 @@ func (in *In865) LinkAdrReq(ChMaskCntl uint8, ChMask lorawan.ChMask, newDataRate
 		}
 
 		if channelsInactive == LenChMask { // all channels inactive
-			err = errors.New("LinkADRReq | Command can't disable all channels |")
-
+			err = errors.New("Command can't disable all channels")
 		}
 
 	case 6:
+
 		for i, _ := range chMaskTmp {
 			chMaskTmp[i] = true
 		}
+
 	}
 
 	for i := in.GetNbReservedChannels(); i < LenChMask; i++ { //i primi 3 channel sono riservati
 
 		if chMaskTmp[i] {
-			if !channels[i].Active { // can't enable uplink channel
-				msg := fmt.Sprintf("LinkADRReq | ChMask can't enable an inactive channel[%v] |", i)
+
+			if i >= len(*channels) {
+				return ChMaskCntlChannel, acks, errors.New("unable to configure an undefined channel")
+			}
+
+			if !(*channels)[i].Active { // can't enable uplink channel
+
+				msg := fmt.Sprintf("ChMask can't enable an inactive channel[%v]", i)
 				return ChMaskCntlChannel, acks, errors.New(msg)
+
 			} else { //channel active, check datarate
 
-				err = channels[i].IsSupportedDR(newDataRate)
-				if err == nil { //almeno support DataRate
+				err = (*channels)[i].IsSupportedDR(newDataRate)
+				if err == nil { //at least one channel support DataRate
 					acks[1] = true //ackDr
 				}
 
 			}
-			channelsCopy[i].EnableUplink = chMaskTmp[i]
+
+			(*channels)[i].EnableUplink = chMaskTmp[i]
 
 		}
 	}
@@ -185,18 +194,12 @@ func (in *In865) LinkAdrReq(ChMaskCntl uint8, ChMask lorawan.ChMask, newDataRate
 
 	//datarate
 	if err = in.DataRateSupported(newDataRate); err != nil {
-		err = errors.New("LinkADRReq | " + err.Error() + "|")
 		acks[1] = false
-
 	} else if !acks[1] {
-		err = errors.New("LinkADRReq | No channel supports this data rate |")
+		err = errors.New("No channels support this data rate")
 	}
 
 	acks[2] = true //txack
-
-	if acks[0] {
-		channels = channelsCopy
-	}
 
 	return ChMaskCntlChannel, acks, err
 }

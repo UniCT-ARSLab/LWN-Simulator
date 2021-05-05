@@ -14,6 +14,10 @@
     --yellow:#ffea00;
 }
 
+img {
+    width: 16px;
+    height: 16px;
+}
 
 .sidebar-brand > a:hover{
     cursor: default;
@@ -26,16 +30,17 @@
 .text-orange{
     color: orange;
 }
+
 .home{
-    content: url("../img/home.png");
+    content: url("../img/blue_home.svg");
 }
 
 .device{
-    content: url("../img/device.png");
+    content: url("../img/blue_device.svg");
 }
 
 .gateway{
-    content: url("../img/gateway.png");
+    content: url("../img/blue_gateway.svg");
 }
 
 .main-sidebar .sidebar-menu li.active a, .card .card-header h4{
@@ -43,9 +48,19 @@
     color:  var(--bluesea) ;
 }
 
+.main-sidebar .sidebar-menu li ul.dropdown-menu li.active > a {
+    color: var(--bluesea);
+    font-weight: 600;
+}
+
 body.sidebar-mini .main-sidebar .sidebar-menu > li.active > a {
     background-color: var(--bluesea);
     color: #fff;
+}
+
+.main-sidebar .sidebar-menu li ul.dropdown-menu li a:hover {
+    color: var(--bluesea);
+    background-color: inherit;
 }
 
 .nav-pills .nav-item .nav-link{
@@ -67,6 +82,7 @@ body.sidebar-mini .main-sidebar .sidebar-menu > li.active > a {
 .clickable{
     cursor: pointer;
 }
+
 .accordion-console .accordion-console-header[aria-expanded="true"]{
     background-color: var(--bluesea);
     color: white;
@@ -92,6 +108,12 @@ body.sidebar-mini .main-sidebar .sidebar-menu > li.active > a {
     height: 300px;
 }
 
+.btn-sim{
+    border-color:white !important;
+    border-width: medium !important;
+    border-radius: 0.50rem !important;
+}
+
 .btn{
     border-color:var(--bluesea) !important;
     border-width: medium !important;
@@ -99,29 +121,39 @@ body.sidebar-mini .main-sidebar .sidebar-menu > li.active > a {
 }
 
 .btn-play {
-    border-color:white !important;
-    border-width: medium !important;
-    border-radius: 0.50rem !important;
-    content: url("../img/play_arrow-white-18dp.svg");
+    content: url("../img/white_play.svg");
+}
+
+.btn-sim:hover > .btn-play, .btn-sim:active > .btn-play,.btn-sim:focus > .btn-play {
+    content: url("../img/blue_play.svg");
+}
+
+.btn-sim:hover > .btn-stop, .btn-sim:active > .btn-stop,.btn-sim:focus > .btn-stop{
+    content: url("../img/blue_stop.svg");
 }
 
 .btn-stop {
-    content: url("../img/stop-white-18dp.svg");
+    content: url("../img/white_stop.svg");
 }
 
 .btn-clean > img {
-    content: url("../img/delete-white-18dp.svg");
- }
+    content: url("../img/white_delete.svg");
+}
+
+.btn-clean:hover > img, .btn-clean:active > img, .btn-clean:focus > img {
+    content: url("../img/blue_delete.svg");
+}
 
 .btn-classic{
     background-color: white;  
     color: var(--bluesea);
 }
 
-.btn-classic:hover{
+.btn-classic:hover, .btn-classic:active, .btn-classic:focus{
     background-color:  var(--bluesea)!important;
     color: white !important ;  
 }
+
 .btn-edit{
     color: var(--yellow)!important;
     border-color: var(--yellow)!important;
@@ -134,12 +166,12 @@ body.sidebar-mini .main-sidebar .sidebar-menu > li.active > a {
     color: white !important;
 }
 
-.btn-generate >img{
-    content: url("../img/autorenew-black-18dp.svg");
+.btn-generate > img{
+    content: url("../img/blue_generate.svg");
 }
 
-.btn-generate:hover > img{
-   content: url("../img/autorenew-white-18dp.svg");
+.btn-generate:hover > img, .btn-generate:active > img, .btn-generate:focus > img{
+   content: url("../img/white_generate.svg");
 }
 
 .btn-del{
@@ -155,33 +187,19 @@ body.sidebar-mini .main-sidebar .sidebar-menu > li.active > a {
 }
 
 .btn-watch > img{
-    content: url("../img/visibility-black-18dp.svg");
+    content: url("../img/blue_visibility.svg");
 }
 
 .btn-watch > img.seeOFF{
-    content: url("../img/visibility_off-black-18dp.svg");
+    content: url("../img/blue_visibility_off.svg");
 }
 
-.btn-watch:hover > img{
-    content: url("../img/visibility-white-18dp.svg");
+.btn-watch:hover > img,.btn-watch:active > img, .btn-watch:focus > img{
+    content: url("../img/white_visibility.svg");
 }
 
-.btn-watch:hover > img.seeOFF{
-    content: url("../img/visibility_off-white-18dp.svg");
-}
-
-.btn-change-pl{
-    color: green!important;
-    border-color: green!important;
-    border-width: medium;
-    border-radius: 0.50rem;
-}
-
-.btn-change-pl:hover{
-    color: white !important;
-    background-color: green !important;
-    border-width: medium;
-    border-radius: 0.50rem;
+.btn-watch:hover > img.seeOFF, .btn-watch:active > img.seeOFF, .btn-watch:focus > img.seeOFF{
+    content: url("../img/white_visibility_off.svg");
 }
 
 .btn-group .btn.active {

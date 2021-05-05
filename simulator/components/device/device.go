@@ -1,23 +1,25 @@
 package device
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"sync"
 	"time"
 
 	res "github.com/arslab/lwnsimulator/simulator/resources"
-	"github.com/arslab/lwnsimulator/socket"
 
 	"github.com/arslab/lwnsimulator/simulator/components/device/classes"
 	"github.com/arslab/lwnsimulator/simulator/components/device/models"
 	"github.com/arslab/lwnsimulator/simulator/util"
+	"github.com/arslab/lwnsimulator/socket"
 )
 
 type Device struct {
-	Info      models.InformationDevice `json:"Info"`
-	Mode      classes.Class            `json:"-"`
+	State     int                      `json:"-"`
+	Exit      chan struct{}            `json:"-"`
+	Id        int                      `json:"id"`
+	Info      models.InformationDevice `json:"info"`
+	Class     classes.Class            `json:"-"`
 	Resources *res.Resources           `json:"-"`
 	Mutex     sync.Mutex               `json:"-"`
 }
@@ -25,116 +27,60 @@ type Device struct {
 //*******************Intern func*******************/
 func (d *Device) Run() {
 
-	d.Print("START", nil, util.PrintBoth)
+	defer d.Resources.ExitGroup.Done()
 
-	//otaa activation
 	d.OtaaActivation()
 
 	ticker := time.NewTicker(d.Info.Configuration.SendInterval)
 
-	defer d.SaveStatus()
-
 	for {
 
-		if d.IsON() {
+		select {
+
+		case <-ticker.C:
+			break
+
+		case <-d.Exit:
+			d.Print("Turn OFF", nil, util.PrintBoth)
+			return
+		}
+
+		if d.CanExecute() {
 
 			if d.Info.Status.Joined {
 
-				<-ticker.C
-
-				if ok := d.CanExecute(); ok { //stop
-
-					if d.Info.Configuration.SupportedClassC {
-						d.SwitchClass(classes.ModeC)
-					} else if d.Info.Configuration.SupportedClassB {
-						d.SwitchClass(classes.ModeB)
-					}
-
-					d.Execute()
-
+				if d.Info.Configuration.SupportedClassC {
+					d.SwitchClass(classes.ClassC)
+				} else if d.Info.Configuration.SupportedClassB {
+					d.SwitchClass(classes.ClassB)
 				}
+
+				d.Execute()
 
 			} else {
 				d.OtaaActivation()
 			}
 
-		} else {
-
-			d.Print("Turn OFF", nil, util.PrintBoth)
-			return
 		}
 
-		if *d.Info.StateSimulator == util.Stopped {
-
-			d.Print("STOP", nil, util.PrintBoth)
-
-			return
-		}
 	}
+
 }
 
-func (d *Device) SaveStatus() {
+func (d *Device) modeToString() string {
 
-	var devices []Device
+	switch d.Info.Status.Mode {
 
-	d.Resources.Mutex.Lock()
-
-	path, err := util.GetPath()
-	if err != nil {
-		d.Print("", err, util.PrintOnlyConsole)
-		return
-	}
-
-	pathfile := path + "/devices.json"
-
-	err = util.RecoverConfigFile(pathfile, &devices)
-	if err != nil {
-
-		d.Print("", err, util.PrintOnlyConsole)
-		return
+	case util.Normal:
+		return "Normal"
+	case util.Retransmission:
+		return "Retransmission"
+	case util.FPending:
+		return "FPending"
+	default:
+		return ""
 
 	}
-
-	for j := range devices {
-		if devices[j].Info.DevEUI == d.Info.DevEUI {
-
-			devices[j].Info.DevAddr = d.Info.DevAddr
-			devices[j].Info.NwkSKey = d.Info.NwkSKey
-			devices[j].Info.AppSKey = d.Info.AppSKey
-			//status
-			devices[j].Info.Status.Battery = d.Info.Status.Battery
-
-			//counter
-			devices[j].Info.Status.DataUplink.FCnt = d.Info.Status.DataUplink.FCnt
-			devices[j].Info.Status.FCntDown = d.Info.Status.FCntDown
-
-			devices[j].Info.Status.MType = d.Info.Status.MType
-			devices[j].Info.Status.Payload = d.Info.Status.Payload
-
-			devices[j].Info.Location.Latitude = d.Info.Location.Latitude
-			devices[j].Info.Location.Longitude = d.Info.Location.Longitude
-			devices[j].Info.Location.Altitude = d.Info.Location.Altitude
-
-			d.EmitStatus()
-
-			break
-		}
-	}
-
-	devBytes, _ := json.MarshalIndent(&devices, "", "\t")
-
-	err = util.WriteConfigFile(pathfile, devBytes)
-	if err != nil {
-		d.Print("", err, util.PrintOnlyConsole)
-		return
-	}
-
-	d.Resources.Mutex.Unlock()
-
-	d.Print("Status saved", nil, util.PrintBoth)
-
-	d.Resources.ExitGroup.Done()
-
 }
 
 func (d *Device) Print(content string, err error, printType int) {
@@ -143,13 +89,14 @@ func (d *Device) Print(content string, err error, printType int) {
 	message := ""
 	messageLog := ""
 	event := socket.EventDev
-
+	class := d.Class.ToString()
+	mode := d.modeToString()
 	if err == nil {
-		message = fmt.Sprintf("[ %s ] DEV[%s] {%s}: %s", now.Format(time.Stamp), d.Info.Name, d.Mode.ToString(), content)
-		messageLog = fmt.Sprintf(" DEV[%s] {%s}: %s", d.Info.Name, d.Mode.ToString(), content)
+		message = fmt.Sprintf("[ %s ] DEV[%s] |%s| {%s}: %s", now.Format(time.Stamp), d.Info.Name, mode, class, content)
+		messageLog = fmt.Sprintf("DEV[%s] |%s| {%s}: %s", d.Info.Name, mode, class, content)
 	} else {
-		message = fmt.Sprintf("[ %s ] DEV[%s] {%s} [ERROR]: %s", now.Format(time.Stamp), d.Info.Name, d.Mode.ToString(), err)
-		messageLog = fmt.Sprintf(" DEV[%s] {%s} [ERROR]: %s", d.Info.Name, d.Mode.ToString(), err)
+		message = fmt.Sprintf("[ %s ] DEV[%s] |%s| {%s} [ERROR]: %s", now.Format(time.Stamp), d.Info.Name, mode, class, err)
+		messageLog = fmt.Sprintf("DEV[%s] |%s| {%s} [ERROR]: %s", d.Info.Name, mode, class, err)
 		event = socket.EventError
 	}
 

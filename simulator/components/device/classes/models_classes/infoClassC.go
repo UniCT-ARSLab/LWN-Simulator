@@ -12,13 +12,11 @@ type InfoClassC struct {
 	CondClass  *sync.Cond
 	CondDevice *sync.Cond
 	ACK        bool
-	Exit       chan struct{}
 }
 
 func (i *InfoClassC) Setup() {
 	i.CondClass = sync.NewCond(&i.Mutex)
 	i.CondDevice = sync.NewCond(&i.Mutex)
-	i.Exit = make(chan struct{})
 }
 
 func (i *InfoClassC) InsertDownlink(downlink dl.InformationDownlink) {

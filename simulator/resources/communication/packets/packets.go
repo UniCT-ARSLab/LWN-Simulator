@@ -159,8 +159,9 @@ func CreatePacket(id int, GatewayMACAddr lorawan.EUI64, stat Stat, info []RXPK, 
 		return CreatePullDataPacket(GatewayMACAddr), nil
 	case TypeTxAck:
 		return CreateTXPacket(GatewayMACAddr, token)
+	default:
+		return []byte{}, nil
 
 	}
 
-	return []byte{}, nil
 }

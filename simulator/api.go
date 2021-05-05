@@ -10,96 +10,82 @@ import (
 
 	"github.com/brocaar/lorawan"
 
+	"github.com/arslab/lwnsimulator/codes"
+	"github.com/arslab/lwnsimulator/models"
 	dev "github.com/arslab/lwnsimulator/simulator/components/device"
+	f "github.com/arslab/lwnsimulator/simulator/components/forwarder"
 	mfw "github.com/arslab/lwnsimulator/simulator/components/forwarder/models"
 	gw "github.com/arslab/lwnsimulator/simulator/components/gateway"
-	res "github.com/arslab/lwnsimulator/simulator/resources"
-	"github.com/arslab/lwnsimulator/socket"
-	"github.com/arslab/lwnsimulator/types"
-
 	"github.com/arslab/lwnsimulator/simulator/util"
+	"github.com/arslab/lwnsimulator/socket"
 	socketio "github.com/googollee/go-socket.io"
 )
 
-func Setup(WebSocket socketio.Conn) *Simulator {
+func GetIstance() *Simulator {
 
 	var s Simulator
 
-	path, err := util.GetPath()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = util.RecoverConfigFile(path+"/simulator.json", &s)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	s.State = util.Stopped
-	s.Resources = *res.NewResource(WebSocket)
+
+	s.loadData()
+
+	s.ActiveDevices = make(map[int]int)
+	s.ActiveGateways = make(map[int]int)
+
+	s.Forwarder = *f.Setup()
 
 	return &s
 }
 
+func (s *Simulator) AddWebSocket(WebSocket *socketio.Conn) {
+	s.Resources.AddWebSocket(WebSocket)
+}
+
 func (s *Simulator) Run() {
 
-	s.setupSimulator()
-
 	s.State = util.Running
+	s.setup()
 
 	s.Print("START", nil, util.PrintBoth)
 
-	for i := 0; i < len(s.Gateways); i++ {
-		s.Gateways[i].OnStart()
+	for _, id := range s.ActiveGateways {
+		s.turnONGateway(id)
 	}
 
-	for i := 0; i < len(s.Devices); i++ {
-		s.Devices[i].OnStart()
+	for _, id := range s.ActiveDevices {
+		s.turnONDevice(id)
 	}
-
-}
-
-func (s *Simulator) resetResources() {
-
-	s.Devices = s.Devices[:0]
-	s.Gateways = s.Gateways[:0]
-	s.Forwarder.Reset()
-
-	s.Print("Reset Resources", nil, util.PrintOnlyConsole)
 
 }
 
 func (s *Simulator) Stop() {
 
 	s.State = util.Stopped
+	s.Resources.ExitGroup.Add(len(s.ActiveGateways) + len(s.ActiveDevices) - s.ComponentsInactiveTmp)
 
-	s.Print("STOP", nil, util.PrintOnlySocket)
-
-	for i := 0; i < len(s.Gateways); i++ {
-		s.Gateways[i].OnStop()
+	for _, id := range s.ActiveGateways {
+		s.Gateways[id].TurnOFF()
 	}
 
-	s.Resources.ExitGroup.Add(len(s.Gateways) + len(s.Devices) - s.DevicesInactive)
+	for _, id := range s.ActiveDevices {
+		s.Devices[id].TurnOFF()
+	}
+
 	s.Resources.ExitGroup.Wait()
 
-	s.resetResources()
+	s.saveStatus()
+
+	s.Forwarder.Reset()
 
 	s.Print("STOPPED", nil, util.PrintBoth)
 
+	s.reset()
+
 }
 
-func (s *Simulator) SaveBridgeAddress(remoteAddr types.AddressIP) error {
+func (s *Simulator) SaveBridgeAddress(remoteAddr models.AddressIP) error {
 
-	//remoteServer cambia anche in running
 	s.BridgeAddress = fmt.Sprintf("%v:%v", remoteAddr.Address, remoteAddr.Port)
-
-	simBytes, err := json.MarshalIndent(&s, "", "\t")
-	if err != nil {
-
-		s.Print("", err, util.PrintOnlyConsole)
-		return errors.New("Error while saving data")
-
-	}
 
 	pathDir, err := util.GetPath()
 	if err != nil {
@@ -108,12 +94,14 @@ func (s *Simulator) SaveBridgeAddress(remoteAddr types.AddressIP) error {
 
 	path := pathDir + "/simulator.json"
 
-	err = util.WriteConfigFile(path, simBytes)
+	bytes, err := json.MarshalIndent(&s, "", "\t")
 	if err != nil {
+		log.Fatal(err)
+	}
 
-		s.Print("", err, util.PrintOnlyConsole)
-		return errors.New("Error while saving data")
-
+	err = util.WriteConfigFile(path, bytes)
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	s.Print("Gateway Bridge Address saved", nil, util.PrintOnlyConsole)
@@ -121,12 +109,9 @@ func (s *Simulator) SaveBridgeAddress(remoteAddr types.AddressIP) error {
 	return nil
 }
 
-func (s *Simulator) GetBridgeAddress() types.AddressIP {
+func (s *Simulator) GetBridgeAddress() models.AddressIP {
 
-	//non c'è bisogno di leggere il file json in quanto
-	//l'address è già caricato nel simulatore
-
-	var rServer types.AddressIP
+	var rServer models.AddressIP
 	if s.BridgeAddress == "" {
 		return rServer
 	}
@@ -139,101 +124,79 @@ func (s *Simulator) GetBridgeAddress() types.AddressIP {
 	return rServer
 }
 
-func GetGateways() []gw.Gateway {
+func (s *Simulator) GetGateways() []gw.Gateway {
 
 	var gateways []gw.Gateway
 
-	path, err := util.GetPath()
-	if err != nil {
-		log.Println(err)
-		return gateways
-	}
-
-	err = util.RecoverConfigFile(path+"/gateways.json", &gateways)
-	if err != nil {
-
-		log.Println(err)
-		return gateways
-
+	for _, g := range s.Gateways {
+		gateways = append(gateways, *g)
 	}
 
 	return gateways
+
 }
 
-func GetDevices() []dev.Device {
+func (s *Simulator) GetDevices() []dev.Device {
 
 	var devices []dev.Device
 
-	path, err := util.GetPath()
-	if err != nil {
-		log.Println(err)
-		return devices
-	}
-
-	err = util.RecoverConfigFile(path+"/devices.json", &devices)
-	if err != nil {
-
-		log.Println(err)
-		return devices
-
+	for _, d := range s.Devices {
+		devices = append(devices, *d)
 	}
 
 	return devices
+
 }
 
-func (s *Simulator) SetGateway(gateway *gw.Gateway, index *int) (int, error) {
+func (s *Simulator) SetGateway(gateway *gw.Gateway, update bool) (int, int, error) {
 
 	emptyAddr := lorawan.EUI64{0, 0, 0, 0, 0, 0, 0, 0}
 
 	if gateway.Info.MACAddress == emptyAddr {
 
 		s.Print("Error: MAC Address invalid", nil, util.PrintOnlyConsole)
-		return types.CodeErrorAddress, errors.New("Error: MAC Address invalid")
+		return codes.CodeErrorAddress, -1, errors.New("Error: MAC Address invalid")
 
 	}
 
-	//gateway in running?
-	for _, g := range s.Gateways {
+	if !update { //new
 
-		if g.Info.MACAddress == gateway.Info.MACAddress {
-			return types.CodeErrorGatewayActive, errors.New("Gateway is running, unable update")
+		gateway.Id = s.NextIDGw
+		s.NextIDGw++
+
+	} else {
+
+		if s.Gateways[gateway.Id].IsOn() {
+			return codes.CodeErrorDeviceActive, -1, errors.New("Gateway is running, unable update")
 		}
 
 	}
 
-	gateways := GetGateways()
-
-	code, err := searchName(gateway.Info.Name, index)
+	code, err := s.searchName(gateway.Info.Name, gateway.Id, true)
 	if err != nil {
 
 		s.Print("Name already used", nil, util.PrintOnlyConsole)
-		return code, err
+		return code, -1, err
 
 	}
 
-	code, err = searchAddress(gateway.Info.MACAddress, index)
+	code, err = s.searchAddress(gateway.Info.MACAddress, gateway.Id, true)
 	if err != nil {
 
 		s.Print("DevEUI already used", nil, util.PrintOnlyConsole)
-		return code, err
+		return code, -1, err
 
 	}
 
 	if !gateway.Info.TypeGateway {
 
 		if s.BridgeAddress == "" {
-			return types.CodeNoBridge, errors.New("No gateway bridge configured")
+			return codes.CodeNoBridge, -1, errors.New("No gateway bridge configured")
 		}
 
 	}
 
-	if index == nil { //new gw
-		gateways = append(gateways, *gateway)
-	} else { //update
-		gateways[*index] = *gateway
-	}
-
-	gwBytes, _ := json.MarshalIndent(&gateways, "", "\t")
+	s.Gateways[gateway.Id] = gateway
 
 	pathDir, err := util.GetPath()
 	if err != nil {
@@ -241,72 +204,39 @@ func (s *Simulator) SetGateway(gateway *gw.Gateway, index *int) (int, error) {
 	}
 
 	path := pathDir + "/gateways.json"
-
-	err = util.WriteConfigFile(path, gwBytes)
-	if err != nil {
-		s.Print("", err, util.PrintOnlyConsole)
-		return types.CodeSaving, nil
-	}
+	s.saveComponent(path, &s.Gateways)
+	path = pathDir + "/simulator.json"
+	s.saveComponent(path, &s)
 
 	s.Print("Gateway Saved", nil, util.PrintOnlyConsole)
 
-	if s.State == util.Running && gateway.Info.Active {
-		s.TurnONGateway(gateway.Info.MACAddress)
+	if gateway.Info.Active {
+
+		s.ActiveGateways[gateway.Id] = gateway.Id
+
+		if s.State == util.Running {
+			s.Gateways[gateway.Id].Setup(&s.BridgeAddress, &s.Resources, &s.Forwarder)
+			s.turnONGateway(gateway.Id)
+		}
+
+	} else {
+		_, ok := s.ActiveGateways[gateway.Id]
+		if ok {
+			delete(s.ActiveGateways, gateway.Id)
+		}
 	}
 
-	return types.CodeOK, nil
+	return codes.CodeOK, gateway.Id, nil
 }
 
-func (s *Simulator) DeleteGateway(MACAddress lorawan.EUI64) bool {
+func (s *Simulator) DeleteGateway(Id int) bool {
 
-	gateways := GetGateways()
-	found := false
-
-	//gateway in running?
-	for _, g := range s.Gateways {
-
-		if g.Info.MACAddress == MACAddress {
-			return false
-		}
-
-	}
-
-	for i, gateway := range gateways {
-
-		if gateway.Info.MACAddress == MACAddress {
-
-			switch i {
-
-			case 0:
-				if len(gateways) == 1 {
-					gateways = gateways[:0]
-				} else {
-					gateways = gateways[1:]
-				}
-
-			case len(gateways) - 1:
-				gateways = gateways[:len(gateways)-1]
-
-			default:
-				gateways = append(gateways[:i], gateways[i+1:]...)
-
-			}
-
-			found = true
-			break
-
-		}
-
-	}
-
-	if !found {
-
-		s.Print("", errors.New("Unable to delete a gateway that does not exist"), util.PrintOnlyConsole)
+	if s.Gateways[Id].IsOn() {
 		return false
-
 	}
 
-	gwBytes, _ := json.MarshalIndent(&gateways, "", "\t")
+	delete(s.Gateways, Id)
+	delete(s.ActiveGateways, Id)
 
 	pathDir, err := util.GetPath()
 	if err != nil {
@@ -314,63 +244,54 @@ func (s *Simulator) DeleteGateway(MACAddress lorawan.EUI64) bool {
 	}
 
 	path := pathDir + "/gateways.json"
-
-	err = util.WriteConfigFile(path, gwBytes)
-	if err != nil {
-		s.Print("", err, util.PrintOnlyConsole)
-		return false
-	}
+	s.saveComponent(path, &s.Gateways)
 
 	s.Print("Gateway Deleted", nil, util.PrintOnlyConsole)
 
 	return true
 }
 
-func (s *Simulator) SetDevice(device dev.Device, index *int) (int, error) {
+func (s *Simulator) SetDevice(device *dev.Device, update bool) (int, int, error) {
 
 	emptyAddr := lorawan.EUI64{0, 0, 0, 0, 0, 0, 0, 0}
-
-	devices := GetDevices()
 
 	if device.Info.DevEUI == emptyAddr {
 
 		s.Print("DevEUI invalid", nil, util.PrintOnlyConsole)
-		return types.CodeErrorAddress, errors.New("Error: DevEUI invalid")
+		return codes.CodeErrorAddress, -1, errors.New("Error: DevEUI invalid")
 
 	}
 
-	//dispositivo in running?
-	for _, d := range s.Devices {
+	if !update { //new
 
-		if d.Info.DevEUI == device.Info.DevEUI {
-			return types.CodeErrorDeviceActive, errors.New("Device is running, unable update")
+		device.Id = s.NextIDDev
+		s.NextIDDev++
+
+	} else {
+
+		if s.Devices[device.Id].IsOn() {
+			return codes.CodeErrorDeviceActive, -1, errors.New("Device is running, unable update")
 		}
 
 	}
 
-	code, err := searchName(device.Info.Name, index)
+	code, err := s.searchName(device.Info.Name, device.Id, false)
 	if err != nil {
 
 		s.Print("Name already used", nil, util.PrintOnlyConsole)
-		return code, err
+		return code, -1, err
 
 	}
 
-	code, err = searchAddress(device.Info.DevEUI, index)
+	code, err = s.searchAddress(device.Info.DevEUI, device.Id, false)
 	if err != nil {
 
 		s.Print("DevEUI already used", nil, util.PrintOnlyConsole)
-		return code, err
+		return code, -1, err
 
 	}
 
-	if index == nil { //new dev
-		devices = append(devices, device)
-	} else { //update
-		devices[*index] = device
-	}
-
-	devBytes, _ := json.MarshalIndent(&devices, "", "\t")
+	s.Devices[device.Id] = device
 
 	pathDir, err := util.GetPath()
 	if err != nil {
@@ -378,69 +299,38 @@ func (s *Simulator) SetDevice(device dev.Device, index *int) (int, error) {
 	}
 
 	path := pathDir + "/devices.json"
-
-	err = util.WriteConfigFile(path, devBytes)
-	if err != nil {
-		s.Print("", err, util.PrintOnlyConsole)
-		return types.CodeSaving, nil
-	}
+	s.saveComponent(path, &s.Devices)
+	path = pathDir + "/simulator.json"
+	s.saveComponent(path, &s)
 
 	s.Print("Device Saved", nil, util.PrintOnlyConsole)
 
-	if s.State == util.Running && device.Info.Status.Active {
-		s.TurnONDevice(device.Info.DevEUI)
+	if device.Info.Status.Active {
+
+		s.ActiveDevices[device.Id] = device.Id
+
+		if s.State == util.Running {
+			s.turnONDevice(device.Id)
+		}
+
+	} else {
+		_, ok := s.ActiveDevices[device.Id]
+		if ok {
+			delete(s.ActiveDevices, device.Id)
+		}
 	}
 
-	return types.CodeOK, nil
+	return codes.CodeOK, device.Id, nil
 }
 
-func (s *Simulator) DeleteDevice(DevEUI lorawan.EUI64) bool {
+func (s *Simulator) DeleteDevice(Id int) bool {
 
-	devices := GetDevices()
-	found := false
-
-	for _, d := range s.Devices {
-
-		if d.Info.DevEUI == DevEUI {
-			return false
-		}
-
-	}
-
-	for i, device := range devices {
-
-		if device.Info.DevEUI == DevEUI {
-
-			switch i {
-
-			case 0:
-				if len(devices) == 1 {
-					devices = devices[:0]
-				} else {
-					devices = devices[1:]
-				}
-
-			case len(devices) - 1:
-				devices = devices[:len(devices)-1]
-
-			default:
-				devices = append(devices[:i], devices[i+1:]...)
-			}
-
-			found = true
-			break
-
-		}
-	}
-
-	if !found {
-
-		s.Print("", errors.New("Unable to delete a device that does not exist"), util.PrintOnlyConsole)
+	if s.Devices[Id].IsOn() {
 		return false
-
 	}
 
-	devBytes, _ := json.MarshalIndent(&devices, "", "\t")
+	delete(s.Devices, Id)
+	delete(s.ActiveDevices, Id)
 
 	pathDir, err := util.GetPath()
 	if err != nil {
@@ -448,119 +338,47 @@ func (s *Simulator) DeleteDevice(DevEUI lorawan.EUI64) bool {
 	}
 
 	path := pathDir + "/devices.json"
-
-	err = util.WriteConfigFile(path, devBytes)
-	if err != nil {
-		s.Print("", err, util.PrintOnlyConsole)
-		return false
-	}
+	s.saveComponent(path, &s.Devices)
 
 	s.Print("Device Deleted", nil, util.PrintOnlyConsole)
 
 	return true
 }
 
-func (s *Simulator) TurnONDevice(DevEUI lorawan.EUI64) bool {
+func (s *Simulator) ToggleStateDevice(Id int) {
 
-	devices := GetDevices()
-
-	for i := 0; i < len(devices); i++ {
-
-		if devices[i].Info.DevEUI == DevEUI {
-
-			s.Devices = append(s.Devices, &devices[i])
-			s.Devices[len(s.Devices)-1].Setup(&s.Resources, &s.State, &s.Forwarder)
-
-			infoDev := mfw.InfoDevice{
-				DevEUI:   s.Devices[len(s.Devices)-1].Info.DevEUI,
-				Location: s.Devices[len(s.Devices)-1].Info.Location,
-				Range:    s.Devices[len(s.Devices)-1].Info.Configuration.Range,
-			}
-
-			s.Forwarder.AddDevice(infoDev)
-
-			s.Devices[len(s.Devices)-1].TurnON()
-
-			return true
-		}
-
+	if s.Devices[Id].State == util.Stopped {
+		s.turnONDevice(Id)
+	} else if s.Devices[Id].State == util.Running {
+		s.turnOFFDevice(Id)
 	}
-
-	return false
-}
-
-func (s *Simulator) TurnOFFDevice(DevEUI lorawan.EUI64) bool {
-
-	for i := 0; i < len(s.Devices); i++ {
-
-		if s.Devices[i].Info.DevEUI == DevEUI {
-
-			s.Resources.ExitGroup.Add(1)
-			s.DevicesInactive++
-
-			s.Devices[i].TurnOFF()
-
-			//aggiorno il forwarder
-			infoDev := mfw.InfoDevice{
-				DevEUI:   s.Devices[i].Info.DevEUI,
-				Location: s.Devices[i].Info.Location,
-				Range:    s.Devices[i].Info.Configuration.Range,
-			}
-
-			s.Forwarder.DeleteDevice(infoDev)
-
-			s.Resources.ExitGroup.Wait()
-
-			switch i {
-
-			case 0:
-				s.Devices = s.Devices[1:]
-			case len(s.Devices) - 1:
-				s.Devices = s.Devices[:len(s.Devices)-1]
-			default:
-				s.Devices = append(s.Devices[:i], s.Devices[i+1:]...)
-
-			}
-
-			s.DevicesInactive--
-
-			return true
-		}
-	}
-
-	s.Print("", errors.New("Unable to turn off a device that is already turned off"), util.PrintOnlyConsole)
-
-	return false
 
 }
 
 func (s *Simulator) SendMACCommand(cid lorawan.CID, data socket.MacCommand) {
 
-	for i, device := range s.Devices {
-
-		if device.Info.DevEUI == data.DevEUI {
-
-			err := s.Devices[i].SendMACCommand(cid, data.Periodicity)
-			if err != nil {
-				s.Resources.WebSocket.Emit(socket.EventResponseCommand, "Unable to send command: "+err.Error())
-			} else {
-				s.Resources.WebSocket.Emit(socket.EventResponseCommand, "MACCommand will be sent to the next uplink")
-			}
-
-			return
-		}
+	if !s.Devices[data.Id].IsOn() {
+		s.Resources.WebSocket.Emit(socket.EventResponseCommand, s.Devices[data.Id].Info.Name+" is turned off")
+		return
 	}
 
-	s.Resources.WebSocket.Emit(socket.EventResponseCommand, "Unable to send command: device inactive")
+	err := s.Devices[data.Id].SendMACCommand(cid, data.Periodicity)
+	if err != nil {
+		s.Resources.WebSocket.Emit(socket.EventResponseCommand, "Unable to send command: "+err.Error())
+	} else {
+		s.Resources.WebSocket.Emit(socket.EventResponseCommand, "MACCommand will be sent to the next uplink")
+	}
 
 }
 
-func (s *Simulator) ChangePayload(pl socket.NewPayload) {
+func (s *Simulator) ChangePayload(pl socket.NewPayload) (string, bool) {
 
-	//decodifico data
-	var DevEUI lorawan.EUI64
-	DevEUITmp, _ := hex.DecodeString(pl.DevEUI)
-	copy(DevEUI[:8], DevEUITmp)
+	devEUIstring := hex.EncodeToString(s.Devices[pl.Id].Info.DevEUI[:])
+
+	if !s.Devices[pl.Id].IsOn() {
+		s.Resources.WebSocket.Emit(socket.EventResponseCommand, s.Devices[pl.Id].Info.Name+" is turned off")
+		return devEUIstring, false
+	}
 
 	MType := lorawan.UnconfirmedDataUp
 	if pl.MType == "ConfirmedDataUp" {
@@ -571,151 +389,56 @@ func (s *Simulator) ChangePayload(pl socket.NewPayload) {
 		Bytes: []byte(pl.Payload),
 	}
 
-	//Cerco il device tra quelli attivi
-	for i, device := range s.Devices {
+	s.Devices[pl.Id].ChangePayload(MType, Payload)
 
-		if device.Info.DevEUI == DevEUI {
+	s.Resources.WebSocket.Emit(socket.EventResponseCommand, s.Devices[pl.Id].Info.Name+": Payload changed")
 
-			s.Devices[i].ChangePayload(MType, Payload)
-
-			s.Resources.WebSocket.Emit(socket.EventResponseCommand, "Command executed successfully")
-
-			return
-		}
-
-	}
-
-	s.Resources.WebSocket.Emit(socket.EventResponseCommand, "Unable to change payload: device inactive")
-
+	return devEUIstring, true
 }
 
-func (s *Simulator) SendUplinkDevice(pl socket.NewPayload) {
+func (s *Simulator) SendUplink(pl socket.NewPayload) {
 
-	var DevEUI lorawan.EUI64
-	DevEUITmp, _ := hex.DecodeString(pl.DevEUI)
-	copy(DevEUI[:8], DevEUITmp)
+	if !s.Devices[pl.Id].IsOn() {
+		s.Resources.WebSocket.Emit(socket.EventResponseCommand, s.Devices[pl.Id].Info.Name+" is turned off")
+		return
+	}
 
 	MType := lorawan.UnconfirmedDataUp
 	if pl.MType == "ConfirmedDataUp" {
 		MType = lorawan.ConfirmedDataUp
 	}
 
-	//Cerco il device
-	index := -1
-	for i, device := range s.Devices {
+	s.Devices[pl.Id].NewUplink(MType, pl.Payload)
 
-		if device.Info.DevEUI == DevEUI {
-			index = i
-			s.Devices[i].NewUplink(MType, pl.Payload)
-			s.Resources.WebSocket.Emit(socket.EventResponseCommand, "Uplink queued")
-			break
-		}
-
-	}
-
-	if index == -1 {
-		s.Resources.WebSocket.Emit(socket.EventResponseCommand, "Device is not active")
-	}
+	s.Resources.WebSocket.Emit(socket.EventResponseCommand, "Uplink queued")
 
 }
 
 func (s *Simulator) ChangeLocation(l socket.NewLocation) bool {
 
-	var DevEUI lorawan.EUI64
-	DevEUITmp, _ := hex.DecodeString(l.DevEUI)
-	copy(DevEUI[:8], DevEUITmp)
-
-	for i, device := range s.Devices {
-
-		if device.Info.DevEUI == DevEUI {
-
-			s.Devices[i].ChangeLocation(l.Latitude, l.Longitude, l.Altitude)
-
-			info := mfw.InfoDevice{
-				DevEUI:   s.Devices[i].Info.DevEUI,
-				Location: s.Devices[i].Info.Location,
-				Range:    s.Devices[i].Info.Configuration.Range,
-			}
-
-			s.Forwarder.UpdateDevice(info)
-
-			return true
-		}
-
-	}
-
-	return false
-}
-
-func (s *Simulator) TurnONGateway(MACAddress lorawan.EUI64) bool {
-
-	gateways := GetGateways()
-	for i := range gateways {
-
-		if gateways[i].Info.MACAddress == MACAddress {
-
-			s.Gateways = append(s.Gateways, &gateways[i])
-
-			s.Gateways[len(s.Gateways)-1].Setup(&s.BridgeAddress, &s.Resources, &s.State, &s.Forwarder)
-
-			infoGw := mfw.InfoGateway{
-				Buf:      &s.Gateways[len(s.Gateways)-1].BufferUplink,
-				Location: s.Gateways[len(s.Gateways)-1].Info.Location,
-			}
-
-			s.Forwarder.AddGateway(infoGw)
-
-			s.Gateways[len(s.Gateways)-1].TurnON()
-
-			break
-		}
-	}
-
-	return true
-}
-
-func (s *Simulator) TurnOFFGateway(MACAddress lorawan.EUI64) bool {
-
-	index := -1
-	for i, gateway := range s.Gateways {
-
-		if gateway.Info.MACAddress == MACAddress {
-			index = i
-			break
-		}
-
-	}
-
-	if index == -1 {
-
-		s.Print("", errors.New("Unable to turn off a device that is already turned off"), util.PrintOnlyConsole)
-		s.Resources.WebSocket.Emit(socket.EventResponseCommand, "Unable to turn off a device that is already turned off")
-
+	if !s.Devices[l.Id].IsOn() {
 		return false
 	}
 
-	s.Resources.ExitGroup.Add(1)
-	s.Gateways[index].TurnOFF()
+	s.Devices[l.Id].ChangeLocation(l.Latitude, l.Longitude, l.Altitude)
 
-	s.Resources.ExitGroup.Wait()
-
-	infoGw := mfw.InfoGateway{
-		Buf:      &s.Gateways[index].BufferUplink,
-		Location: s.Gateways[index].Info.Location,
+	info := mfw.InfoDevice{
+		DevEUI:   s.Devices[l.Id].Info.DevEUI,
+		Location: s.Devices[l.Id].Info.Location,
+		Range:    s.Devices[l.Id].Info.Configuration.Range,
 	}
 
-	s.Forwarder.DeleteGateway(infoGw)
-
-	switch index {
-
-	case 0:
-		s.Gateways = s.Gateways[1:]
-	case len(s.Gateways) - 1:
-		s.Gateways = s.Gateways[:len(s.Gateways)-1]
-	default:
-		s.Gateways = append(s.Gateways[:index], s.Gateways[index+1:]...)
-
-	}
+	s.Forwarder.UpdateDevice(info)
 
 	return true
+}
+
+func (s *Simulator) ToggleStateGateway(Id int) {
+
+	if s.Gateways[Id].State == util.Stopped {
+		s.turnONGateway(Id)
+	} else {
+		s.turnOFFGateway(Id)
+	}
+
 }

@@ -10,9 +10,9 @@ import (
 )
 
 const (
-	ModeA = iota
-	ModeB
-	ModeC
+	ClassA = iota
+	ClassB
+	ClassC
 )
 
 type Class interface {
@@ -21,7 +21,7 @@ type Class interface {
 	ReceiveWindows(time.Duration, time.Duration) *lorawan.PHYPayload
 	RetransmissionCData(downlink *dl.InformationDownlink) error
 	RetransmissionUnCData(downlink *dl.InformationDownlink) error
-	GetMode() int
+	GetClass() int
 	ToString() string
 	CloseRX2()
 }
@@ -31,9 +31,9 @@ type ClassType struct {
 }
 
 var ClassRegistry = map[int]ClassType{
-	ModeA: {func() Class { return &ClassA{} }},
-	ModeB: {func() Class { return &ClassB{} }},
-	ModeC: {func() Class { return &ClassC{} }},
+	ClassA: {func() Class { return &TypeA{} }},
+	ClassB: {func() Class { return &TypeB{} }},
+	ClassC: {func() Class { return &TypeC{} }},
 }
 
 func GetClass(Code int) Class {

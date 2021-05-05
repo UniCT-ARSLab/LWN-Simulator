@@ -141,10 +141,11 @@ func (au *Au915) RX1DROffsetSupported(offset uint8) error {
 	return errors.New("Invalid RX1DROffset")
 }
 
-func (au *Au915) LinkAdrReq(ChMaskCntl uint8, ChMask lorawan.ChMask, newDataRate uint8, channels []c.Channel) (int, []bool, error) {
+func (au *Au915) LinkAdrReq(ChMaskCntl uint8, ChMask lorawan.ChMask,
+	newDataRate uint8, channels *[]c.Channel) (int, []bool, error) {
 
 	var err error
-	channelsCopy := channels
+
 	lenMask := LenChMask
 	offset := ChMaskCntl
 	acks := []bool{false, false, false}
@@ -154,35 +155,79 @@ func (au *Au915) LinkAdrReq(ChMaskCntl uint8, ChMask lorawan.ChMask, newDataRate
 
 	case 0, 1, 2, 3:
 		offset = ChMaskCntl * 16
+
 	case 4:
 		offset = ChMaskCntl * 16
 		lenMask = LenChMask / 2
+
 	case 5:
-		//prima devo fare qualcosa
 		offset = 64
 		lenMask = LenChMask / 2
+		groupIndex := uint(0)
+
+		for i, bit := range ChMask {
+
+			if bit {
+				value := uint(1)
+				mask := value << uint(i)
+				groupIndex = groupIndex | mask
+			}
+
+		}
+
+		for i := int(groupIndex); i < lenMask; i++ {
+
+			if !(*channels)[i].Active { // can't enable uplink channel
+
+				msg := fmt.Sprintf("ChMask can't enable an inactive channel[%v]", i)
+				return ChMaskCntlChannel, acks, errors.New(msg)
+
+			}
+
+			(*channels)[i].EnableUplink = ChMask[i]
+
+		}
+
+		if !(*channels)[int(offset)+int(groupIndex)].Active { // can't enable uplink channel
+
+			msg := fmt.Sprintf("ChMask can't enable an inactive channel[%v]", int(offset)+int(groupIndex))
+			return ChMaskCntlChannel, acks, errors.New(msg)
+
+		}
+
+		(*channels)[int(offset)+int(groupIndex)].EnableUplink = ChMask[lenMask-1]
+
 	case 6:
 		offset = 64
 		lenMask = LenChMask / 2
+
 		for i := 0; i < au.Info.InfoGroupChannels[0].NbReservedChannels; i++ {
 
-			if !channels[i].Active { // can't enable uplink channel
-				msg := fmt.Sprintf("LinkADRReq | ChMask can't enable an inactive channel[%v] |", i)
+			if !(*channels)[i].Active { // can't enable uplink channel
+
+				msg := fmt.Sprintf("ChMask can't enable an inactive channel[%v]", i)
 				return ChMaskCntlChannel, acks, errors.New(msg)
+
 			}
-			channelsCopy[i].EnableUplink = true
+
+			(*channels)[i].EnableUplink = true
 
 		}
+
 	case 7:
 		offset = 64
 		lenMask = LenChMask / 2
+
 		for i := 0; i < au.Info.InfoGroupChannels[0].NbReservedChannels; i++ {
 
-			if !channels[i].Active { // can't enable uplink channel
-				msg := fmt.Sprintf("LinkADRReq | ChMask can't enable an inactive channel[%v] |", i)
+			if !(*channels)[i].Active { // can't enable uplink channel
+
+				msg := fmt.Sprintf("ChMask can't enable an inactive channel[%v]", i)
 				return ChMaskCntlChannel, acks, errors.New(msg)
+
 			}
-			channelsCopy[i].EnableUplink = false
+
+			(*channels)[i].EnableUplink = false
 
 		}
 
@@ -190,18 +235,20 @@ func (au *Au915) LinkAdrReq(ChMaskCntl uint8, ChMask lorawan.ChMask, newDataRate
 
 	for i := int(offset); i < lenMask; i++ {
 
-		if !channels[i].Active { // can't enable uplink channel
-			msg := fmt.Sprintf("LinkADRReq | ChMask can't enable an inactive channel[%v] |", i)
+		if !(*channels)[i].Active { // can't enable uplink channel
+
+			msg := fmt.Sprintf("ChMask can't enable an inactive channel[%v]", i)
 			return ChMaskCntlChannel, acks, errors.New(msg)
+
 		}
-		channelsCopy[i].EnableUplink = ChMask[i]
+
+		(*channels)[i].EnableUplink = ChMask[i]
 
 	}
 
 	acks[0] = true //ackMask
 	acks[1] = true //ackdr
 	acks[2] = true //txack
-	channels = channelsCopy
 
 	return ChMaskCntlGroup, acks, err
 }
@@ -218,7 +265,9 @@ func (au *Au915) SetupRX1(datarate uint8, rx1offset uint8, indexChannel int, dti
 	if DataRateRx1 > 13 {
 		DataRateRx1 = 13
 	}
+
 	return DataRateRx1, newIndexChannel
+
 }
 
 func (au *Au915) SetupInfoRequest(indexChannel int) (string, int) {
@@ -226,12 +275,14 @@ func (au *Au915) SetupInfoRequest(indexChannel int) (string, int) {
 	rand.Seed(time.Now().UTC().UnixNano())
 
 	datarate := uint8(2)
+
 	indexChannel = rand.Int() % au.GetNbReservedChannels()
 	if indexChannel >= au.Info.InfoGroupChannels[0].NbReservedChannels {
 		datarate = uint8(6)
 	}
 
 	_, drString := au.GetDataRate(datarate)
+
 	return drString, indexChannel
 
 }

@@ -5,34 +5,20 @@ import (
 	m "github.com/arslab/lwnsimulator/simulator/components/forwarder/models"
 	"github.com/arslab/lwnsimulator/simulator/resources/communication/buffer"
 	pkt "github.com/arslab/lwnsimulator/simulator/resources/communication/packets"
-	loc "github.com/arslab/lwnsimulator/simulator/resources/location"
 	"github.com/brocaar/lorawan"
 )
 
-func Setup(dev []m.InfoDevice, gw []m.InfoGateway) *Forwarder {
+func Setup() *Forwarder {
+
 	f := Forwarder{
-		DevToGw: make(map[lorawan.EUI64][]*buffer.BufferUplink),
-		GwtoDev: make(map[uint32][]*dl.ReceivedDownlink),
+		DevToGw:  make(map[lorawan.EUI64]map[lorawan.EUI64]*buffer.BufferUplink),            //1[devEUI] 2 [macAddress]
+		GwtoDev:  make(map[uint32]map[lorawan.EUI64]map[lorawan.EUI64]*dl.ReceivedDownlink), //1[fre1] 2 [macAddress] 3[devEUI]
+		Devices:  make(map[lorawan.EUI64]m.InfoDevice),
+		Gateways: make(map[lorawan.EUI64]m.InfoGateway),
 	}
 
-	f.devices = append(dev)
-	f.gateways = append(gw)
-
-	for _, d := range dev {
-
-		for _, g := range gw {
-
-			distance := loc.GetDistance(d.Location.Latitude, d.Location.Longitude,
-				g.Location.Latitude, g.Location.Longitude)
-
-			if distance <= (d.Range / 1000.0) {
-				f.DevToGw[d.DevEUI] = append(f.DevToGw[d.DevEUI], g.Buf)
-			}
-
-		}
-
-	}
 	return &f
+
 }
 
 func (f *Forwarder) AddDevice(d m.InfoDevice) {
@@ -40,18 +26,19 @@ func (f *Forwarder) AddDevice(d m.InfoDevice) {
 	f.Mutex.Lock()
 	defer f.Mutex.Unlock()
 
-	f.devices = append(f.devices, d)
+	f.Devices[d.DevEUI] = d
 
-	for _, g := range f.gateways {
+	inner := make(map[lorawan.EUI64]*buffer.BufferUplink)
+	f.DevToGw[d.DevEUI] = inner
 
-		distance := loc.GetDistance(d.Location.Latitude, d.Location.Longitude,
-			g.Location.Latitude, g.Location.Longitude)
+	for _, g := range f.Gateways {
 
-		if distance <= (d.Range / 1000.0) {
-			f.DevToGw[d.DevEUI] = append(f.DevToGw[d.DevEUI], g.Buf)
+		if inRange(d, g) {
+			f.DevToGw[d.DevEUI][g.MACAddress] = g.Buffer
 		}
 
 	}
+
 }
 
 func (f *Forwarder) AddGateway(g m.InfoGateway) {
@@ -59,44 +46,29 @@ func (f *Forwarder) AddGateway(g m.InfoGateway) {
 	f.Mutex.Lock()
 	defer f.Mutex.Unlock()
 
-	f.gateways = append(f.gateways, g)
+	f.Gateways[g.MACAddress] = g
 
-	for _, d := range f.devices {
+	for _, d := range f.Devices {
 
-		distance := loc.GetDistance(d.Location.Latitude, d.Location.Longitude,
-			g.Location.Latitude, g.Location.Longitude)
-
-		if distance <= (d.Range / 1000.0) {
-			f.DevToGw[d.DevEUI] = append(f.DevToGw[d.DevEUI], g.Buf)
+		if inRange(d, g) {
+			f.DevToGw[d.DevEUI][g.MACAddress] = g.Buffer
 		}
 
 	}
 }
 
-func (f *Forwarder) DeleteDevice(d m.InfoDevice) {
+func (f *Forwarder) DeleteDevice(DevEUI lorawan.EUI64) {
 
 	f.Mutex.Lock()
 	defer f.Mutex.Unlock()
 
-	for range f.DevToGw[d.DevEUI] {
-		delete(f.DevToGw, d.DevEUI)
-	}
-	index := -1
-	for i, dev := range f.devices {
-		if dev.DevEUI == d.DevEUI {
-			index = i
-			break
-		}
+	for key := range f.DevToGw[DevEUI] {
+		delete(f.DevToGw[DevEUI], key)
 	}
 
-	switch index {
-	case 0:
-		f.devices = f.devices[1:]
-	case len(f.devices) - 1:
-		f.devices = f.devices[:len(f.devices)-1]
-	default:
-		f.devices = append(f.devices[:index], f.devices[index+1:]...)
-	}
+	delete(f.DevToGw, DevEUI)
+	delete(f.Devices, DevEUI)
+
 }
 
 func (f *Forwarder) DeleteGateway(g m.InfoGateway) {
@@ -104,144 +76,90 @@ func (f *Forwarder) DeleteGateway(g m.InfoGateway) {
 	f.Mutex.Lock()
 	defer f.Mutex.Unlock()
 
-	for _, d := range f.devices {
-		for i, buf := range f.DevToGw[d.DevEUI] {
-			if buf == g.Buf {
-
-				switch i {
-				case 0:
-					f.DevToGw[d.DevEUI] = f.DevToGw[d.DevEUI][1:]
-				case len(f.DevToGw[d.DevEUI]) - 1:
-					f.DevToGw[d.DevEUI] = f.DevToGw[d.DevEUI][:len(f.DevToGw[d.DevEUI])-1]
-				default:
-					f.DevToGw[d.DevEUI] = append(f.DevToGw[d.DevEUI][:i], f.DevToGw[d.DevEUI][i+1:]...)
-				}
-
-			}
-
-		}
+	for _, d := range f.Devices {
+		delete(f.DevToGw[d.DevEUI], g.MACAddress)
 	}
 
-	index := -1
-	for i, gw := range f.gateways {
-		if gw.Buf == g.Buf {
-			index = i
-			break
-		}
-	}
-
-	switch index {
-	case 0:
-		f.gateways = f.gateways[1:]
-	case len(f.gateways) - 1:
-		f.gateways = f.gateways[:len(f.gateways)-1]
-	default:
-		f.gateways = append(f.gateways[:index], f.gateways[index+1:]...)
-	}
-}
-
-func (f *Forwarder) UpdateDevice(info m.InfoDevice) {
-
-	f.Mutex.Lock()
-	defer f.Mutex.Unlock()
-
-	for i, d := range f.devices {
-		if d.DevEUI == info.DevEUI {
-			f.devices[i] = info
-
-			for range f.DevToGw[info.DevEUI] { //map empty
-				delete(f.DevToGw, info.DevEUI)
-			}
-
-			for _, g := range f.gateways {
-
-				distance := loc.GetDistance(info.Location.Latitude, info.Location.Longitude,
-					g.Location.Latitude, g.Location.Longitude)
-
-				if distance <= (d.Range / 1000.0) {
-					f.DevToGw[d.DevEUI] = append(f.DevToGw[d.DevEUI], g.Buf)
-				}
-
-			}
-
-			break
-		}
-
-	}
+	delete(f.Gateways, g.MACAddress)
 
 }
 
-func (f *Forwarder) Register(freq uint32, DevEUI lorawan.EUI64, buf *dl.ReceivedDownlink) {
-	f.Mutex.Lock()
-	f.GwtoDev[freq] = append(f.GwtoDev[freq], buf)
-	f.Mutex.Unlock()
+func (f *Forwarder) UpdateDevice(d m.InfoDevice) {
+	f.AddDevice(d)
 }
 
-func (f *Forwarder) UnRegister(freq uint32, buf *dl.ReceivedDownlink) {
+func (f *Forwarder) Register(freq uint32, DevEUI lorawan.EUI64, rDownlink *dl.ReceivedDownlink) {
 
 	f.Mutex.Lock()
 
-	for i := 0; i < len(f.GwtoDev[freq]); {
+	inner, ok := f.GwtoDev[freq]
+	if !ok {
+		inner = make(map[lorawan.EUI64]map[lorawan.EUI64]*dl.ReceivedDownlink)
+		f.GwtoDev[freq] = inner
+	}
 
-		dl := f.GwtoDev[freq][i]
+	for key := range f.DevToGw[DevEUI] {
 
-		if dl == buf {
-
-			switch i {
-			case 0:
-
-				if len(f.GwtoDev[freq]) == 1 {
-					f.GwtoDev[freq] = f.GwtoDev[freq][:0]
-				} else {
-					f.GwtoDev[freq] = f.GwtoDev[freq][1:]
-				}
-
-				break
-
-			case len(f.GwtoDev[freq]) - 1:
-
-				f.GwtoDev[freq] = f.GwtoDev[freq][:len(f.GwtoDev[freq])-1]
-				break
-
-			default:
-
-				f.GwtoDev[freq] = append(f.GwtoDev[freq][:i], f.GwtoDev[freq][i+1:]...)
-				break
-
-			}
-
-		} else {
-			i++
+		inner, ok := f.GwtoDev[freq][key]
+		if !ok {
+			inner = make(map[lorawan.EUI64]*dl.ReceivedDownlink)
+			f.GwtoDev[freq][key] = inner
 		}
+
+		rDownlink.Open()
+		f.GwtoDev[freq][key][DevEUI] = rDownlink
 	}
 
 	f.Mutex.Unlock()
 
 }
 
-func (f *Forwarder) Uplink(data pkt.RXPK, index lorawan.EUI64) {
+func (f *Forwarder) UnRegister(freq uint32, devEUI lorawan.EUI64) {
+
+	f.Mutex.Lock()
+
+	for key := range f.DevToGw[devEUI] {
+
+		_, ok := f.GwtoDev[freq][key][devEUI]
+		if ok {
+
+			f.GwtoDev[freq][key][devEUI].Close()
+			delete(f.GwtoDev[freq][key], devEUI)
+
+		}
+
+	}
+
+	f.Mutex.Unlock()
+
+}
+
+func (f *Forwarder) Uplink(data pkt.RXPK, DevEUI lorawan.EUI64) {
+
+	f.Mutex.Lock()
 
 	rxpk := createPacket(data)
-	f.Mutex.Lock()
-	for _, up := range f.DevToGw[index] {
+
+	for _, up := range f.DevToGw[DevEUI] {
 		up.Push(rxpk)
 	}
+
 	f.Mutex.Unlock()
+
 }
 
-func (f *Forwarder) Downlink(data *lorawan.PHYPayload, freq uint32) {
+func (f *Forwarder) Downlink(data *lorawan.PHYPayload, freq uint32, macAddress lorawan.EUI64) {
 
 	f.Mutex.Lock()
-	for _, dl := range f.GwtoDev[freq] {
+
+	for _, dl := range f.GwtoDev[freq][macAddress] {
 		dl.Push(data)
 	}
+
 	f.Mutex.Unlock()
 
 }
 
 func (f *Forwarder) Reset() {
-	f = &Forwarder{
-		DevToGw: make(map[lorawan.EUI64][]*buffer.BufferUplink),
-		GwtoDev: make(map[uint32][]*dl.ReceivedDownlink),
-	}
+	f = Setup()
 }

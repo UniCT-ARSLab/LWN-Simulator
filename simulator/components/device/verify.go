@@ -11,16 +11,17 @@ import (
 
 func (d *Device) CanExecute() bool {
 
-	if *d.Info.StateSimulator == util.Stopped ||
-		!d.Info.Status.Active {
+	defer d.Mutex.Unlock()
+	d.Mutex.Lock()
 
-		if d.Mode.GetMode() == classes.ModeC {
+	if d.State == util.Stopped {
 
-			d.Mode.CloseRX2()
+		if d.Class.GetClass() == classes.ClassC {
+
+			d.Class.CloseRX2()
 
 			d.Info.Status.InfoClassC.WakeUpDevice()
 			d.Info.Status.InfoClassC.WakeUpClass()
-			d.Info.Status.InfoClassC.Exit <- struct{}{}
 
 		}
 
@@ -28,15 +29,6 @@ func (d *Device) CanExecute() bool {
 	}
 
 	return true
-
-}
-
-func (d *Device) IsON() bool { //per una corretta print
-
-	d.Mutex.Lock()
-	defer d.Mutex.Unlock()
-
-	return d.Info.Status.Active
 
 }
 
@@ -70,12 +62,11 @@ func (d *Device) isSupportedDataRateRange(minDR uint8, maxDR uint8) error {
 
 func (d *Device) setChannel(index uint8, freq uint32, minDR uint8, maxDR uint8) (bool, bool) {
 
-	//first, second and third channel are reserved in EU868
-	if index < 3 {
+	if int(index) < d.Info.Configuration.Region.GetNbReservedChannels() {
 
-		d.Print("can't modify a reserved channel", nil, util.PrintOnlySocket)
-
+		d.Print("Can't modify a reserved channel", nil, util.PrintBoth)
 		return false, false
+
 	}
 
 	Fok, DRok := false, false
@@ -89,18 +80,20 @@ func (d *Device) setChannel(index uint8, freq uint32, minDR uint8, maxDR uint8) 
 	if err != nil {
 		return DRok, Fok
 	}
+
 	DRok = true
 
-	if int(index) >= len(d.Info.Configuration.Channels) {
-		channel := channels.NewChannel(freq, minDR, maxDR)
-		//new channel
+	if int(index) >= len(d.Info.Configuration.Channels) { //new channel
+
+		channel := channels.NewChannel(true, freq, minDR, maxDR)
 		d.Info.Configuration.Channels = append(d.Info.Configuration.Channels, channel)
+
 	} else { //update channel
 		d.Info.Configuration.Channels[index].UpdateChannel(freq, minDR, maxDR)
 	}
 
-	msg := fmt.Sprintf("SET Channel[%v] {F[%v], MinDR[%v], MaxDR[%v] } ", index, freq, minDR, maxDR)
-	d.Print(msg, nil, util.PrintOnlySocket)
+	msg := fmt.Sprintf("SET Channel[%v] { F[%v], MinDR[%v], MaxDR[%v] } ", index, freq, minDR, maxDR)
+	d.Print(msg, nil, util.PrintBoth)
 
 	return DRok, Fok
 }

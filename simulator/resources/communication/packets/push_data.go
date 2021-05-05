@@ -63,13 +63,8 @@ func CreatePushDataPacket(GatewayMACAddr lorawan.EUI64, stat Stat, info []RXPK) 
 		payload,
 	}
 
-	packetBytes, err := pkt.MarshalBinary()
+	return pkt.MarshalBinary()
 
-	if err != nil {
-		return nil, err
-	}
-
-	return packetBytes, nil
 }
 
 func (p *PDPacket) MarshalBinary() ([]byte, error) {

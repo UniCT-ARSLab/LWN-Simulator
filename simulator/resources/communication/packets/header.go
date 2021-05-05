@@ -18,18 +18,6 @@ type Header struct {
 	GatewayMACAddr  lorawan.EUI64
 }
 
-func (h *Header) MarshalBinary() []byte {
-
-	out := make([]byte, 4, SizeHeader)
-
-	out[0] = h.ProtocolVersion
-	binary.LittleEndian.PutUint16(out[1:3], h.RandomToken)
-	out[3] = byte(h.IDPacket)
-	out = append(out, h.GatewayMACAddr[0:len(h.GatewayMACAddr)]...)
-
-	return out
-}
-
 func GetHeader(IDPacket uint8, GatewayMACAddr lorawan.EUI64, token uint16) []byte {
 
 	randomNumber := rand.Int()
@@ -46,4 +34,16 @@ func GetHeader(IDPacket uint8, GatewayMACAddr lorawan.EUI64, token uint16) []byt
 	}
 
 	return header.MarshalBinary()
+}
+
+func (h *Header) MarshalBinary() []byte {
+
+	out := make([]byte, 4, SizeHeader)
+
+	out[0] = h.ProtocolVersion
+	binary.LittleEndian.PutUint16(out[1:3], h.RandomToken)
+	out[3] = byte(h.IDPacket)
+	out = append(out, h.GatewayMACAddr[0:len(h.GatewayMACAddr)]...)
+
+	return out
 }

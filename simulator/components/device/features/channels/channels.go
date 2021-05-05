@@ -4,12 +4,12 @@ import "errors"
 
 //Channel that every device must handle
 type Channel struct {
-	Active            bool   `json:"Active"`
-	EnableUplink      bool   `json:"EnableUplink"` //true enable | false avoid
-	FrequencyUplink   uint32 `json:"FreqUplink"`   // forse c'è una sola frequenza
-	FrequencyDownlink uint32 `json:"FreqDownlink"`
-	MinDR             uint8  `json:"MinDR"`
-	MaxDR             uint8  `json:"MaxDR"`
+	Active            bool   `json:"active"`
+	EnableUplink      bool   `json:"enableUplink"` //true enable | false avoid
+	FrequencyUplink   uint32 `json:"freqUplink"`   // forse c'è una sola frequenza
+	FrequencyDownlink uint32 `json:"freqDownlink"`
+	MinDR             uint8  `json:"minDR"`
+	MaxDR             uint8  `json:"maxDR"`
 }
 
 //UpdateChannel sets new field of channel
@@ -30,10 +30,10 @@ func (c *Channel) UpdateChannel(freq uint32, minDR uint8, maxDR uint8) {
 	c.MaxDR = maxDR
 }
 
-//NewChannel è il setup per un canale nuovo
-func NewChannel(freq uint32, minDR uint8, maxDR uint8) Channel {
+func NewChannel(active bool, freq uint32, minDR uint8, maxDR uint8) Channel {
+
 	c := Channel{
-		Active:            true,
+		Active:            active,
 		EnableUplink:      true,
 		FrequencyUplink:   freq,
 		FrequencyDownlink: freq,
@@ -45,10 +45,11 @@ func NewChannel(freq uint32, minDR uint8, maxDR uint8) Channel {
 
 }
 
-//IsSupportedDR return feedback if datarate is supported from channel
 func (c *Channel) IsSupportedDR(datarate uint8) error {
+
 	if datarate >= c.MinDR && datarate <= c.MaxDR {
 		return nil
 	}
+
 	return errors.New("Not supported DataRate")
 }

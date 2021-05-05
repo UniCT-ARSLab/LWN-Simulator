@@ -27,30 +27,13 @@ func (d *Device) Execute() {
 	for i := 0; i < len(uplinks); i++ {
 
 		data := d.SetInfo(uplinks[i], false)
-
-		ok := d.CanExecute()
-		if !ok { //stop
-			return
-		}
-
-		d.Mode.SendData(data)
+		d.Class.SendData(data)
 
 		d.Print("Uplink sent", nil, util.PrintBoth)
 	}
 
 	d.Print("Open RXs", nil, util.PrintBoth)
-
-	ok := d.CanExecute()
-	if !ok { //stop
-		return
-	}
-
-	phy := d.Mode.ReceiveWindows(0, 0)
-
-	ok = d.CanExecute()
-	if !ok { //stop
-		return
-	}
+	phy := d.Class.ReceiveWindows(0, 0)
 
 	if phy != nil {
 
@@ -58,7 +41,7 @@ func (d *Device) Execute() {
 
 		downlink, err = d.ProcessDownlink(*phy)
 		if err != nil {
-			d.Print("", err, util.PrintOnlySocket)
+			d.Print("", err, util.PrintBoth)
 			return
 		}
 
@@ -68,18 +51,19 @@ func (d *Device) Execute() {
 
 			d.ADRProcedure()
 
-			if !d.Info.Status.RetransmissionActive {
-				d.FPendingProcedure(*downlink)
+			if d.Info.Status.Mode != util.Retransmission {
+				d.FPendingProcedure(downlink)
 			}
 
 		}
 
 	} else {
+
 		d.Print("None downlinks Received", nil, util.PrintBoth)
+
 		timerAckTimeout := time.NewTimer(d.Info.Configuration.AckTimeout)
 		<-timerAckTimeout.C
-
-		d.Print("ACK Timeout", nil, util.PrintOnlySocket)
+		d.Print("ACK Timeout", nil, util.PrintBoth)
 
 	}
 
@@ -88,22 +72,22 @@ func (d *Device) Execute() {
 
 	case lorawan.ConfirmedDataUp:
 
-		if d.Mode.GetMode() == classes.ModeC {
+		if d.Class.GetClass() == classes.ClassC {
 			if d.Info.Status.InfoClassC.GetACK() {
 				return
 			}
 		}
 
-		err := d.Mode.RetransmissionCData(downlink)
+		err := d.Class.RetransmissionCData(downlink)
 		if err != nil {
 
-			d.Print("", err, util.PrintOnlySocket)
+			d.Print("", err, util.PrintBoth)
 
 			d.UnJoined()
 
 		}
 
-		if d.Info.Status.RetransmissionActive {
+		if d.Info.Status.Mode == util.Retransmission {
 			//datarate Lower
 			if d.Info.Status.DataRate > d.Info.Configuration.Region.GetMinDataRate() {
 
@@ -125,78 +109,92 @@ func (d *Device) Execute() {
 
 	case lorawan.UnconfirmedDataUp:
 
-		err := d.Mode.RetransmissionUnCData(downlink)
+		err := d.Class.RetransmissionUnCData(downlink)
 		if err != nil {
-			d.Print("", err, util.PrintOnlySocket)
+			d.Print("", err, util.PrintBoth)
 		}
 	}
 
 }
 
-//FPendingProcedure is a procedure for fPrending bit
-func (d *Device) FPendingProcedure(downlink dl.InformationDownlink) {
+func (d *Device) FPendingProcedure(downlink *dl.InformationDownlink) {
 
-	ok := d.CanExecute()
-	if !ok {
+	var err error
+	if !d.CanExecute() {
 		return
 	}
 
-	i := 0 //per la print
+	startProcedure := 0 //per la print finale
 
-	for downlink.FPending {
+	for downlink != nil {
 
-		d.Print("Fpending set", nil, util.PrintOnlySocket)
+		if downlink.FPending {
 
-		if downlink.MType == lorawan.UnconfirmedDataDown {
-			d.SendEmptyFrame()
-		}
+			d.Print("Fpending set", nil, util.PrintBoth)
 
-		//ack is managed in resolveDownlinks
-
-		phy := d.Mode.ReceiveWindows(0, 0)
-
-		ok = d.CanExecute()
-		if !ok { //stop
-			return
-		}
-
-		if phy != nil {
-
-			d.Print("Downlink Received", nil, util.PrintOnlySocket)
-
-			downlink, err := d.ProcessDownlink(*phy)
-			if err != nil {
-				d.Print("", err, util.PrintOnlySocket)
+			if startProcedure == 0 {
+				d.Info.Status.Mode = util.FPending
+				d.Print("Start FPending procedure", nil, util.PrintBoth)
+				startProcedure = 1
 			}
 
-			if downlink != nil { //downlink ricevuto
+			if downlink.MType == lorawan.UnconfirmedDataDown {
+				d.SendEmptyFrame()
+			}
+			//ack sent in resolveDownlinks ergo open Receive Windows
 
-				d.ExecuteMACCommand(*downlink)
+			d.Print("Open RXs", nil, util.PrintBoth)
+			phy := d.Class.ReceiveWindows(0, 0)
 
-				d.ADRProcedure()
+			if !d.CanExecute() { //stop
+				return
+			}
+
+			if phy != nil {
+
+				d.Print("Downlink Received", nil, util.PrintBoth)
+
+				downlink, err = d.ProcessDownlink(*phy)
+				if err != nil {
+					d.Print("", err, util.PrintBoth)
+
+				}
+
+				if downlink != nil { //downlink ricevuto
+
+					d.ExecuteMACCommand(*downlink)
+					d.ADRProcedure()
+
+				}
+
+			} else {
+
+				downlink = nil
+
+				d.Print("None downlinks Received", nil, util.PrintBoth)
+
+				timerAckTimeout := time.NewTimer(d.Info.Configuration.AckTimeout)
+				<-timerAckTimeout.C
+
+				d.Print("ACK Timeout", nil, util.PrintBoth)
 
 			}
 
 		} else {
-
-			timerAckTimeout := time.NewTimer(d.Info.Configuration.AckTimeout)
-			<-timerAckTimeout.C
-
-			d.Print("ACK Timeout", nil, util.PrintOnlySocket)
-			d.SendEmptyFrame()
+			d.Print("Fpending unset", nil, util.PrintBoth)
+			break
 		}
 
-		i = 1
-
 	}
 
-	if i > 0 {
-		d.Print("Fpending Unset", nil, util.PrintOnlySocket)
+	if startProcedure == 1 {
+		d.Print("FPending procedure finished", nil, util.PrintBoth)
 	}
+
+	d.Info.Status.Mode = util.Normal
 
 }
 
-//ADRProcedure per incrementare la qualità della rete
 func (d *Device) ADRProcedure() {
 
 	switch d.Info.Status.DataUplink.ADR.ADRACKCnt {
@@ -204,6 +202,7 @@ func (d *Device) ADRProcedure() {
 	case adr.ADRACKLIMIT, adr.ADRACKLIMIT + adr.ADRACKDELAY:
 
 		if d.Info.Status.DataRate > d.Info.Configuration.Region.GetMinDataRate() && d.Info.Configuration.SupportedADR {
+			d.Print("SET ADRACKReq flag", nil, util.PrintBoth)
 			d.Info.Status.DataUplink.ADR.ADRACKReq = true
 		}
 
@@ -224,7 +223,9 @@ func (d *Device) ADRProcedure() {
 					d.Info.Status.DataRate = datarate
 					break
 				}
+
 				datarate--
+
 			}
 
 		} else {
@@ -233,7 +234,10 @@ func (d *Device) ADRProcedure() {
 
 				d.OtaaActivation()
 
-				d.Info.Status.DataUplink.ADR.Reset()
+				msg := d.Info.Status.DataUplink.ADR.Reset()
+				if msg != "" {
+					d.Print(msg, nil, util.PrintBoth)
+				}
 
 			}
 		}
@@ -242,7 +246,6 @@ func (d *Device) ADRProcedure() {
 
 }
 
-//SwitchChannel cambia il canale casualmente
 func (d *Device) SwitchChannel() {
 
 	rand.Seed(time.Now().UTC().UnixNano())
@@ -264,7 +267,7 @@ func (d *Device) SwitchChannel() {
 			d.Info.Status.InfoChannelsUS915.Pass = (d.Info.Status.InfoChannelsUS915.Pass + 1) % 8
 
 			msg := fmt.Sprintf("Switch channel from %v to %v", d.Info.Status.IndexchannelActive, random)
-			d.Print(msg, nil, util.PrintOnlySocket)
+			d.Print(msg, nil, util.PrintBoth)
 
 			d.Info.Status.IndexchannelActive = uint16(random)
 			return
@@ -296,7 +299,7 @@ func (d *Device) SwitchChannel() {
 			lenTrue++
 		}
 
-		if !d.Info.Configuration.Channels[random].Active { //Incative
+		if !d.Info.Configuration.Channels[random].Active { //Inactive
 			continue
 		}
 
@@ -309,7 +312,7 @@ func (d *Device) SwitchChannel() {
 					d.Info.Status.IndexchannelActive = uint16(random)
 
 					msg := fmt.Sprintf("Switch channel from %v to %v", oldindex, random)
-					d.Print(msg, nil, util.PrintOnlySocket)
+					d.Print(msg, nil, util.PrintBoth)
 
 					d.Info.Status.InfoChannelsUS915.ListChanLastPass[indexGroup] = random
 					return
@@ -332,49 +335,48 @@ func (d *Device) SwitchChannel() {
 		}
 
 		msg := fmt.Sprintf("None channel supports DataRate %v", d.Info.Status.DataRate)
-		d.Print(msg, nil, util.PrintOnlySocket)
+		d.Print(msg, nil, util.PrintBoth)
 
 		d.Info.Status.DataRate = d.Info.Configuration.Channels[d.Info.Status.IndexchannelActive].MaxDR
 
 		msg = fmt.Sprintf("Switch channel from %v to %v with DataRate %v", oldindex, d.Info.Status.IndexchannelActive, d.Info.Status.DataRate)
-		d.Print(msg, nil, util.PrintOnlySocket)
+		d.Print(msg, nil, util.PrintBoth)
 
 		return
 	}
 
 }
 
-//SwitchClass switch class of device
 func (d *Device) SwitchClass(class int) {
 
-	if class == d.Mode.GetMode() {
+	if class == d.Class.GetClass() {
 		return
 	}
 
 	switch class {
 
-	case classes.ModeA:
-		d.Mode = classes.GetClass(classes.ModeA)
-		d.Mode.Setup(&d.Info)
+	case classes.ClassA:
+		d.Class = classes.GetClass(classes.ClassA)
+		d.Class.Setup(&d.Info)
 
-	case classes.ModeB:
+	case classes.ClassB:
 
-		d.Mode = classes.GetClass(classes.ModeB)
-		d.Mode.Setup(&d.Info)
+		d.Class = classes.GetClass(classes.ClassB)
+		d.Class.Setup(&d.Info)
 
-	case classes.ModeC:
+	case classes.ClassC:
 
-		d.Mode = classes.GetClass(classes.ModeC)
-		d.Mode.Setup(&d.Info)
+		d.Class = classes.GetClass(classes.ClassC)
+		d.Class.Setup(&d.Info)
 		go d.DownlinkReceivedRX2ClassC()
 
 	default:
-		d.Print("Class not Supported", nil, util.PrintOnlySocket)
+		d.Print("Class not Supported", nil, util.PrintBoth)
 
 	}
 
-	msg := fmt.Sprintf("Switch in class %v", d.Mode.ToString())
-	d.Print(msg, nil, util.PrintOnlySocket)
+	msg := fmt.Sprintf("Switch in class %v", d.Class.ToString())
+	d.Print(msg, nil, util.PrintBoth)
 
 }
 
