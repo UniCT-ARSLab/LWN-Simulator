@@ -54,8 +54,6 @@ func (w *Window) OpenWindow(Delay time.Duration, ReceivedDownlink *dl.ReceivedDo
 
 		}(w.DurationOpen, ReceivedDownlink)
 
-		ReceivedDownlink.Wait()
-
 		return ReceivedDownlink.Pull()
 
 	}

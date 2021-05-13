@@ -25,8 +25,6 @@ func (d *Device) SetInfo(payload []byte, joinRequest bool) pkt.RXPK {
 		datarate, indexChannelUp = d.Info.Configuration.Region.SetupInfoRequest(int(d.Info.Status.IndexchannelActive))
 	}
 
-	d.Info.Status.IndexchannelActive = uint16(indexChannelUp)
-
 	info := pkt.RXPK{
 		CodR:      d.Info.Configuration.Region.GetCodR(d.Info.Status.DataRate),
 		Channel:   uint16(indexChannelUp),

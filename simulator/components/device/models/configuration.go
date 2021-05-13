@@ -25,6 +25,9 @@ type Configuration struct {
 	SupportedClassB   bool `json:"supportedClassB"`   //false not supported
 	SupportedClassC   bool `json:"supportedClassC"`   //false not supported
 
+	//uplink
+	DataRateInitial uint8 `json:"dataRate"`
+
 	//RX1
 	RX1DROffset uint8 `json:"rx1DROffset"`
 

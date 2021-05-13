@@ -32,15 +32,15 @@ img {
 }
 
 .home{
-    content: url("../img/blue_home.svg");
+    content: url("../../img/blue_home.svg");
 }
 
 .device{
-    content: url("../img/blue_device.svg");
+    content: url("../../img/blue_device.svg");
 }
 
 .gateway{
-    content: url("../img/blue_gateway.svg");
+    content: url("../../img/blue_gateway.svg");
 }
 
 .main-sidebar .sidebar-menu li.active a, .card .card-header h4{
@@ -121,27 +121,27 @@ body.sidebar-mini .main-sidebar .sidebar-menu > li.active > a {
 }
 
 .btn-play {
-    content: url("../img/white_play.svg");
+    content: url("../../img/white_play.svg");
 }
 
 .btn-sim:hover > .btn-play, .btn-sim:active > .btn-play,.btn-sim:focus > .btn-play {
-    content: url("../img/blue_play.svg");
+    content: url("../../img/blue_play.svg");
 }
 
 .btn-sim:hover > .btn-stop, .btn-sim:active > .btn-stop,.btn-sim:focus > .btn-stop{
-    content: url("../img/blue_stop.svg");
+    content: url("../../img/blue_stop.svg");
 }
 
 .btn-stop {
-    content: url("../img/white_stop.svg");
+    content: url("../../img/white_stop.svg");
 }
 
 .btn-clean > img {
-    content: url("../img/white_delete.svg");
+    content: url("../../img/white_delete.svg");
 }
 
 .btn-clean:hover > img, .btn-clean:active > img, .btn-clean:focus > img {
-    content: url("../img/blue_delete.svg");
+    content: url("../../img/blue_delete.svg");
 }
 
 .btn-classic{
@@ -167,11 +167,11 @@ body.sidebar-mini .main-sidebar .sidebar-menu > li.active > a {
 }
 
 .btn-generate > img{
-    content: url("../img/blue_generate.svg");
+    content: url("../../img/blue_generate.svg");
 }
 
 .btn-generate:hover > img, .btn-generate:active > img, .btn-generate:focus > img{
-   content: url("../img/white_generate.svg");
+   content: url("../../img/white_generate.svg");
 }
 
 .btn-del{
@@ -187,19 +187,19 @@ body.sidebar-mini .main-sidebar .sidebar-menu > li.active > a {
 }
 
 .btn-watch > img{
-    content: url("../img/blue_visibility.svg");
+    content: url("../../img/blue_visibility.svg");
 }
 
 .btn-watch > img.seeOFF{
-    content: url("../img/blue_visibility_off.svg");
+    content: url("../../img/blue_visibility_off.svg");
 }
 
 .btn-watch:hover > img,.btn-watch:active > img, .btn-watch:focus > img{
-    content: url("../img/white_visibility.svg");
+    content: url("../../img/white_visibility.svg");
 }
 
 .btn-watch:hover > img.seeOFF, .btn-watch:active > img.seeOFF, .btn-watch:focus > img.seeOFF{
-    content: url("../img/white_visibility_off.svg");
+    content: url("../../img/white_visibility_off.svg");
 }
 
 .btn-group .btn.active {
@@ -209,4 +209,8 @@ body.sidebar-mini .main-sidebar .sidebar-menu > li.active > a {
 
 .hide{
     display: none;
+}
+
+.w-33{
+    width: 33.3% !important;
 }

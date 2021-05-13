@@ -24,9 +24,9 @@ type Status struct {
 	DataDownlink dl.InformationDownlink `json:"-"`
 	FCntDown     uint32                 `json:"fcntDown"`
 
-	DataRate uint8 `json:"dataRate"`
-	TXPower  uint8 `json:"txPower"`
-	Battery  uint8 `json:"battery"`
+	DataRate uint8 `json:"-"`
+	TXPower  uint8 `json:"-"`
+	Battery  uint8 `json:"-"`
 
 	InfoClassB         modelClass.InfoClassB      `json:"-"`
 	InfoClassC         modelClass.InfoClassC      `json:"-"`

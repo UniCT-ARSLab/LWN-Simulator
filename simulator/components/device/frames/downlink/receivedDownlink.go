@@ -38,7 +38,7 @@ func (b *ReceivedDownlink) Pull() *lorawan.PHYPayload {
 	defer b.Mutex.Unlock()
 
 	if b.Downlink == nil {
-		return nil
+		b.Notify.Wait()
 	}
 
 	phy := b.Downlink

@@ -131,13 +131,13 @@ func (cn *Cn470) RX1DROffsetSupported(offset uint8) error {
 }
 
 func (cn *Cn470) LinkAdrReq(ChMaskCntl uint8, ChMask lorawan.ChMask,
-	newDataRate uint8, channels *[]c.Channel) (int, []bool, error) {
+	newDataRate uint8, channels *[]c.Channel) ([]bool, []error) {
 
-	var err error
+	var errs []error
 	chMaskTmp := ChMask
+	channelsCopy := *channels
 	offset := ChMaskCntl
 	acks := []bool{false, false, false}
-	err = nil
 
 	switch ChMaskCntl {
 
@@ -147,40 +147,71 @@ func (cn *Cn470) LinkAdrReq(ChMaskCntl uint8, ChMask lorawan.ChMask,
 
 		for i := int(offset); i < len(chMaskTmp); i++ {
 
-			if !(*channels)[i].Active { // can't enable uplink channel
+			if !channelsCopy[i].Active { // can't enable uplink channel
 
 				msg := fmt.Sprintf("ChMask can't enable an inactive channel[%v]", i)
-				return ChMaskCntlChannel, acks, errors.New(msg)
+				errs = append(errs, errors.New(msg))
+
+				break
+
+			} else { //channel active, check datarate
+
+				err := channelsCopy[i].IsSupportedDR(newDataRate)
+				if err == nil { //at least one channel supports DataRate
+					acks[1] = true //ackDr
+				}
 
 			}
 
-			(*channels)[i].EnableUplink = chMaskTmp[i]
+			channelsCopy[i].EnableUplink = chMaskTmp[i]
 
 		}
 
 	case 6:
 		offset = 0
 
-		for i := int(offset); i < len(*channels); i++ {
+		for i := int(offset); i < len(channelsCopy); i++ {
 
-			if !(*channels)[i].Active { // can't enable uplink channel
+			if !channelsCopy[i].Active { // can't enable uplink channel
 
 				msg := fmt.Sprintf("ChMask can't enable an inactive channel[%v]", i)
-				return ChMaskCntlChannel, acks, errors.New(msg)
+				errs = append(errs, errors.New(msg))
+
+				break
+
+			} else { //channel active, check datarate
+
+				err := channelsCopy[i].IsSupportedDR(newDataRate)
+				if err == nil { //at least one channel supports DataRate
+					acks[1] = true //ackDr
+				}
 
 			}
 
-			(*channels)[i].EnableUplink = chMaskTmp[i]
+			channelsCopy[i].EnableUplink = chMaskTmp[i]
 
 		}
 
 	}
 
 	acks[0] = true //ackMask
-	acks[1] = true //ackdr
+
+	//datarate
+	if err := cn.DataRateSupported(newDataRate); err != nil || !acks[1] {
+
+		acks[1] = false
+		errs = append(errs, err)
+
+	}
+
+	acks[2] = true //txack
 	acks[2] = true //txack
 
-	return ChMaskCntlGroup, acks, err
+	if acks[0] && acks[1] && acks[2] {
+		channels = &channelsCopy
+	}
+
+	return acks, errs
 }
 
 func (cn *Cn470) SetupRX1(datarate uint8, rx1offset uint8, indexChannel int, dtime lorawan.DwellTime) (uint8, int) {

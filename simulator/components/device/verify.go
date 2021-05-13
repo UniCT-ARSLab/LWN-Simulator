@@ -85,14 +85,21 @@ func (d *Device) setChannel(index uint8, freq uint32, minDR uint8, maxDR uint8) 
 
 	if int(index) >= len(d.Info.Configuration.Channels) { //new channel
 
-		channel := channels.NewChannel(true, freq, minDR, maxDR)
+		channel := channels.Channel{
+			Active:            true,
+			EnableUplink:      true,
+			FrequencyUplink:   freq,
+			FrequencyDownlink: freq,
+			MinDR:             minDR,
+			MaxDR:             maxDR,
+		}
 		d.Info.Configuration.Channels = append(d.Info.Configuration.Channels, channel)
 
 	} else { //update channel
 		d.Info.Configuration.Channels[index].UpdateChannel(freq, minDR, maxDR)
 	}
 
-	msg := fmt.Sprintf("SET Channel[%v] { F[%v], MinDR[%v], MaxDR[%v] } ", index, freq, minDR, maxDR)
+	msg := fmt.Sprintf("Set Channel[%v] { F[%v], MinDR[%v], MaxDR[%v] } ", index, freq, minDR, maxDR)
 	d.Print(msg, nil, util.PrintBoth)
 
 	return DRok, Fok

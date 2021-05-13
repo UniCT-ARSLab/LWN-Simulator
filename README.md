@@ -20,7 +20,7 @@ LWN Simulator is a LoRaWAN nodes' simulator equipped with web interface. It allo
 The project consists of three main components: devices, forwarder and gateways. 
 
 ### The device
-* Based [specification LoRAWAN v1.0.3](https://lora-alliance.org/resource_hub/lorawan-specification-v1-0-3/);
+* Based [specification LoRaWAN v1.0.3](https://lora-alliance.org/resource_hub/lorawan-specification-v1-0-3/);
 * Supports all [LoRaWAN Regional Parameters v1.0.3](https://lora-alliance.org/resource_hub/lorawan-regional-parameters-v1-0-3reva/).
 * Implements class A,C and partially even the B class;
 * Implements ADR Algorithm;
@@ -91,6 +91,6 @@ The simulator relises on a configuration file (`config.json`) whitch specifies s
     "configDirname":"lwnsimulator"
 }
 ```
-* address: specifies the IP mask from which the web UI is accesable.
+* address: specifies the IP mask from which the web UI is accessible.
 * port: the web server port.
 * configDirname: the directory name where all status files will be saved and will be created in the user home. 

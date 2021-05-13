@@ -2864,7 +2864,8 @@ body.layout-3 .main-footer {
   padding-right: 30px;
   padding-top: 80px;
   width: 100%;
-  position: relative; }
+  position: relative; 
+}
 
 .main-footer {
   padding: 20px 30px 20px 280px;
@@ -2929,7 +2930,6 @@ body:not(.sidebar-mini) .sidebar-style-2 .sidebar-menu li.active ul.dropdown-men
     padding: 0;
     display: block; }
   .main-content {
-    padding-left: 30px;
     padding-right: 30px;
     width: 100% !important; }
   .main-footer {

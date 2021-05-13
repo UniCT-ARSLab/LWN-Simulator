@@ -111,22 +111,22 @@ func (b *TypeB) RetransmissionUnCData(downlink *dl.InformationDownlink) error {
 
 		return nil
 
-	} else {
+	}
 
-		b.Info.Status.CounterRepUnConfirmedDataUp = 1
+	var err error
+	err = nil
 
-		if b.Info.Status.Mode == util.Retransmission {
+	if b.Info.Status.Mode == util.Retransmission {
 
-			b.Info.Status.Mode = util.Normal
+		b.Info.Status.Mode = util.Normal
 
-			err := fmt.Sprintf("Last Uplink sent %v times", b.Info.Configuration.NbRepUnconfirmedDataUp)
-			return errors.New(err)
-
-		}
-
-		return nil
+		err = errors.New(fmt.Sprintf("Last Uplink sent %v times", b.Info.Status.CounterRepUnConfirmedDataUp))
 
 	}
+
+	b.Info.Status.CounterRepUnConfirmedDataUp = 1
+
+	return err
 
 }
 

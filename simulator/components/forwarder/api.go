@@ -88,7 +88,7 @@ func (f *Forwarder) UpdateDevice(d m.InfoDevice) {
 	f.AddDevice(d)
 }
 
-func (f *Forwarder) Register(freq uint32, DevEUI lorawan.EUI64, rDownlink *dl.ReceivedDownlink) {
+func (f *Forwarder) Register(freq uint32, devEUI lorawan.EUI64, rDownlink *dl.ReceivedDownlink) {
 
 	f.Mutex.Lock()
 
@@ -98,7 +98,7 @@ func (f *Forwarder) Register(freq uint32, DevEUI lorawan.EUI64, rDownlink *dl.Re
 		f.GwtoDev[freq] = inner
 	}
 
-	for key := range f.DevToGw[DevEUI] {
+	for key := range f.DevToGw[devEUI] {
 
 		inner, ok := f.GwtoDev[freq][key]
 		if !ok {
@@ -107,7 +107,8 @@ func (f *Forwarder) Register(freq uint32, DevEUI lorawan.EUI64, rDownlink *dl.Re
 		}
 
 		rDownlink.Open()
-		f.GwtoDev[freq][key][DevEUI] = rDownlink
+		f.GwtoDev[freq][key][devEUI] = rDownlink
+
 	}
 
 	f.Mutex.Unlock()

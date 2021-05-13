@@ -119,13 +119,11 @@ func (d *Device) executeLinkCheckAns(payload []byte) {
 
 func (d *Device) executeLinkADRReq(commands [][]byte) {
 
-	DataRate := -1
 	var TXPower uint8
-	var acks []bool
-
-	var err error
 	var NbRep uint8
 
+	result := true
+	DataRate := -1
 	channels := d.Info.Configuration.Channels
 
 	for _, cmd := range commands {
@@ -133,25 +131,33 @@ func (d *Device) executeLinkADRReq(commands [][]byte) {
 		var response []lorawan.Payload
 
 		c := lorawan.LinkADRReqPayload{}
-		err = c.UnmarshalBinary(cmd)
+		err := c.UnmarshalBinary(cmd)
 		if err != nil {
+
 			d.Print("", err, util.PrintBoth)
 			return
+
 		}
 
-		_, acks, err = d.Info.Configuration.Region.LinkAdrReq(c.Redundancy.ChMaskCntl,
+		acks, errs := d.Info.Configuration.Region.LinkAdrReq(c.Redundancy.ChMaskCntl,
 			c.ChMask, c.DataRate, &channels)
 
-		if err != nil {
-			msg := PrintMACCommand("LinkADRReq", err.Error())
+		if len(errs) != 0 {
+
+			for _, err := range errs {
+				msg := PrintMACCommand("LinkADRReq", err.Error())
+				d.Print(msg, nil, util.PrintBoth)
+			}
+
+		} else {
+			msg := PrintMACCommand("LinkADRReq", "Command is valid")
 			d.Print(msg, nil, util.PrintBoth)
-			continue
+
+			DataRate = int(c.DataRate)
+			TXPower = c.TXPower
+			NbRep = c.Redundancy.NbRep
+
 		}
-
-		DataRate = int(c.DataRate)
-		TXPower = c.TXPower
-
-		NbRep = c.Redundancy.NbRep
 
 		response = []lorawan.Payload{
 			&lorawan.MACCommand{
@@ -166,23 +172,36 @@ func (d *Device) executeLinkADRReq(commands [][]byte) {
 
 		d.newMACComands(response)
 
+		result = result && acks[0] && acks[1] && acks[2]
+
 	}
 
-	if acks[0] && acks[1] && acks[2] {
+	if result {
 
 		d.Info.Status.DataRate = uint8(DataRate)
+		msg := fmt.Sprintf("Set new Datarate: %v", d.Info.Status.DataRate)
+		d.Print(msg, nil, util.PrintBoth)
 
 		d.Info.Status.TXPower = TXPower
+		msg = fmt.Sprintf("Set TX Power: %v", TXPower)
+		d.Print(msg, nil, util.PrintBoth)
+
 		d.Info.Configuration.NbRepUnconfirmedDataUp = NbRep
+		msg = fmt.Sprintf("Set Nb Repetition UnconfirmedDataUp: %v", NbRep)
+		d.Print(msg, nil, util.PrintBoth)
 
 		d.Info.Configuration.Channels = channels
+		msg = fmt.Sprintf("Configuration of channels is changed")
+		d.Print(msg, nil, util.PrintBoth)
 
-		msg := PrintMACCommand("LinkADRReq", "Executed successfully")
+		msg = PrintMACCommand("LinkADRReq", "Executed successfully")
 		d.Print(msg, nil, util.PrintBoth)
 
 	} else {
+
 		msg := PrintMACCommand("LinkADRReq", "Command refused")
 		d.Print(msg, nil, util.PrintBoth)
+
 	}
 
 }
@@ -258,12 +277,14 @@ func (d *Device) executeRXParamSetupReq(payload []byte) {
 	}
 
 	if RX1DROffsetACK && ChannelACK && RX2DataRateACK {
+
 		d.Info.Configuration.RX1DROffset = c.DLSettings.RX1DROffset //RX1DROffset ACK
 		d.Info.RX[1].SetListeningFrequency(c.Frequency)             //Channel Frequency RX2
 		d.Info.RX[1].DataRate = c.DLSettings.RX2DataRate            //RX2DataRate
 
 		msg := PrintMACCommand("RXParamSetupReq", "Executed successfully")
 		d.Print(msg, nil, util.PrintBoth)
+
 	} else {
 		msg := PrintMACCommand("RXParamSetupReq", "Command refused")
 		d.Print(msg, nil, util.PrintBoth)
@@ -285,14 +306,13 @@ func (d *Device) executeRXParamSetupReq(payload []byte) {
 
 }
 
-//da implementare margin
 func (d *Device) executeDevStatusReq() {
 
 	rand.Seed(time.Now().UTC().UnixNano())
 	margin := int8(rand.Int()) % MaxMargin //range
 
 	if margin <= 32 {
-		margin = -32 + margin
+		margin = margin - 32
 	} else {
 		margin %= 32
 	}
@@ -315,15 +335,22 @@ func (d *Device) executeDevStatusReq() {
 
 func (d *Device) executeNewChannelReq(payload []byte) {
 
+	switch d.Info.Configuration.Region.GetCode() {
+	case rp.Code_Us915, rp.Code_Au915:
+
+		msg := PrintMACCommand("NewChannelReq", "It's not implemented in this region")
+		d.Print(msg, nil, util.PrintBoth)
+
+		return
+
+	}
+
 	c := lorawan.NewChannelReqPayload{}
 	err := c.UnmarshalBinary(payload)
 
 	if err != nil {
 
-		msg := fmt.Sprintf("UnmarshalBinary %v", err)
-		errs := errors.New(msg)
-		d.Print("", errs, util.PrintBoth)
-
+		d.Print("", err, util.PrintBoth)
 		return
 
 	}
@@ -363,8 +390,10 @@ func (d *Device) executeRXTimingSetupReq(payload []byte) {
 
 	err := c.UnmarshalBinary(payload)
 	if err != nil {
+
 		d.Print("", err, util.PrintBoth)
 		return
+
 	}
 
 	delay := c.Delay
@@ -388,6 +417,15 @@ func (d *Device) executeRXTimingSetupReq(payload []byte) {
 
 //require ack
 func (d *Device) executeDLChannelReq(payload []byte) {
+
+	switch d.Info.Configuration.Region.GetCode() {
+	case rp.Code_Us915, rp.Code_Au915:
+
+		msg := PrintMACCommand("DLChannelReq", "Is not implemented in this region")
+		d.Print(msg, nil, util.PrintBoth)
+
+		return
+	}
 
 	c := lorawan.DLChannelReqPayload{}
 
@@ -442,11 +480,9 @@ func (d *Device) executeDeviceTimeAns(payload []byte) {
 	err := c.UnmarshalBinary(payload)
 	if err != nil {
 
-		msg := fmt.Sprintf("UnmarshalBinary %v", err)
-		errs := errors.New(msg)
-		d.Print("", errs, util.PrintBoth)
-
+		d.Print("", err, util.PrintBoth)
 		return
+
 	}
 
 	content := fmt.Sprintf("TimeSinceGPSEpoch[%v]", c.TimeSinceGPSEpoch)
@@ -470,8 +506,10 @@ func (d *Device) executeTXParamSetupReq(payload []byte) {
 
 	err := c.UnmarshalBinary(payload)
 	if err != nil {
+
 		d.Print("", err, util.PrintBoth)
 		return
+
 	}
 
 	//c.MaxEIRP

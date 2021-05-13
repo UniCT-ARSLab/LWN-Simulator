@@ -58,7 +58,7 @@ $(document).ready(function(){
 
     Initmap();
     setTimeout(() => {
-        MapGateway.invalidateSize();
+        MapModal.invalidateSize();
     }, 500);
 
     MapGateway.on('click',function(e){
@@ -79,21 +79,25 @@ $(document).ready(function(){
 
     MapModal.on('click',Click_Change_Marker);
 
+    $(window).resize(function(){
+        setTimeout(() => {
+            MapModal.invalidateSize();
+        }, 500);
+    });
+
     // ********************** socket event *********************
 
     socket.on('connect',()=>{
-        //console.log("socket connessa");
         Init();
     });
 
     socket.on('disconnect',()=>{
-        
-        console.log("socket disconnessa");
-
+        StateSimulator = false;
         $("#state").attr("src", "img/red_circle.svg")
         $("#console-body").empty();
-        $(".btn-play").parent("button").addClass("hide");
-        $(".btn-stop").parent("button").removeClass("hide");
+        $(".btn-play").parent("button").removeClass("hide");
+        $(".btn-stop").parent("button").addClass("hide");
+        
     });
 
     socket.on('console-sim',(data)=>{
@@ -209,19 +213,17 @@ $(document).ready(function(){
 
             }               
             else{
+
                 Show_ErrorSweetToast("Error","Simulator didn't started");
                 $("#state").attr("src","img/red_circle.svg");
-            }
-                
 
+            }     
                   
         }).fail((data)=>{
 
             $("#state").attr("src","img/red_circle.svg");
             Show_ErrorSweetToast("Error",data.statusText); 
             
-        }).always(()=>{
-            $(this).parent("a").removeClass("beep");
         });
 
     });
@@ -251,16 +253,12 @@ $(document).ready(function(){
             }
             else{
                 $("#state").attr("src","img/green_circle.svg");
-            }
-            
+            }   
 
         }).fail(()=>{
 
             $("#state").attr("src","img/green_circle.svg");
 
-        }).always(()=>{
-
-            $(this).parent("a").removeClass("beep");
         });
 
     });
@@ -360,7 +358,7 @@ $(document).ready(function(){
         var marker = MarkersHome.get(address).Marker;
         var dev = Devices.get(address);
         
-        ChangeView(marker.getLatLng())
+        ChangeView(marker.getLatLng(),11)
         marker.openPopup();
 
         if(dev != undefined)
@@ -385,7 +383,7 @@ $(document).ready(function(){
         
         ValidationInput($(this), valid);
 
-        ChangeView(latlng);
+        ChangeView(latlng,10);
         ChangePositionMarker(-1,latlng);
     });
 
@@ -404,7 +402,7 @@ $(document).ready(function(){
         
         ValidationInput($(this), valid);
 
-        ChangeView(latlng);
+        ChangeView(latlng,10);
         ChangePositionMarker(-1,latlng);
     });
 
@@ -1088,7 +1086,7 @@ function Add_ItemList_Gateways(element){
     if(element.info.typeGateway)
         type = "Real";
 
-    var item = "<tr data-addr=\""+element.info.macAddress+"\" class=\"p-5\">\
+    var item = "<tr data-addr=\""+element.info.macAddress+"\">\
                     <th id=\"state-gw\" scope=\"row\"> \
                         <img src=\""+img+"\">\
                     </th>\
@@ -1172,11 +1170,11 @@ function LoadListHome(){
     $("#list-home").empty();
 
     Devices.forEach(element =>{
-        $("#list-home").append("<a href=\"#list-home\" class=\"text-blue list-group-item list-group-item-action\" data-addr=\""+element.info.devEUI+"\">"+element.info.name+"</a>");
+        $("#list-home").append("<a href=\"#map-home\" class=\"text-blue list-group-item list-group-item-action\" data-addr=\""+element.info.devEUI+"\">"+element.info.name+"</a>");
     })
 
     Gateways.forEach(element =>{
-        $("#list-home").append("<a href=\"#list-home\" class=\"text-orange list-group-item list-group-item-action\" data-addr=\""+element.info.macAddress+"\">"+element.info.name+"</a>");
+        $("#list-home").append("<a href=\"#map-home\" class=\"text-orange list-group-item list-group-item-action\" data-addr=\""+element.info.macAddress+"\">"+element.info.name+"</a>");
     });
     
 }
@@ -1352,7 +1350,7 @@ function SetParameters(code, loadDevice, dev){
         if (loadDevice){
             $("#dr-offset-rx1").val(dev.info.configuration.rx1DROffset);
             $("#datarate-rx-2").val(dev.info.rxs[1].dataRate);
-            $("#datarate-uplink").val(dev.info.status.dataRate);
+            $("#datarate-uplink").val(dev.info.configuration.dataRate);
         }
 
     });
@@ -1374,15 +1372,15 @@ function Initmap(){
        var osmGeocoderDev = new L.Control.OSMGeocoder({placeholder: 'Search location...'});
        var osmGeocoderModal = new L.Control.OSMGeocoder({placeholder: 'Search location...'});
 
-       MapGateway = new L.Map('map-gw').addLayer(osm).setView([CoordDefault, CoordDefault], 8);
+       MapGateway = new L.Map('map-gw').addLayer(osm).setView([CoordDefault, CoordDefault], 10);
        MapGateway.addControl(osmGeocoder);
      
-       MapDevice = new L.Map('map-dev').addLayer(osmC).setView([CoordDefault,CoordDefault], 8);
+       MapDevice = new L.Map('map-dev').addLayer(osmC).setView([CoordDefault,CoordDefault], 5);
        MapDevice.addControl(osmGeocoderDev);
 
        MapHome = new L.Map('map-home').addLayer(osmHome).setView([CoordDefault,CoordDefault], 1);
    
-       MapModal = new L.Map('map-modal').addLayer(osmModal).setView([CoordDefault,CoordDefault], 8);
+       MapModal = new L.Map('map-modal').addLayer(osmModal).setView([CoordDefault,CoordDefault], 5);
        MapModal.addControl(osmGeocoderModal);
 
        var icon = L.icon({
@@ -1428,6 +1426,7 @@ function Click_Change_Marker(e){
     
     ChangePositionMarker(-1, e.latlng);
     ChangeCoords(e.latlng);
+    
 }
 
 function ChangeCoords(latlng){
@@ -1448,21 +1447,21 @@ function ChangeCoords(latlng){
 
 }
 
-function ChangeView(latlng){
+function ChangeView(latlng, zoom){
 
     switch (TurnMap){
 
         case 0:
-            MapHome.setView(latlng, 8);
+            MapHome.setView(latlng, zoom);
             break;
         case 1:
-            MapDevice.setView(latlng, 8);
+            MapDevice.setView(latlng, zoom);
             break;
         case 2:
-            MapGateway.setView(latlng, 8);
+            MapGateway.setView(latlng, zoom);
             break;
         case 3:
-            MapModal.setView(latlng, 8);
+            MapModal.setView(latlng, zoom);
             break;
         
     }
@@ -1480,7 +1479,7 @@ function CleanMap(){
     $("[name=input-altitude]").removeClass("is-valid is-invalid");
 
     ChangePositionMarker(-1,[CoordDefault, CoordDefault]);
-    ChangeView([CoordDefault, CoordDefault]);
+    ChangeView([CoordDefault, CoordDefault], 5);
 }
 
 function AddMarker(Address, Name, latlng, isGw){
@@ -1734,6 +1733,7 @@ function Click_marker(){
     var latlng = new L.latLng(lat,lng);
 
     DrawRange(latlng, range);
+    ChangeView(latlng,11);
 }
 
 function FadeCircle(){
@@ -1801,7 +1801,7 @@ function LoadGateway(gw) {
     //map
     var latlng =  L.latLng(gw.info.location.latitude, gw.info.location.longitude); 
     ChangePositionMarker(-1,latlng);
-    ChangeView(latlng);
+    ChangeView(latlng,8);
 
     ChangeCoords(latlng);
     $("#add-gw [name=input-altitude]").val(gw.info.location.altitude);
@@ -1871,8 +1871,8 @@ function Click_DeleteGateway(){
                 else
                     Show_ErrorSweetToast("Error","Gateway didn't deleted. It could be active");                                             
 
-            }).fail((data)=>{
-                Show_ErrorSweetToast("Error",data.statusText); 
+            }).fail((data)=>{    
+                Show_ErrorSweetToast("Error","Unable to delete gateway:"+data.statusText);
             });            
 
         } 
@@ -2030,8 +2030,8 @@ function Click_SaveGateway(){
 
             Show_ErrorSweetToast("Error",data.status);
             
-        }).fail((data)=>{  
-            Show_ErrorSweetToast("Error",data.statusText);   
+        }).fail((data)=>{    
+            Show_ErrorSweetToast("Error","Unable to send data:"+data.statusText);
         });
 
     } else{//update gateway
@@ -2081,7 +2081,7 @@ function Click_SaveGateway(){
             Show_ErrorSweetToast("Error",data.status);
                       
         }).fail((data)=>{    
-            Show_ErrorSweetToast("Error",data.statusText);    
+            Show_ErrorSweetToast("Error","Unable to send data:"+data.statusText);    
         });
     }
     
@@ -2107,6 +2107,7 @@ function CleanInputDevice(){
     $("#region").val(-1);
 
     $("select").removeClass("is-valid is-invalid");
+    $("#table-body").empty();
 
     $("#dr-offset-rx1").empty();
     $("#datarate-uplink").empty();
@@ -2229,7 +2230,7 @@ function LoadDevice(dev){
     $("[name=input-fport]").val(dev.info.status.infoUplink.fport);
     $("[name=input-retransmission]").val(dev.info.configuration.nbRetransmission)
     $("[name=input-fcnt]").val(dev.info.status.infoUplink.fcnt);
-    $("#datarate-uplink").val(dev.info.status.dataRate);
+    $("#datarate-uplink").val(dev.info.configuration.dataRate);
 
     $("[name=input-validate-counter]").prop("checked",dev.info.configuration.disablefcntDown);  
     if (!dev.info.configuration.disablefcntDown)
@@ -2242,7 +2243,7 @@ function LoadDevice(dev){
     //location
     var latlng =  L.latLng(dev.info.location.latitude, dev.info.location.longitude); 
     ChangePositionMarker(-1,latlng);
-    ChangeView(latlng);
+    ChangeView(latlng, 8);
 
     ChangeCoords(latlng);
     $("#add-dev [name=input-altitude]").val(dev.info.location.altitude);
@@ -2309,8 +2310,8 @@ function Click_DeleteDevice(){
                 else
                     Show_ErrorSweetToast("Error","Device didn't deleted. It could be active");
 
-            }).fail((data)=>{
-                Show_ErrorSweetToast("Error",data.statusText); 
+            }).fail((data)=>{    
+                Show_ErrorSweetToast("Error","Unable to delete device:"+data.statusText);
             });
         }
     });   
@@ -2530,7 +2531,6 @@ function Click_SaveDevice(){
             "location":location,
             "status":{
                 "active": active,
-                "dataRate": Number(datarate.val()),
                 "infoUplink":{
                     "fport": Number(fport.val()),
                     "fcnt": Number(Fcnt.val()),
@@ -2549,7 +2549,8 @@ function Click_SaveDevice(){
                 "supportedClassB":isClassBactive,
                 "supportedClassC":isClassCactive,
                 "range":Number(range.val()),
-                "disablefcntDown":disablefcntDown,
+                "dataRate": Number(datarate.val()),
+                "disableFCntDown":disablefcntDown,
                 "sendInterval":Number(upInterval.val()),
                 "nbRetransmission":Number(retransmission.val()),
             },
@@ -2557,7 +2558,8 @@ function Click_SaveDevice(){
                 {
                     "delay":Number(delayRX1.val()),
                     "durationOpen":Number(durationRX1.val())
-                },{
+                },
+                {
                     "channel":{
                         "active":true,
                         "freqDownlink": Number(frequencyRX2.val())
@@ -2614,8 +2616,8 @@ function Click_SaveDevice(){
                    
             }
                  
-        }).fail((data)=>{  
-            Show_ErrorSweetToast("Error", data.statusText);   
+        }).fail((data)=>{    
+            Show_ErrorSweetToast("Error","Unable to send data:"+data.statusText);
         });
 
     } else{//update device
@@ -2659,7 +2661,7 @@ function Click_SaveDevice(){
             Show_ErrorSweetToast("Error",data.status);
             
         }).fail((data)=>{    
-            Show_ErrorSweetToast("Error",data.statusText);   
+            Show_ErrorSweetToast("Error","Unable to send data:"+data.statusText);   
         });
     }
     
@@ -2670,9 +2672,8 @@ function Click_Edit(element, FlagGw){
  
     var addr = $("#div-buttons-dev").data("addr");
 
-    if(FlagGw){
+    if(FlagGw)
         addr = $("#div-buttons-gw").data("addr");   
-    }
 
     $(element).hide();   
     

@@ -262,31 +262,49 @@ func (d *Device) SwitchChannel() {
 
 		indexGroup = int(d.Info.Status.IndexchannelActive / 8)
 
-		if indexGroup == 7 {
-			random = d.Info.Status.InfoChannelsUS915.Pass + 64
-			d.Info.Status.InfoChannelsUS915.Pass = (d.Info.Status.InfoChannelsUS915.Pass + 1) % 8
+		switch indexGroup {
+
+		case 0:
+
+			if d.Info.Status.InfoChannelsUS915.FirstPass {
+				d.Info.Status.InfoChannelsUS915.FirstPass = false
+			} else {
+				indexGroup++
+			}
+
+			break
+
+		case 1, 2, 3, 4, 5, 6:
+			indexGroup++
+			break
+
+		case 7:
+
+			random = indexGroup + 64
 
 			msg := fmt.Sprintf("Switch channel from %v to %v", d.Info.Status.IndexchannelActive, random)
 			d.Print(msg, nil, util.PrintBoth)
 
 			d.Info.Status.IndexchannelActive = uint16(random)
 			return
-		} else if indexGroup > 7 {
-			indexGroup = -1
+
+		default:
+			indexGroup = 0
+			break
 		}
 
 		lenChannels = 8
-	}
 
-	indexGroup++
+	}
 
 	for lenTrue != lenChannels {
 
+		//random
 		if regionCode == rp.Code_Us915 {
 
 			random = (rand.Int() % 8) + indexGroup*8
 
-			for random == d.Info.Status.InfoChannelsUS915.ListChanLastPass[indexGroup] {
+			for random == d.Info.Status.InfoChannelsUS915.ListChannelsLastPass[indexGroup] {
 				random = (rand.Int() % 8) + indexGroup*8
 			}
 
@@ -295,51 +313,63 @@ func (d *Device) SwitchChannel() {
 		}
 
 		if !chanUsed[random] { //evita il loop infinito
-			chanUsed[random] = true
-			lenTrue++
-		}
 
-		if !d.Info.Configuration.Channels[random].Active { //Inactive
-			continue
-		}
+			if d.Info.Configuration.Channels[random].Active &&
+				d.Info.Configuration.Channels[random].EnableUplink { //attivo e enable Uplink
 
-		if d.Info.Configuration.Channels[random].EnableUplink { //attivo e enable Uplink
-			if d.Info.Configuration.Channels[random].IsSupportedDR(d.Info.Status.DataRate) == nil {
+				if d.Info.Configuration.Channels[random].IsSupportedDR(d.Info.Status.DataRate) == nil {
 
-				oldindex := d.Info.Status.IndexchannelActive
+					oldindex := d.Info.Status.IndexchannelActive
 
-				if oldindex != uint16(random) {
-					d.Info.Status.IndexchannelActive = uint16(random)
+					if oldindex != uint16(random) {
+						d.Info.Status.IndexchannelActive = uint16(random)
 
-					msg := fmt.Sprintf("Switch channel from %v to %v", oldindex, random)
-					d.Print(msg, nil, util.PrintBoth)
+						msg := fmt.Sprintf("Switch channel from %v to %v", oldindex, random)
+						d.Print(msg, nil, util.PrintBoth)
 
-					d.Info.Status.InfoChannelsUS915.ListChanLastPass[indexGroup] = random
-					return
+						d.Info.Status.InfoChannelsUS915.ListChannelsLastPass[indexGroup] = random // lo fa anche se region non è US_915 (no problem)
+
+						return
+					}
+
 				}
 
 			}
+
+			chanUsed[random] = true
+			lenTrue++
 
 		}
 
 	}
 
 	if lenTrue == lenChannels { //nessun canale abilitato all'uplink supporta il DataRate
+
+		var msg string
 		oldindex := d.Info.Status.IndexchannelActive
 
+		d.Print("No channels available", nil, util.PrintBoth)
+
 		if regionCode == rp.Code_Us915 {
-			d.Info.Status.InfoChannelsUS915.ListChanLastPass[indexGroup] = d.Info.Status.InfoChannelsUS915.Pass * 8
-			d.Info.Status.IndexchannelActive = uint16(d.Info.Status.InfoChannelsUS915.Pass * 8)
+
+			d.Info.Status.InfoChannelsUS915.ListChannelsLastPass[indexGroup] = indexGroup * 8
+			d.Info.Status.IndexchannelActive = uint16(indexGroup * 8)
+			d.Info.Configuration.Channels[d.Info.Status.IndexchannelActive].EnableUplink = true
+
+			msg = fmt.Sprintf("Channel %v enabled to send uplinks", d.Info.Status.IndexchannelActive)
+			d.Print(msg, nil, util.PrintBoth)
+
 		} else {
 			d.Info.Status.IndexchannelActive = uint16(0)
 		}
 
-		msg := fmt.Sprintf("None channel supports DataRate %v", d.Info.Status.DataRate)
-		d.Print(msg, nil, util.PrintBoth)
-
 		d.Info.Status.DataRate = d.Info.Configuration.Channels[d.Info.Status.IndexchannelActive].MaxDR
+		if oldindex == d.Info.Status.IndexchannelActive {
+			msg = fmt.Sprintf("Use channel[%v] with dataRate %v", d.Info.Status.IndexchannelActive, d.Info.Status.DataRate)
+		} else {
+			msg = fmt.Sprintf("Switch channel from %v to %v with DataRate %v", oldindex, d.Info.Status.IndexchannelActive, d.Info.Status.DataRate)
+		}
 
-		msg = fmt.Sprintf("Switch channel from %v to %v with DataRate %v", oldindex, d.Info.Status.IndexchannelActive, d.Info.Status.DataRate)
 		d.Print(msg, nil, util.PrintBoth)
 
 		return

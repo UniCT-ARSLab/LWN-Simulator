@@ -16,4 +16,5 @@ const (
 	Normal = iota
 	Retransmission
 	FPending
+	Activation
 )

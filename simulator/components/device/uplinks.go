@@ -148,6 +148,5 @@ func (d *Device) SendJoinRequest() {
 	info := d.SetInfo(JoinRequest, true)
 
 	d.Class.SendData(info)
-
 	d.Print("JOIN REQUEST sent", nil, util.PrintBoth)
 }

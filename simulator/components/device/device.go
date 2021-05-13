@@ -73,10 +73,16 @@ func (d *Device) modeToString() string {
 
 	case util.Normal:
 		return "Normal"
+
 	case util.Retransmission:
 		return "Retransmission"
+
 	case util.FPending:
 		return "FPending"
+
+	case util.Activation:
+		return "Activation"
+
 	default:
 		return ""
 
@@ -91,6 +97,7 @@ func (d *Device) Print(content string, err error, printType int) {
 	event := socket.EventDev
 	class := d.Class.ToString()
 	mode := d.modeToString()
+
 	if err == nil {
 		message = fmt.Sprintf("[ %s ] DEV[%s] |%s| {%s}: %s", now.Format(time.Stamp), d.Info.Name, mode, class, content)
 		messageLog = fmt.Sprintf("DEV[%s] |%s| {%s}: %s", d.Info.Name, mode, class, content)

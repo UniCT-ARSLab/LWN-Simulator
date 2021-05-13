@@ -117,6 +117,11 @@ func Fragmentation(size int, payload lorawan.Payload) []lorawan.DataPayload {
 	var FRMPayload []lorawan.DataPayload
 
 	payloadBytes, _ := payload.MarshalBinary()
+
+	if size == 0 {
+		return FRMPayload
+	}
+
 	nFrame := len(payloadBytes) / size
 
 	for i := 0; i <= nFrame; i++ {

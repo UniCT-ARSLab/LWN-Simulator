@@ -1,12 +1,14 @@
 package channels
 
-import "errors"
+import (
+	"errors"
+)
 
 //Channel that every device must handle
 type Channel struct {
 	Active            bool   `json:"active"`
 	EnableUplink      bool   `json:"enableUplink"` //true enable | false avoid
-	FrequencyUplink   uint32 `json:"freqUplink"`   // forse c'è una sola frequenza
+	FrequencyUplink   uint32 `json:"freqUplink"`
 	FrequencyDownlink uint32 `json:"freqDownlink"`
 	MinDR             uint8  `json:"minDR"`
 	MaxDR             uint8  `json:"maxDR"`
@@ -28,21 +30,6 @@ func (c *Channel) UpdateChannel(freq uint32, minDR uint8, maxDR uint8) {
 
 	c.MinDR = minDR
 	c.MaxDR = maxDR
-}
-
-func NewChannel(active bool, freq uint32, minDR uint8, maxDR uint8) Channel {
-
-	c := Channel{
-		Active:            active,
-		EnableUplink:      true,
-		FrequencyUplink:   freq,
-		FrequencyDownlink: freq,
-		MinDR:             minDR,
-		MaxDR:             maxDR,
-	}
-
-	return c
-
 }
 
 func (c *Channel) IsSupportedDR(datarate uint8) error {

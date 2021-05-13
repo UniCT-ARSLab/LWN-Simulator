@@ -1,6 +1,6 @@
 package channels
 
 type InfoChannelsUS915 struct {
-	ListChanLastPass [8]int `json:"-"`
-	Pass     int    `json:"-"`
+	ListChannelsLastPass [8]int `json:"-"`
+	FirstPass            bool   `json:"-"`
 }

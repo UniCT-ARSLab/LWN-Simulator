@@ -121,76 +121,9 @@ func (eu *Eu433) RX1DROffsetSupported(offset uint8) error {
 }
 
 func (eu *Eu433) LinkAdrReq(ChMaskCntl uint8, ChMask lorawan.ChMask,
-	newDataRate uint8, channels *[]c.Channel) (int, []bool, error) {
+	newDataRate uint8, channels *[]c.Channel) ([]bool, []error) {
 
-	var err error
-
-	chMaskTmp := ChMask
-	channelsInactive := 0
-	acks := []bool{false, false, false}
-	err = nil
-
-	switch ChMaskCntl {
-
-	case 0:
-		//only 0 in mask
-		for _, enable := range ChMask {
-
-			if !enable {
-				channelsInactive++
-			} else {
-				break
-			}
-		}
-
-		if channelsInactive == LenChMask { // all channels inactive
-			err = errors.New("Command can't disable all channels")
-		}
-
-	case 6:
-
-		for i, _ := range chMaskTmp {
-			chMaskTmp[i] = true
-		}
-
-	}
-
-	for i := eu.GetNbReservedChannels(); i < LenChMask; i++ { //i primi 3 channel sono riservati
-
-		if chMaskTmp[i] {
-
-			if i >= len(*channels) {
-				return ChMaskCntlChannel, acks, errors.New("unable to configure an undefined channel")
-			}
-
-			if !(*channels)[i].Active { // can't enable uplink channel
-
-				msg := fmt.Sprintf("ChMask can't enable an inactive channel[%v]", i)
-				return ChMaskCntlChannel, acks, errors.New(msg)
-
-			} else { //channel active, check datarate
-
-				err = (*channels)[i].IsSupportedDR(newDataRate)
-				if err == nil { //at least one channel support DataRate
-					acks[1] = true //ackDr
-				}
-
-			}
-
-		}
-	}
-	acks[0] = true //ackMask
-
-	//datarate
-	if err = eu.DataRateSupported(newDataRate); err != nil {
-		acks[1] = false
-	} else if !acks[1] {
-		err = errors.New("No channels support this data rate")
-	}
-
-	acks[2] = true //txack
-
-	return ChMaskCntlChannel, acks, err
+	return linkADRReqForChannels(eu, ChMaskCntl, ChMask, newDataRate, channels)
 }
 
 func (eu *Eu433) SetupRX1(datarate uint8, rx1offset uint8, indexChannel int, dtime lorawan.DwellTime) (uint8, int) {

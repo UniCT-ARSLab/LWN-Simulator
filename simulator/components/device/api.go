@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/arslab/lwnsimulator/simulator/components/device/classes"
-	dl "github.com/arslab/lwnsimulator/simulator/components/device/frames/downlink"
 	mup "github.com/arslab/lwnsimulator/simulator/components/device/frames/uplink/models"
 	f "github.com/arslab/lwnsimulator/simulator/components/forwarder"
 	res "github.com/arslab/lwnsimulator/simulator/resources"
@@ -16,24 +15,35 @@ import (
 func (d *Device) Setup(Resources *res.Resources, forwarder *f.Forwarder) {
 
 	d.State = util.Stopped
-	d.Info.Status.Mode = util.Normal
+
 	d.Exit = make(chan struct{})
 
 	d.Info.JoinEUI = lorawan.EUI64{0, 0, 0, 0, 0, 0, 0, 0}
 	d.Info.NetID = lorawan.NetID{0, 0, 0}
 
 	if !d.Info.Configuration.SupportedOtaa { //ABP
+
 		d.Info.Status.Joined = true
-	} else {
+		d.Info.Status.Mode = util.Normal
+
+	} else { //otaa
+
 		d.Info.Status.Joined = false
+		d.Info.Status.Mode = util.Activation
+
 	}
 
 	d.Info.Configuration.Region.Setup()
-
 	d.Info.Status.DataUplink.ADR.Setup(d.Info.Configuration.SupportedADR)
+
 	d.Info.Status.DataUplink.DwellTime = lorawan.DwellTime400ms
+	d.Info.Status.DataRate = d.Info.Configuration.DataRateInitial
+	d.Info.Status.IndexchannelActive = 0
+
 	d.Info.Status.Battery = util.ConnectedPowerSource
-	d.Info.Status.InfoChannelsUS915.ListChanLastPass = [8]int{-1, -1, -1, -1, -1, -1, -1, -1}
+
+	d.Info.Status.InfoChannelsUS915.FirstPass = true
+	d.Info.Status.InfoChannelsUS915.ListChannelsLastPass = [8]int{-1, -1, -1, -1, -1, -1, -1, -1}
 
 	d.Info.Status.CounterRepUnConfirmedDataUp = 1
 	d.Info.Configuration.NbRepUnconfirmedDataUp = 1
@@ -46,7 +56,6 @@ func (d *Device) Setup(Resources *res.Resources, forwarder *f.Forwarder) {
 	d.Resources = Resources
 	d.Info.Forwarder = forwarder
 
-	d.Info.ReceivedDownlink = dl.ReceivedDownlink{}
 	d.Info.ReceivedDownlink.Notify = sync.NewCond(&d.Info.ReceivedDownlink.Mutex)
 
 	d.Info.Configuration.Channels = d.Info.Configuration.Region.GetChannels()

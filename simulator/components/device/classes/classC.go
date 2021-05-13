@@ -102,26 +102,25 @@ func (c *TypeC) RetransmissionUnCData(downlink *dl.InformationDownlink) error {
 	if c.Info.Status.CounterRepUnConfirmedDataUp < c.Info.Configuration.NbRepUnconfirmedDataUp {
 
 		c.Info.Status.Mode = util.Retransmission
-		c.Info.Status.CounterRepConfirmedDataUp++
+		c.Info.Status.CounterRepUnConfirmedDataUp++
 		//nessun ACK ricevuto
 		return nil
 
-	} else {
+	}
 
-		var err string
+	var err error
+	err = nil
 
-		c.Info.Status.CounterRepConfirmedDataUp = 0
+	if c.Info.Status.Mode == util.Retransmission {
 
-		if c.Info.Status.Mode == util.Retransmission {
-
-			c.Info.Status.Mode = util.Normal
-			err = fmt.Sprintf("Last Uplink sent %v times", c.Info.Configuration.NbRepConfirmedDataUp)
-
-		}
-
-		return errors.New(err)
+		c.Info.Status.Mode = util.Normal
+		err = errors.New(fmt.Sprintf("Last Uplink sent %v times", c.Info.Status.CounterRepUnConfirmedDataUp))
 
 	}
+
+	c.Info.Status.CounterRepUnConfirmedDataUp = 1
+
+	return err
 
 }
 

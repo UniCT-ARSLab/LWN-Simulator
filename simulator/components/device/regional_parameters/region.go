@@ -1,6 +1,9 @@
 package regional_parameters
 
 import (
+	"errors"
+	"fmt"
+
 	c "github.com/arslab/lwnsimulator/simulator/components/device/features/channels"
 	models "github.com/arslab/lwnsimulator/simulator/components/device/regional_parameters/models_rp"
 	"github.com/brocaar/lorawan"
@@ -40,7 +43,7 @@ type Region interface {
 	GetDataRateBeacon() uint8
 	GetCodR(uint8) string
 	SetupInfoRequest(int) (string, int)
-	LinkAdrReq(uint8, lorawan.ChMask, uint8, *[]c.Channel) (int, []bool, error)
+	LinkAdrReq(uint8, lorawan.ChMask, uint8, *[]c.Channel) ([]bool, []error)
 	SetupRX1(uint8, uint8, int, lorawan.DwellTime) (uint8, int)
 	GetPayloadSize(uint8, lorawan.DwellTime) (int, int)
 	GetParameters() models.Parameters
@@ -115,4 +118,268 @@ func GetInfo(Code int) models.Informations {
 	}
 
 	return info
+}
+
+func linkADRReqForChannels(region Region, ChMaskCntl uint8, ChMask lorawan.ChMask,
+	newDataRate uint8, channels *[]c.Channel) ([]bool, []error) {
+
+	var errs []error
+
+	chMaskTmp := ChMask
+	channelsCopy := *channels
+	channelsInactive := 0
+	acks := []bool{false, false, false}
+
+	switch ChMaskCntl {
+
+	case 0: //only 0 in mask
+
+		for _, enable := range ChMask {
+
+			if !enable {
+				channelsInactive++
+			} else {
+				break
+			}
+		}
+
+		if channelsInactive == LenChMask { // all channels inactive
+			errs = append(errs, errors.New("MAc Command disables all channels"))
+		}
+
+	case 6:
+
+		for i, _ := range chMaskTmp {
+			chMaskTmp[i] = true
+		}
+
+	}
+
+	for i := region.GetNbReservedChannels(); i < LenChMask; i++ { //i primi 3 channel sono riservati
+
+		if chMaskTmp[i] {
+
+			if i >= len(channelsCopy) {
+				errs = append(errs, errors.New("Unable to configure an undefined channel"))
+				break
+			}
+
+			if !channelsCopy[i].Active { // can't enable uplink channel
+
+				msg := fmt.Sprintf("ChMask can't enable an inactive channel[%v]", i)
+				errs = append(errs, errors.New(msg))
+
+				break
+
+			} else { //channel active, check datarate
+
+				err := channelsCopy[i].IsSupportedDR(newDataRate)
+				if err == nil { //at least one channel supports DataRate
+					acks[1] = true //ackDr
+				}
+
+			}
+			channelsCopy[i].EnableUplink = chMaskTmp[i]
+
+		}
+	}
+	acks[0] = true //ackMask
+
+	//datarate
+	if err := region.DataRateSupported(newDataRate); err != nil {
+
+		acks[1] = false
+		errs = append(errs, err)
+
+	}
+
+	acks[2] = true //txack
+
+	if acks[0] && acks[1] && acks[2] {
+		channels = &channelsCopy
+	}
+
+	return acks, errs
+}
+
+func linkADRReqForGroupOfChannels(region Region, ChMaskCntl uint8, ChMask lorawan.ChMask,
+	newDataRate uint8, channels *[]c.Channel, nbGroup int) ([]bool, []error) {
+
+	var errs []error
+	channelsCopy := *channels
+	lenMask := LenChMask
+	offset := ChMaskCntl
+	acks := []bool{false, false, false}
+
+	switch ChMaskCntl {
+
+	case 0, 1, 2, 3:
+		offset = ChMaskCntl * 16
+		break
+
+	case 4:
+		offset = ChMaskCntl * 16
+		lenMask = LenChMask / 2
+		break
+
+	case 5:
+
+		offset = 64
+		lenMask = LenChMask / 2
+		groupIndex := uint(0)
+
+		for i, bit := range ChMask { //get nb from ChMask
+
+			if bit {
+				value := uint(1)
+				mask := value << uint(i)
+				groupIndex = groupIndex | mask
+			}
+
+		}
+
+		if int(groupIndex)+(lenMask-1) < len(channelsCopy) &&
+			int(offset)+int(groupIndex) < len(channelsCopy) {
+
+			for i := 0; i < lenMask; i++ {
+
+				if !channelsCopy[i+int(groupIndex)].Active { // can't enable uplink channel
+
+					msg := fmt.Sprintf("ChMask Error: channel[%v] is inactive so it can't enable to send a uplink", i)
+					errs = append(errs, errors.New(msg))
+
+					acks[0] = false
+
+					break
+
+				}
+
+				channelsCopy[i+int(groupIndex)].EnableUplink = ChMask[i]
+
+			}
+
+			if !channelsCopy[int(offset)+int(groupIndex)].Active { // can't enable uplink channel
+
+				msg := fmt.Sprintf("ChMask Error: channel[%v] is inactive so it can't enable to send a uplink", int(offset)+int(groupIndex))
+				errs = append(errs, errors.New(msg))
+
+				acks[0] = false
+
+				break
+
+			}
+
+			channelsCopy[int(offset)+int(groupIndex)].EnableUplink = ChMask[lenMask-1]
+
+		} else {
+			errs = append(errs, errors.New("ChMask value is too large"))
+		}
+
+		return acks, errs
+
+	case 6:
+		offset = 64
+		lenMask = LenChMask / 2
+
+		for i := 0; i < nbGroup; i++ {
+
+			if !channelsCopy[i].Active { // can't enable uplink channel
+
+				msg := fmt.Sprintf("ChMask Error: channel[%v] is inactive so it can't enable to send a uplink", i)
+				errs = append(errs, errors.New(msg))
+
+				acks[0] = false
+
+				break
+
+			} else { //channel active, check datarate
+
+				err := channelsCopy[i].IsSupportedDR(newDataRate)
+				if err == nil { //at least one channel supports DataRate
+					acks[1] = true //ackDr
+				}
+
+			}
+
+			channelsCopy[i].EnableUplink = true
+
+		}
+
+		break
+
+	case 7:
+		offset = 64
+		lenMask = LenChMask / 2
+
+		for i := 0; i < nbGroup; i++ {
+
+			if !channelsCopy[i].Active { // can't enable uplink channel
+
+				msg := fmt.Sprintf("ChMask Error: channel[%v] is inactive so it can't enable to send a uplink", i)
+				errs = append(errs, errors.New(msg))
+
+				acks[0] = false
+
+				break
+
+			} else { //channel active, check datarate
+
+				err := channelsCopy[i].IsSupportedDR(newDataRate)
+				if err == nil { //at least one channel supports DataRate
+					acks[1] = true //ackDr
+				}
+
+			}
+
+			channelsCopy[i].EnableUplink = false
+
+		}
+
+	}
+
+	for i := int(offset); i < lenMask; i++ {
+
+		if !channelsCopy[i].Active { // can't enable uplink channel
+
+			msg := fmt.Sprintf("ChMask Error: channel[%v] is inactive so it can't enable to send a uplink", i)
+			errs = append(errs, errors.New(msg))
+
+			acks[0] = false
+
+			break
+
+		} else { //channel active, check datarate
+
+			err := channelsCopy[i].IsSupportedDR(newDataRate)
+			if err == nil { //at least one channel supports DataRate
+				acks[1] = true //ackDr
+			}
+
+		}
+
+		channelsCopy[i].EnableUplink = ChMask[i]
+
+	}
+
+	if len(errs) == 0 { //no error chMask
+		acks[0] = true //ackMask
+	}
+
+	//datarate
+	if err := region.DataRateSupported(newDataRate); err != nil {
+
+		acks[1] = false
+		errs = append(errs, err)
+
+	} else {
+		acks[1] = true
+	}
+
+	acks[2] = true //txack
+
+	if acks[0] && acks[1] && acks[2] {
+		channels = &channelsCopy
+	}
+
+	return acks, errs
 }

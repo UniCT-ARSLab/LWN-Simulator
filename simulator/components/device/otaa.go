@@ -21,6 +21,8 @@ func (d *Device) OtaaActivation() {
 
 	for !d.Info.Status.Joined {
 
+		d.Info.Status.Mode = util.Activation
+
 		if !d.CanExecute() { //stop simulator
 			return
 		}
@@ -52,6 +54,8 @@ func (d *Device) OtaaActivation() {
 		if d.Info.Status.Joined {
 
 			d.Print("Joined", nil, util.PrintBoth)
+			d.Info.Status.Mode = util.Normal
+
 			return
 		}
 
@@ -119,6 +123,8 @@ func (d *Device) ProcessJoinAccept(JoinAccPayload *lorawan.JoinAcceptPayload) (*
 	//cflist
 	if JoinAccPayload.CFList != nil {
 
+		d.Print("Apply CFList", nil, util.PrintBoth)
+
 		cflist, err := JoinAccPayload.CFList.Payload.MarshalBinary()
 		if err != nil {
 			return nil, err
@@ -147,9 +153,12 @@ func (d *Device) ProcessJoinAccept(JoinAccPayload *lorawan.JoinAcceptPayload) (*
 			}
 
 			for i, mask := range CFList.ChannelMasks {
+
 				for j, enable := range mask {
+
 					index := j + i*16
 					d.Info.Configuration.Channels[index].EnableUplink = enable
+
 				}
 			}
 

@@ -59,18 +59,23 @@ func (au *Au915) Setup() {
 func (au *Au915) GetDataRate(datarate uint8) (string, string) {
 
 	switch datarate {
+
 	case 0, 1, 2, 3, 4, 5:
 		r := fmt.Sprintf("SF%vBW125", 12-datarate)
 		return "LORA", r
+
 	case 6:
 		return "LORA", "SF8BW500"
 
 	case 8, 9, 10, 11, 12, 13:
 		r := fmt.Sprintf("SF%vBW500", 20-datarate)
 		return "LORA", r
+
+	default:
+		return "", ""
+
 	}
 
-	return "", ""
 }
 
 func (au *Au915) FrequencySupported(frequency uint32) error {
@@ -84,8 +89,8 @@ func (au *Au915) FrequencySupported(frequency uint32) error {
 
 func (au *Au915) DataRateSupported(datarate uint8) error {
 
-	if datarate < au.Info.MinDataRate || datarate > au.Info.MaxDataRate {
-		return errors.New("Invalid Data Rate")
+	if _, dr := au.GetDataRate(datarate); dr == "" {
+		return errors.New("Invalid Data Rate or RFU")
 	}
 
 	return nil
@@ -142,115 +147,9 @@ func (au *Au915) RX1DROffsetSupported(offset uint8) error {
 }
 
 func (au *Au915) LinkAdrReq(ChMaskCntl uint8, ChMask lorawan.ChMask,
-	newDataRate uint8, channels *[]c.Channel) (int, []bool, error) {
+	newDataRate uint8, channels *[]c.Channel) ([]bool, []error) {
 
-	var err error
-
-	lenMask := LenChMask
-	offset := ChMaskCntl
-	acks := []bool{false, false, false}
-	err = nil
-
-	switch ChMaskCntl {
-
-	case 0, 1, 2, 3:
-		offset = ChMaskCntl * 16
-
-	case 4:
-		offset = ChMaskCntl * 16
-		lenMask = LenChMask / 2
-
-	case 5:
-		offset = 64
-		lenMask = LenChMask / 2
-		groupIndex := uint(0)
-
-		for i, bit := range ChMask {
-
-			if bit {
-				value := uint(1)
-				mask := value << uint(i)
-				groupIndex = groupIndex | mask
-			}
-
-		}
-
-		for i := int(groupIndex); i < lenMask; i++ {
-
-			if !(*channels)[i].Active { // can't enable uplink channel
-
-				msg := fmt.Sprintf("ChMask can't enable an inactive channel[%v]", i)
-				return ChMaskCntlChannel, acks, errors.New(msg)
-
-			}
-
-			(*channels)[i].EnableUplink = ChMask[i]
-
-		}
-
-		if !(*channels)[int(offset)+int(groupIndex)].Active { // can't enable uplink channel
-
-			msg := fmt.Sprintf("ChMask can't enable an inactive channel[%v]", int(offset)+int(groupIndex))
-			return ChMaskCntlChannel, acks, errors.New(msg)
-
-		}
-
-		(*channels)[int(offset)+int(groupIndex)].EnableUplink = ChMask[lenMask-1]
-
-	case 6:
-		offset = 64
-		lenMask = LenChMask / 2
-
-		for i := 0; i < au.Info.InfoGroupChannels[0].NbReservedChannels; i++ {
-
-			if !(*channels)[i].Active { // can't enable uplink channel
-
-				msg := fmt.Sprintf("ChMask can't enable an inactive channel[%v]", i)
-				return ChMaskCntlChannel, acks, errors.New(msg)
-
-			}
-
-			(*channels)[i].EnableUplink = true
-
-		}
-
-	case 7:
-		offset = 64
-		lenMask = LenChMask / 2
-
-		for i := 0; i < au.Info.InfoGroupChannels[0].NbReservedChannels; i++ {
-
-			if !(*channels)[i].Active { // can't enable uplink channel
-
-				msg := fmt.Sprintf("ChMask can't enable an inactive channel[%v]", i)
-				return ChMaskCntlChannel, acks, errors.New(msg)
-
-			}
-
-			(*channels)[i].EnableUplink = false
-
-		}
-
-	}
-
-	for i := int(offset); i < lenMask; i++ {
-
-		if !(*channels)[i].Active { // can't enable uplink channel
-
-			msg := fmt.Sprintf("ChMask can't enable an inactive channel[%v]", i)
-			return ChMaskCntlChannel, acks, errors.New(msg)
-
-		}
-
-		(*channels)[i].EnableUplink = ChMask[i]
-
-	}
-
-	acks[0] = true //ackMask
-	acks[1] = true //ackdr
-	acks[2] = true //txack
-
-	return ChMaskCntlGroup, acks, err
+	return linkADRReqForGroupOfChannels(au, ChMaskCntl, ChMask, newDataRate, channels, au.Info.InfoGroupChannels[0].NbReservedChannels)
 }
 
 func (au *Au915) SetupRX1(datarate uint8, rx1offset uint8, indexChannel int, dtime lorawan.DwellTime) (uint8, int) {
