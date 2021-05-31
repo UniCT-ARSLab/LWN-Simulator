@@ -1,7 +1,6 @@
 package udp
 
 import (
-	"errors"
 	"net"
 )
 
@@ -18,10 +17,6 @@ func ConnectTo(BridgeAddress string) (*net.UDPConn, error) {
 
 func SendDataUDP(connection *net.UDPConn, data []byte) (int, error) {
 
-	n, err := connection.Write(data)
-	if err != nil {
-		return -1, errors.New("Unable send data")
-	}
+	return connection.Write(data)
 
-	return n, nil
 }

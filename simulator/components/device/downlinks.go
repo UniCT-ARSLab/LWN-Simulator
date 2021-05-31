@@ -58,6 +58,7 @@ func (d *Device) ProcessDownlink(phy lorawan.PHYPayload) (*dl.InformationDownlin
 
 	case classes.ClassC:
 		d.Info.Status.InfoClassC.SetACK(false) //Reset
+
 	}
 
 	msg := d.Info.Status.DataUplink.ADR.Reset()

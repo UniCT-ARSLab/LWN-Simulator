@@ -383,3 +383,21 @@ func linkADRReqForGroupOfChannels(region Region, ChMaskCntl uint8, ChMask lorawa
 
 	return acks, errs
 }
+
+func DecrementDataRate(region Region, datarate uint8) uint8 {
+
+	datarateNEW := int(datarate) - 1
+	minDR := region.GetMinDataRate() - 1
+
+	for datarateNEW > int(minDR) {
+
+		_, drString := region.GetDataRate(datarate)
+		if drString != "" {
+			return uint8(datarateNEW)
+		}
+
+		datarateNEW--
+	}
+
+	return region.GetMinDataRate()
+}

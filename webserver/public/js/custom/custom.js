@@ -92,9 +92,9 @@ $(document).ready(function(){
     });
 
     socket.on('disconnect',()=>{
+        
         StateSimulator = false;
         $("#state").attr("src", "img/red_circle.svg")
-        $("#console-body").empty();
         $(".btn-play").parent("button").removeClass("hide");
         $(".btn-stop").parent("button").addClass("hide");
         

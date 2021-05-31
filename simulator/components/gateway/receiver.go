@@ -57,8 +57,9 @@ func (g *Gateway) Receiver() {
 
 		if err != nil {
 
-			msg := fmt.Sprintf("Unable read to %v", *g.Info.BridgeAddress)
+			msg := fmt.Sprintf("No connection with %v, it may be off", *g.Info.BridgeAddress)
 			g.Print("", errors.New(msg), util.PrintBoth)
+
 			continue
 
 		}
@@ -113,7 +114,8 @@ func (g *Gateway) Receiver() {
 			}
 
 			if err != nil {
-				g.Print("", err, util.PrintBoth)
+				msg := fmt.Sprintf("No connection with %v, it may be off", *g.Info.BridgeAddress)
+				g.Print("", errors.New(msg), util.PrintBoth)
 			} else {
 
 				g.Stat.TXNb++

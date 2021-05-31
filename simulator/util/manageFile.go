@@ -55,11 +55,7 @@ func CreateConfigFiles() {
 
 	for i, _ := range path {
 
-		data := "[]"
-
-		if i == 0 {
-			data = "{}"
-		}
+		data := "{}"
 
 		_, err = os.Create(path[i])
 		if err != nil {

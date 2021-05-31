@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -34,7 +35,10 @@ func (g *Gateway) SenderVirtual() {
 
 		_, err = udp.SendDataUDP(g.Info.Connection, packet)
 		if err != nil {
-			g.Print("", err, util.PrintBoth)
+
+			msg := fmt.Sprintf("Unable to send data to %v, it may be off", *g.Info.BridgeAddress)
+			g.Print("", errors.New(msg), util.PrintBoth)
+
 		} else {
 			g.Print("PUSH DATA send", nil, util.PrintBoth)
 		}
@@ -65,7 +69,10 @@ func (g *Gateway) SenderReal() {
 
 		_, err = udp.SendDataUDP(g.Info.Connection, packet)
 		if err != nil {
-			g.Print("", err, util.PrintBoth)
+
+			msg := fmt.Sprintf("Unable to send data to %v, it may be off", *g.Info.BridgeAddress)
+			g.Print("", errors.New(msg), util.PrintBoth)
+
 		} else {
 			msg := fmt.Sprintf("Forward PUSH DATA to %v:%v", g.Info.AddrIP, g.Info.Port)
 			g.Print(msg, nil, util.PrintBoth)

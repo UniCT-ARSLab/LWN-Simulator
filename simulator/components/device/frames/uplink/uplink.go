@@ -109,7 +109,9 @@ func (up *InfoUplink) IsTherePingSlotInfoReq() bool {
 			return true
 		}
 	}
+
 	return false
+
 }
 
 func Fragmentation(size int, payload lorawan.Payload) []lorawan.DataPayload {

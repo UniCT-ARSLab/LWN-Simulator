@@ -49,8 +49,6 @@ func (d *Device) Execute() {
 
 			d.ExecuteMACCommand(*downlink)
 
-			d.ADRProcedure()
-
 			if d.Info.Status.Mode != util.Retransmission {
 				d.FPendingProcedure(downlink)
 			}
@@ -66,6 +64,8 @@ func (d *Device) Execute() {
 		d.Print("ACK Timeout", nil, util.PrintBoth)
 
 	}
+
+	d.ADRProcedure()
 
 	//retransmission
 	switch d.Info.Status.LastMType {
@@ -88,23 +88,9 @@ func (d *Device) Execute() {
 		}
 
 		if d.Info.Status.Mode == util.Retransmission {
-			//datarate Lower
-			if d.Info.Status.DataRate > d.Info.Configuration.Region.GetMinDataRate() {
 
-				drString := ""
-				datarate := d.Info.Status.DataRate - 1
+			d.Info.Status.DataRate = rp.DecrementDataRate(d.Info.Configuration.Region, d.Info.Status.DataRate)
 
-				for drString == "" || datarate > d.Info.Configuration.Region.GetMinDataRate()-1 {
-					_, drString = d.Info.Configuration.Region.GetDataRate(datarate)
-					if drString != "" {
-						d.Info.Status.DataRate = datarate
-						break
-					}
-
-					datarate--
-				}
-
-			}
 		}
 
 	case lorawan.UnconfirmedDataUp:
@@ -163,7 +149,6 @@ func (d *Device) FPendingProcedure(downlink *dl.InformationDownlink) {
 				if downlink != nil { //downlink ricevuto
 
 					d.ExecuteMACCommand(*downlink)
-					d.ADRProcedure()
 
 				}
 
@@ -179,6 +164,8 @@ func (d *Device) FPendingProcedure(downlink *dl.InformationDownlink) {
 				d.Print("ACK Timeout", nil, util.PrintBoth)
 
 			}
+
+			d.ADRProcedure()
 
 		} else {
 			d.Print("Fpending unset", nil, util.PrintBoth)
@@ -197,51 +184,29 @@ func (d *Device) FPendingProcedure(downlink *dl.InformationDownlink) {
 
 func (d *Device) ADRProcedure() {
 
-	switch d.Info.Status.DataUplink.ADR.ADRACKCnt {
+	dr, code := d.Info.Status.DataUplink.ADR.ADRProcedure(d.Info.Status.DataRate, d.Info.Configuration.Region, d.Info.Configuration.SupportedADR)
 
-	case adr.ADRACKLIMIT, adr.ADRACKLIMIT + adr.ADRACKDELAY:
+	switch code {
 
-		if d.Info.Status.DataRate > d.Info.Configuration.Region.GetMinDataRate() && d.Info.Configuration.SupportedADR {
-			d.Print("SET ADRACKReq flag", nil, util.PrintBoth)
-			d.Info.Status.DataUplink.ADR.ADRACKReq = true
-		}
+	case adr.CodeNoneError:
+		d.Info.Status.DataRate = dr
+		break
 
-	}
+	case adr.CodeADRFlagReqSet:
+		d.Print("SET ADRACKReq flag", nil, util.PrintBoth)
+		break
 
-	if d.Info.Status.DataUplink.ADR.ADRACKCnt%adr.ADRACKDELAY == 0 &&
-		d.Info.Status.DataUplink.ADR.ADRACKCnt > adr.ADRACKLIMIT {
+	case adr.CodeUnjoined:
+		if UnJoined := d.UnJoined(); UnJoined {
 
-		if d.Info.Status.DataRate > d.Info.Configuration.Region.GetMinDataRate() {
+			d.OtaaActivation()
 
-			drString := ""
-			datarate := d.Info.Status.DataRate - 1
-
-			for drString == "" || datarate > d.Info.Configuration.Region.GetMinDataRate()-1 {
-
-				_, drString = d.Info.Configuration.Region.GetDataRate(datarate)
-				if drString != "" {
-					d.Info.Status.DataRate = datarate
-					break
-				}
-
-				datarate--
-
+			msg := d.Info.Status.DataUplink.ADR.Reset()
+			if msg != "" {
+				d.Print(msg, nil, util.PrintBoth)
 			}
 
-		} else {
-
-			if UnJoined := d.UnJoined(); UnJoined {
-
-				d.OtaaActivation()
-
-				msg := d.Info.Status.DataUplink.ADR.Reset()
-				if msg != "" {
-					d.Print(msg, nil, util.PrintBoth)
-				}
-
-			}
 		}
-
 	}
 
 }
