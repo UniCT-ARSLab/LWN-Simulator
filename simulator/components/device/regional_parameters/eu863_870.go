@@ -140,7 +140,7 @@ func (eu *Eu868) SetupInfoRequest(indexChannel int) (string, int) {
 
 	rand.Seed(time.Now().UTC().UnixNano())
 
-	if indexChannel > eu.GetNbReservedChannels() {
+	if indexChannel >= eu.GetNbReservedChannels() {
 		indexChannel = rand.Int() % eu.GetNbReservedChannels()
 	}
 

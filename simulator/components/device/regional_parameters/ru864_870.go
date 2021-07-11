@@ -138,7 +138,7 @@ func (ru *Ru864) SetupInfoRequest(indexChannel int) (string, int) {
 
 	rand.Seed(time.Now().UTC().UnixNano())
 
-	if indexChannel > ru.GetNbReservedChannels() {
+	if indexChannel >= ru.GetNbReservedChannels() {
 		indexChannel = rand.Int() % ru.GetNbReservedChannels()
 	}
 

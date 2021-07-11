@@ -229,7 +229,7 @@ func (cn *Cn470) SetupInfoRequest(indexChannel int) (string, int) {
 
 	rand.Seed(time.Now().UTC().UnixNano())
 
-	if indexChannel > cn.GetNbReservedChannels() {
+	if indexChannel >= cn.GetNbReservedChannels() {
 		indexChannel = rand.Int() % cn.GetNbReservedChannels()
 	}
 

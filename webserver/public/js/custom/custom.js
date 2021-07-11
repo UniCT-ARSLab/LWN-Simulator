@@ -54,6 +54,8 @@ var socket = io({
                 path:'/socket.io/',
                 reconnectionDelay:5000});
 
+var url = window.origin;
+
 $(document).ready(function(){
 
     Initmap();
@@ -195,7 +197,7 @@ $(document).ready(function(){
         $("#state").attr("src","img/yellow_circle.svg");
 
         $.ajax({
-            url:"http://127.0.0.1:8000/api/start",
+            url:url+"/api/start",
             type:"GET",
             headers:{
                 "Access-Control-Allow-Origin":"*"
@@ -222,7 +224,7 @@ $(document).ready(function(){
         }).fail((data)=>{
 
             $("#state").attr("src","img/red_circle.svg");
-            Show_ErrorSweetToast("Error",data.statusText); 
+            Show_ErrorSweetToast("Unable to start the simulator",data.statusText); 
             
         });
 
@@ -239,7 +241,7 @@ $(document).ready(function(){
         
         $("#state").attr("src","img/yellow_circle.svg");
 
-        $.get("http://127.0.0.1:8000/api/stop",{
+        $.get(url+"/api/stop",{
         
         }).done((data)=>{
         
@@ -255,9 +257,10 @@ $(document).ready(function(){
                 $("#state").attr("src","img/green_circle.svg");
             }   
 
-        }).fail(()=>{
+        }).fail((data)=>{
 
             $("#state").attr("src","img/green_circle.svg");
+            Show_ErrorSweetToast("Unable to stop the simulator",data.statusText); 
 
         });
 
@@ -696,7 +699,7 @@ $(document).ready(function(){
     $('#bridge-tab').on('click', function(){
 
         $.ajax({
-            url: "http://127.0.0.1:8000/api/bridge/",
+            url: url+"/api/bridge/",
             type:"GET",
             headers:{
                 "Access-Control-Allow-Origin":"*"
@@ -710,8 +713,8 @@ $(document).ready(function(){
             if (data.port != "")
                 $('[name=input-port-bridge]').val(data.port)                
             
-        }).fail(()=>{
-            Show_ErrorSweetToast("Error","Unable to upload info from server");       
+        }).fail((data)=>{
+            Show_ErrorSweetToast("Unable to load info of gateway bridge", data.statusText);       
         });
 
     });
@@ -724,17 +727,18 @@ $(document).ready(function(){
             return
         }
         
-        var ipAddr = $("[name=input-IP-bridge]").val();
+        var address = $("[name=input-IP-bridge]").val();
         var port = $("[name=input-port-bridge]").val();
 
         //validation
-        var validIP = IsValidIP(ipAddr);
+        var validAddr = IsValidURL(address) || IsValidIP(address);  
         var validPort = port < 65536 && port > 0 ? true : false;
 
-        var val = validIP && validPort;
+        var val = validAddr && validPort;
+        
         if(!val){
 
-            ValidationInput($("[name=input-IP-bridge]"), validIP)
+            ValidationInput($("[name=input-IP-bridge]"), validAddr)
             ValidationInput($("[name=input-port-bridge]"), validPort)
             
             Show_ErrorSweetToast("Error", "Values are incorrect")
@@ -744,20 +748,33 @@ $(document).ready(function(){
 
         //create file JSON
         var jsonData = JSON.stringify({
-            "ip" : ipAddr,
+            "ip" : address,
             "port" : port
         });
 
         //ajax
-        $.post("http://localhost:8000/api/bridge/save", jsonData,"json")
+        $.post(url + "/api/bridge/save", jsonData,"json")
         .done((data)=>{
 
+            var header = IsValidIP(address) ? "IPv4:": "URL:"
+
             if (data.status == null)
-                Show_SweetToast("Data saved","");  
+                Show_SweetToast("Data saved",header + address + "\n" + "Port:" + port);  
            
         }).fail((data)=>{
-            console.log("Error", data.statusText); 
+            Show_SweetToast("Unable to save the gateway bridge", data.statusText);  
         });
+
+    });
+
+    $("[name=input-IP-bridge]").on("blur keyup paste", function(){
+
+        $(this).val($(this).val().replaceAll(' ', ''));
+
+        if ($(this).val() == "")
+            $(this).removeClass("is-valid is-invalid");       
+        else
+            $(this).addClass("is-valid");
 
     });
 
@@ -768,7 +785,7 @@ $(document).ready(function(){
     });
 
     //ip address (also for real gw)
-    $("[name^=input-IP]").on("blur keyup",function(){
+    $("[name^=input-IP]").not("[name=input-IP-bridge]").on("blur keyup",function(){
         
         var value =$(this).val().replaceAll(' ',''); 
         $(this).val(value);
@@ -796,6 +813,7 @@ $(document).ready(function(){
                 var ValidPort = value < 65536 && value > 0 ? true : false;
                 ValidationInput($(this),ValidPort)             
             }
+
         } else{
             $(this).removeClass("is-valid is-invalid");
             return;
@@ -984,7 +1002,7 @@ function Init(){
     
     //list of gateways
     $.ajax({
-        url: "http://127.0.0.1:8000/api/gateways",
+        url: url+"/api/gateways",
         type:"GET",
         headers:{
             "Access-Control-Allow-Origin":"*"
@@ -1009,13 +1027,13 @@ function Init(){
         LoadListHome();
 
     }).fail((data)=>{
-        console.log("fail:",data)
+        Show_ErrorSweetToast("Unable to load info of the gateways", data.statusText); 
     });
 
     //list of devices
     
     $.ajax({
-        url: "http://127.0.0.1:8000/api/devices",
+        url: url+"/api/devices",
         type:"GET",
         headers:{
             "Access-Control-Allow-Origin":"*"
@@ -1040,7 +1058,7 @@ function Init(){
         LoadListHome();
 
     }).fail((data)=>{
-        console.log("fail:", data)
+        Show_ErrorSweetToast("Unable to load info of the devices", data.statusText); 
     });
 
 }
@@ -1220,7 +1238,18 @@ function IsValidIP(value){
 
     var ipFormat = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
     
-    return value.match(ipFormat)  
+    return ipFormat.test(value);
+        
+}
+
+function IsValidURL(value){
+
+    //var expression = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)?/gi;
+    //var regex = new RegExp(expression);
+
+    //return regex.test(value);
+
+    return value == "" ? false : true;
         
 }
 
@@ -1854,7 +1883,7 @@ function Click_DeleteGateway(){
             });
 
             //ajax
-            $.post("http://127.0.0.1:8000/api/del-gateway",jsonData, "json")
+            $.post(url+"/api/del-gateway",jsonData, "json")
             .done((data)=>{
             
                 if (data.status){
@@ -1872,7 +1901,7 @@ function Click_DeleteGateway(){
                     Show_ErrorSweetToast("Error","Gateway didn't deleted. It could be active");                                             
 
             }).fail((data)=>{    
-                Show_ErrorSweetToast("Error","Unable to delete gateway:"+data.statusText);
+                Show_ErrorSweetToast("Unable to delete the gateway", data.statusText);
             });            
 
         } 
@@ -1985,7 +2014,7 @@ function Click_SaveGateway(){
 
     if (macAddress == undefined || macAddress == ""){//new gateway
   
-        $.post("http://localhost:8000/api/add-gateway",jsonData, "json")
+        $.post(url + "/api/add-gateway",jsonData, "json")
         .done((data)=>{
 
             switch (data.code){
@@ -2031,12 +2060,12 @@ function Click_SaveGateway(){
             Show_ErrorSweetToast("Error",data.status);
             
         }).fail((data)=>{    
-            Show_ErrorSweetToast("Error","Unable to send data:"+data.statusText);
+            Show_ErrorSweetToast("Unable to save the gateway", data.statusText);
         });
 
     } else{//update gateway
 
-        $.post("http://localhost:8000/api/up-gateway",jsonData, "json")
+        $.post(url + "/api/up-gateway",jsonData, "json")
         .done((data)=>{
 
             switch (data.code){
@@ -2081,7 +2110,7 @@ function Click_SaveGateway(){
             Show_ErrorSweetToast("Error",data.status);
                       
         }).fail((data)=>{    
-            Show_ErrorSweetToast("Error","Unable to send data:"+data.statusText);    
+            Show_ErrorSweetToast("Unable to update the gateway", data.statusText);   
         });
     }
     
@@ -2293,7 +2322,7 @@ function Click_DeleteDevice(){
             });
 
             //ajax
-            $.post("http://127.0.0.1:8000/api/del-device",jsonData, "json")
+            $.post(url+"/api/del-device",jsonData, "json")
             .done((data)=>{
         
                 if (data.status){
@@ -2311,7 +2340,7 @@ function Click_DeleteDevice(){
                     Show_ErrorSweetToast("Error","Device didn't deleted. It could be active");
 
             }).fail((data)=>{    
-                Show_ErrorSweetToast("Error","Unable to delete device:"+data.statusText);
+                Show_ErrorSweetToast("Unable to delete the device", data.statusText);
             });
         }
     });   
@@ -2576,7 +2605,7 @@ function Click_SaveDevice(){
 
     if (eui == undefined || eui == ""){//new device 
 
-        $.post("http://localhost:8000/api/add-device",jsonData, "json")
+        $.post(url + "/api/add-device",jsonData, "json")
         .done((data)=>{
 
             switch (data.code){
@@ -2617,12 +2646,12 @@ function Click_SaveDevice(){
             }
                  
         }).fail((data)=>{    
-            Show_ErrorSweetToast("Error","Unable to send data:"+data.statusText);
+            Show_ErrorSweetToast("Unable to save the device", data.statusText);
         });
 
     } else{//update device
 
-        $.post("http://localhost:8000/api/up-device",jsonData, "json")
+        $.post(url + "/api/up-device",jsonData, "json")
         .done((data)=>{
 
             switch (data.code){
@@ -2661,7 +2690,7 @@ function Click_SaveDevice(){
             Show_ErrorSweetToast("Error",data.status);
             
         }).fail((data)=>{    
-            Show_ErrorSweetToast("Error","Unable to send data:"+data.statusText);   
+            Show_ErrorSweetToast("Unable to update the device", data.statusText);  
         });
     }
     

@@ -154,7 +154,7 @@ func (kr *Kr920) SetupInfoRequest(indexChannel int) (string, int) {
 
 	rand.Seed(time.Now().UTC().UnixNano())
 
-	if indexChannel > kr.GetNbReservedChannels() {
+	if indexChannel >= kr.GetNbReservedChannels() {
 		indexChannel = rand.Int() % kr.GetNbReservedChannels()
 	}
 

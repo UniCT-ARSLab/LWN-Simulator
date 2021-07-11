@@ -159,7 +159,7 @@ func (as *As923) SetupInfoRequest(indexChannel int) (string, int) {
 
 	rand.Seed(time.Now().UTC().UnixNano())
 
-	if indexChannel > as.GetNbReservedChannels() {
+	if indexChannel >= as.GetNbReservedChannels() {
 		indexChannel = rand.Int() % as.GetNbReservedChannels()
 	}
 

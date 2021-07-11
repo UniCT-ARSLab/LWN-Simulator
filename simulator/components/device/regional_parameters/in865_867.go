@@ -168,7 +168,7 @@ func (in *In865) SetupInfoRequest(indexChannel int) (string, int) {
 
 	rand.Seed(time.Now().UTC().UnixNano())
 
-	if indexChannel > in.GetNbReservedChannels() {
+	if indexChannel >= in.GetNbReservedChannels() {
 		indexChannel = rand.Int() % in.GetNbReservedChannels()
 	}
 
