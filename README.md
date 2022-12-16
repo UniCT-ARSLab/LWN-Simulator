@@ -93,4 +93,4 @@ The simulator relises on a configuration file (`config.json`) whitch specifies s
 ```
 * address: specifies the IP mask from which the web UI is accessible.
 * port: the web server port.
-* configDirname: the directory name where all status files will be saved and will be created in the user home. 
+* configDirname: the directory name where all status files will be saved and will be created. 

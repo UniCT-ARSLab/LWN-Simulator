@@ -11,12 +11,7 @@ import (
 
 func GetPath() (string, error) {
 
-	homepath, errorPath := os.UserHomeDir()
-	if errorPath != nil {
-		return "", errorPath
-	}
-
-	path := homepath + "/" + GetConfigDirname()
+	path := GetConfigDirname()
 	err := CreateConfigDir(path)
 	if err != nil {
 		return "", err
