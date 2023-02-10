@@ -39,6 +39,7 @@ There are two types of gateway:
 
 ## Requirements
 * If you don't have a real infrastracture, you can download [ChirpStack open-source LoRaWAN® Network Server](https://www.chirpstack.io/project/), or a similar software, to prove it;
+* If you have a real infrastructure, be sure that the gateways and LoRaWAN servers ar reachable from the simulator.
 
 
 ## Installation
