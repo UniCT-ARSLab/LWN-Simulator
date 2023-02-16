@@ -19,7 +19,7 @@ var (
 		Help: "The total number of gateway PUSH DATA",
 	})
 	pullDataCounter = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "gateway_pull_ack_total",
+		Name: "gateway_pull_data_total",
 		Help: "The total number of gateway PULL DATA",
 	})
 )
