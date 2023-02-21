@@ -11,7 +11,7 @@ import (
 	"github.com/arslab/lwnsimulator/simulator/components/device/classes"
 	"github.com/arslab/lwnsimulator/simulator/components/device/models"
 	"github.com/arslab/lwnsimulator/simulator/util"
-	"github.com/arslab/lwnsimulator/socket"
+	//"github.com/arslab/lwnsimulator/socket"
 )
 
 type Device struct {
@@ -91,33 +91,33 @@ func (d *Device) modeToString() string {
 
 func (d *Device) Print(content string, err error, printType int) {
 
-	now := time.Now()
-	message := ""
+	//now := time.Now()
+	//message := ""
 	messageLog := ""
-	event := socket.EventDev
+	//event := socket.EventDev
 	class := d.Class.ToString()
 	mode := d.modeToString()
 
 	if err == nil {
-		message = fmt.Sprintf("[ %s ] DEV[%s] |%s| {%s}: %s", now.Format(time.Stamp), d.Info.Name, mode, class, content)
+		//message = fmt.Sprintf("[ %s ] DEV[%s] |%s| {%s}: %s", now.Format(time.Stamp), d.Info.Name, mode, class, content)
 		messageLog = fmt.Sprintf("DEV[%s] |%s| {%s}: %s", d.Info.Name, mode, class, content)
 	} else {
-		message = fmt.Sprintf("[ %s ] DEV[%s] |%s| {%s} [ERROR]: %s", now.Format(time.Stamp), d.Info.Name, mode, class, err)
+		//message = fmt.Sprintf("[ %s ] DEV[%s] |%s| {%s} [ERROR]: %s", now.Format(time.Stamp), d.Info.Name, mode, class, err)
 		messageLog = fmt.Sprintf("DEV[%s] |%s| {%s} [ERROR]: %s", d.Info.Name, mode, class, err)
-		event = socket.EventError
+		//event = socket.EventError
 	}
 
-	data := socket.ConsoleLog{
+	/*data := socket.ConsoleLog{
 		Name: d.Info.Name,
 		Msg:  message,
-	}
+	}*/
 
 	switch printType {
 	case util.PrintBoth:
-		d.Resources.WebSocket.Emit(event, data)
+		//d.Resources.WebSocket.Emit(event, data)
 		log.Println(messageLog)
 	case util.PrintOnlySocket:
-		d.Resources.WebSocket.Emit(event, data)
+		//d.Resources.WebSocket.Emit(event, data)
 	case util.PrintOnlyConsole:
 		log.Println(messageLog)
 	}

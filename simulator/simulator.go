@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"time"
+	//"time"
 
 	"github.com/arslab/lwnsimulator/codes"
 	dev "github.com/arslab/lwnsimulator/simulator/components/device"
@@ -14,7 +14,7 @@ import (
 	gw "github.com/arslab/lwnsimulator/simulator/components/gateway"
 	res "github.com/arslab/lwnsimulator/simulator/resources"
 	"github.com/arslab/lwnsimulator/simulator/util"
-	"github.com/arslab/lwnsimulator/socket"
+	//"github.com/arslab/lwnsimulator/socket"
 	"github.com/brocaar/lorawan"
 )
 
@@ -34,11 +34,10 @@ type Simulator struct {
 }
 
 func (s *Simulator) setup() {
-
 	s.setupGateways()
 	s.setupDevices()
 
-	s.Print("SETUP OK!", nil, util.PrintBoth)
+	s.Print("SETUP OK!", nil, util.PrintBoth)//util.PrintOnlyConsole)
 }
 
 func (s *Simulator) setupGateways() {
@@ -52,9 +51,7 @@ func (s *Simulator) setupGateways() {
 		}
 
 	}
-
-	s.Print("Setup gateways OK!", nil, util.PrintOnlySocket)
-
+	s.Print("Setup gateways OK!", nil, util.PrintOnlySocket)//util.PrintOnlyConsole)
 }
 
 func (s *Simulator) setupDevices() {
@@ -69,7 +66,7 @@ func (s *Simulator) setupDevices() {
 
 	}
 
-	s.Print("Setup devices OK!", nil, util.PrintOnlySocket)
+	s.Print("Setup devices OK!", nil, util.PrintOnlySocket)//util.PrintOnlyConsole)
 
 }
 
@@ -184,7 +181,7 @@ func (s *Simulator) saveStatus() {
 	path = pathDir + "/gateways.json"
 	s.saveComponent(path, &s.Gateways)
 
-	s.Print("Status saved", nil, util.PrintOnlyConsole)
+	s.Print("Status saved", nil, util.PrintOnlyConsole)//.PrintOnlyConsole)
 }
 
 func (s *Simulator) turnONDevice(Id int) {
@@ -200,7 +197,7 @@ func (s *Simulator) turnONDevice(Id int) {
 	s.Devices[Id].TurnON()
 	s.ActiveDevices[Id] = Id
 
-	s.Resources.WebSocket.Emit(socket.EventResponseCommand, s.Devices[Id].Info.Name+" Turn ON")
+	//s.Resources.WebSocket.Emit(socket.EventResponseCommand, s.Devices[Id].Info.Name+" Turn ON")
 
 }
 
@@ -218,22 +215,21 @@ func (s *Simulator) turnOFFDevice(Id int) {
 	delete(s.ActiveDevices, Id)
 	s.ComponentsInactiveTmp--
 
-	status := socket.NewStatusDev{
+	/*status := socket.NewStatusDev{
 		DevEUI:   s.Devices[Id].Info.DevEUI,
 		DevAddr:  s.Devices[Id].Info.DevAddr,
 		NwkSKey:  string(s.Devices[Id].Info.NwkSKey[:]),
 		AppSKey:  string(s.Devices[Id].Info.AppSKey[:]),
 		FCntDown: s.Devices[Id].Info.Status.FCntDown,
 		FCnt:     s.Devices[Id].Info.Status.DataUplink.FCnt,
-	}
-	s.Resources.WebSocket.Emit(socket.EventSaveStatus, status)
+	}*/
+	//s.Resources.WebSocket.Emit(socket.EventSaveStatus, status)
 
-	s.Resources.WebSocket.Emit(socket.EventResponseCommand, s.Devices[Id].Info.Name+" Turn OFF")
+	//s.Resources.WebSocket.Emit(socket.EventResponseCommand, s.Devices[Id].Info.Name+" Turn OFF")
 
 }
 
 func (s *Simulator) turnONGateway(Id int) {
-
 	infoGw := mfw.InfoGateway{
 		MACAddress: s.Gateways[Id].Info.MACAddress,
 		Buffer:     &s.Gateways[Id].BufferUplink,
@@ -246,9 +242,7 @@ func (s *Simulator) turnONGateway(Id int) {
 	s.Gateways[Id].TurnON()
 
 	s.ActiveGateways[Id] = Id
-
-	s.Resources.WebSocket.Emit(socket.EventResponseCommand, s.Gateways[Id].Info.Name+" Turn ON")
-
+	//s.Resources.WebSocket.Emit(socket.EventResponseCommand, s.Gateways[Id].Info.Name+" Turn ON")
 }
 
 func (s *Simulator) turnOFFGateway(Id int) {
@@ -270,7 +264,7 @@ func (s *Simulator) turnOFFGateway(Id int) {
 
 	s.Forwarder.DeleteGateway(infoGw)
 
-	s.Resources.WebSocket.Emit(socket.EventResponseCommand, s.Gateways[Id].Info.Name+" Turn OFF")
+	//s.Resources.WebSocket.Emit(socket.EventResponseCommand, s.Gateways[Id].Info.Name+" Turn OFF")
 
 }
 
@@ -293,33 +287,34 @@ func (s *Simulator) reset() {
 
 func (s *Simulator) Print(content string, err error, printType int) {
 
-	now := time.Now()
-	message := ""
+	//now := time.Now()
+	//message := ""
 	messageLog := ""
-	event := socket.EventLog
+	//event := socket.EventLog
 
 	if err == nil {
-		message = fmt.Sprintf("[ %s ] [SIM]: %s", now.Format(time.Stamp), content)
+		//message = fmt.Sprintf("[ %s ] [SIM]: %s", now.Format(time.Stamp), content)
 		messageLog = fmt.Sprintf("[SIM]: %s", content)
 	} else {
-		message = fmt.Sprintf("[ %s ] [SIM] [ERROR]: %s", now.Format(time.Stamp), err)
+		//message = fmt.Sprintf("[ %s ] [SIM] [ERROR]: %s", now.Format(time.Stamp), err)
 		messageLog = fmt.Sprintf("[SIM] [ERROR]: %s", err)
-		event = socket.EventError
+		//event = socket.EventError
 	}
 
-	data := socket.ConsoleLog{
+	/*data := socket.ConsoleLog{
 		Name: "SIM",
 		Msg:  message,
-	}
+	}	*/
 
 	switch printType {
 
 	case util.PrintBoth:
-		s.Resources.WebSocket.Emit(event, data)
+		//s.Resources.WebSocket.Emit(event, data)
 		log.Println(messageLog)
 
 	case util.PrintOnlySocket:
-		s.Resources.WebSocket.Emit(event, data)
+		//s.Resources.WebSocket.Emit(event, data)
+		log.Println(messageLog)
 
 	case util.PrintOnlyConsole:
 		log.Println(messageLog)

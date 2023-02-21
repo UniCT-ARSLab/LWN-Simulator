@@ -55,7 +55,6 @@ func (s *Simulator) Run() {
 	for _, id := range s.ActiveDevices {
 		s.turnONDevice(id)
 	}
-
 }
 
 func (s *Simulator) Stop() {
@@ -358,15 +357,15 @@ func (s *Simulator) ToggleStateDevice(Id int) {
 func (s *Simulator) SendMACCommand(cid lorawan.CID, data socket.MacCommand) {
 
 	if !s.Devices[data.Id].IsOn() {
-		s.Resources.WebSocket.Emit(socket.EventResponseCommand, s.Devices[data.Id].Info.Name+" is turned off")
+		//s.Resources.WebSocket.Emit(socket.EventResponseCommand, s.Devices[data.Id].Info.Name+" is turned off")
 		return
 	}
 
 	err := s.Devices[data.Id].SendMACCommand(cid, data.Periodicity)
 	if err != nil {
-		s.Resources.WebSocket.Emit(socket.EventResponseCommand, "Unable to send command: "+err.Error())
+		//s.Resources.WebSocket.Emit(socket.EventResponseCommand, "Unable to send command: "+err.Error())
 	} else {
-		s.Resources.WebSocket.Emit(socket.EventResponseCommand, "MACCommand will be sent to the next uplink")
+		//s.Resources.WebSocket.Emit(socket.EventResponseCommand, "MACCommand will be sent to the next uplink")
 	}
 
 }
@@ -376,7 +375,7 @@ func (s *Simulator) ChangePayload(pl socket.NewPayload) (string, bool) {
 	devEUIstring := hex.EncodeToString(s.Devices[pl.Id].Info.DevEUI[:])
 
 	if !s.Devices[pl.Id].IsOn() {
-		s.Resources.WebSocket.Emit(socket.EventResponseCommand, s.Devices[pl.Id].Info.Name+" is turned off")
+		//s.Resources.WebSocket.Emit(socket.EventResponseCommand, s.Devices[pl.Id].Info.Name+" is turned off")
 		return devEUIstring, false
 	}
 
@@ -391,7 +390,7 @@ func (s *Simulator) ChangePayload(pl socket.NewPayload) (string, bool) {
 
 	s.Devices[pl.Id].ChangePayload(MType, Payload)
 
-	s.Resources.WebSocket.Emit(socket.EventResponseCommand, s.Devices[pl.Id].Info.Name+": Payload changed")
+	//s.Resources.WebSocket.Emit(socket.EventResponseCommand, s.Devices[pl.Id].Info.Name+": Payload changed")
 
 	return devEUIstring, true
 }
@@ -399,7 +398,7 @@ func (s *Simulator) ChangePayload(pl socket.NewPayload) (string, bool) {
 func (s *Simulator) SendUplink(pl socket.NewPayload) {
 
 	if !s.Devices[pl.Id].IsOn() {
-		s.Resources.WebSocket.Emit(socket.EventResponseCommand, s.Devices[pl.Id].Info.Name+" is turned off")
+		//s.Resources.WebSocket.Emit(socket.EventResponseCommand, s.Devices[pl.Id].Info.Name+" is turned off")
 		return
 	}
 
@@ -410,7 +409,7 @@ func (s *Simulator) SendUplink(pl socket.NewPayload) {
 
 	s.Devices[pl.Id].NewUplink(MType, pl.Payload)
 
-	s.Resources.WebSocket.Emit(socket.EventResponseCommand, "Uplink queued")
+	//s.Resources.WebSocket.Emit(socket.EventResponseCommand, "Uplink queued")
 
 }
 

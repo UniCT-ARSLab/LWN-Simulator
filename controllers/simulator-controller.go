@@ -32,10 +32,15 @@ type SimulatorController interface {
 	SendUplink(e.NewPayload)
 	ChangeLocation(e.NewLocation) bool
 	ToggleStateGateway(int)
+	Connected()
+	OnConnect(func())
+
+	//Callbacks Callbacks
 }
 
 type simulatorController struct {
 	repo repo.SimulatorRepository
+	onConnect func()
 }
 
 //NewSimulatorController return il controller
@@ -123,4 +128,16 @@ func (c *simulatorController) ChangeLocation(loc e.NewLocation) bool {
 
 func (c *simulatorController) ToggleStateGateway(Id int) {
 	c.repo.ToggleStateGateway(Id)
+}
+
+// register a callback to be called when the connection is established
+func (c *simulatorController) OnConnect(callback func()) {
+	c.onConnect = callback //c.Callbacks.onConnect = callback 
+}
+
+// trigger the registered callback when the connection is established
+func (c *simulatorController) Connected() {
+	if (c.onConnect != nil){//(c.Callbacks.onConnect != nil){
+		c.onConnect()
+	}
 }

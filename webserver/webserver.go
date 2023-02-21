@@ -94,7 +94,6 @@ func NewWebServer(config *models.ServerConfig, controller cnt.SimulatorControlle
 		apiRoutes.POST("/add-gateway", addGateway)
 		apiRoutes.POST("/up-gateway", updateGateway)
 		apiRoutes.POST("/bridge/save", saveInfoBridge)
-
 	}
 
 	router.GET("/socket.io/*any", gin.WrapH(serverSocket))
@@ -216,6 +215,8 @@ func newServerSocket() *socketio.Server {
 
 		s.SetContext("")
 		simulatorController.AddWebSocket(&s)
+
+		simulatorController.Connected()
 
 		return nil
 
