@@ -31,11 +31,14 @@ func main() {
 
 	go startMetrics(cfg)
 
-	if cfg.AutoStart == true {	
+	if cfg.AutoStart == true {
+		// start the devices direct
+		// webinterface isn't needed but cann connect
 		//simulatorController.Callbacks = newHeadless
 		log.Println("Autostart of Gateways and Devices")
 		simulatorController.Run()
 	} else {
+		// start Webinterface normal
 		log.Println("Start with Webenterface")
 		//simulatorController.Callbacks = newWeb
 	}
