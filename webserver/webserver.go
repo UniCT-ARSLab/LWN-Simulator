@@ -21,7 +21,7 @@ import (
 	"github.com/rakyll/statik/fs"
 )
 
-//WebServer type
+// WebServer type
 type WebServer struct {
 	Address      string
 	Port         int
@@ -84,6 +84,7 @@ func NewWebServer(config *models.ServerConfig, controller cnt.SimulatorControlle
 	{
 		apiRoutes.GET("/start", startSimulator)
 		apiRoutes.GET("/stop", stopSimulator)
+		apiRoutes.GET("/status", statusSimulator)
 		apiRoutes.GET("/bridge", getRemoteAddress)
 		apiRoutes.GET("/gateways", getGateways)
 		apiRoutes.GET("/devices", getDevices)
@@ -110,6 +111,10 @@ func startSimulator(c *gin.Context) {
 
 func stopSimulator(c *gin.Context) {
 	c.JSON(http.StatusOK, simulatorController.Stop())
+}
+
+func statusSimulator(c *gin.Context) {
+	c.JSON(http.StatusOK, simulatorController.Status())
 }
 
 func saveInfoBridge(c *gin.Context) {
@@ -215,8 +220,6 @@ func newServerSocket() *socketio.Server {
 
 		s.SetContext("")
 		simulatorController.AddWebSocket(&s)
-
-		simulatorController.Connected()
 
 		return nil
 

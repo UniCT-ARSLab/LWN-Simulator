@@ -3,6 +3,7 @@ package controllers
 import (
 	"github.com/arslab/lwnsimulator/models"
 	repo "github.com/arslab/lwnsimulator/repositories"
+
 	dev "github.com/arslab/lwnsimulator/simulator/components/device"
 	gw "github.com/arslab/lwnsimulator/simulator/components/gateway"
 	e "github.com/arslab/lwnsimulator/socket"
@@ -10,10 +11,11 @@ import (
 	socketio "github.com/googollee/go-socket.io"
 )
 
-//SimulatorController interfaccia controller
+// SimulatorController interfaccia controller
 type SimulatorController interface {
 	Run() bool
 	Stop() bool
+	Status() bool
 	GetIstance()
 	AddWebSocket(*socketio.Conn)
 	SaveBridgeAddress(models.AddressIP) error
@@ -32,18 +34,14 @@ type SimulatorController interface {
 	SendUplink(e.NewPayload)
 	ChangeLocation(e.NewLocation) bool
 	ToggleStateGateway(int)
-	Connected()
-	OnConnect(func())
-
-	//Callbacks Callbacks
 }
 
 type simulatorController struct {
-	repo repo.SimulatorRepository
+	repo      repo.SimulatorRepository
 	onConnect func()
 }
 
-//NewSimulatorController return il controller
+// NewSimulatorController return il controller
 func NewSimulatorController(repo repo.SimulatorRepository) SimulatorController {
 	return &simulatorController{
 		repo: repo,
@@ -64,6 +62,10 @@ func (c *simulatorController) Run() bool {
 
 func (c *simulatorController) Stop() bool {
 	return c.repo.Stop()
+}
+
+func (c *simulatorController) Status() bool {
+	return c.repo.Status()
 }
 
 func (c *simulatorController) SaveBridgeAddress(addr models.AddressIP) error {
@@ -128,16 +130,4 @@ func (c *simulatorController) ChangeLocation(loc e.NewLocation) bool {
 
 func (c *simulatorController) ToggleStateGateway(Id int) {
 	c.repo.ToggleStateGateway(Id)
-}
-
-// register a callback to be called when the connection is established
-func (c *simulatorController) OnConnect(callback func()) {
-	c.onConnect = callback //c.Callbacks.onConnect = callback 
-}
-
-// trigger the registered callback when the connection is established
-func (c *simulatorController) Connected() {
-	if (c.onConnect != nil){//(c.Callbacks.onConnect != nil){
-		c.onConnect()
-	}
 }

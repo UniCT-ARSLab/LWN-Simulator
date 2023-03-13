@@ -34,23 +34,15 @@ func main() {
 	if cfg.AutoStart == true {
 		// start the devices direct
 		// webinterface isn't needed but cann connect
-		//simulatorController.Callbacks = newHeadless
 		log.Println("Autostart of Gateways and Devices")
 		simulatorController.Run()
 	} else {
 		// start Webinterface normal
 		log.Println("Start with Webenterface")
-		//simulatorController.Callbacks = newWeb
 	}
 
 	WebServer := ws.NewWebServer(cfg, simulatorController)
 	WebServer.Run()
-}
-
-func startWebServer(cfg *models.ServerConfig, controller cnt.SimulatorController) {
-}
-
-func startGWSensorSimulation(cfg *models.ServerConfig, controller cnt.SimulatorController){
 }
 
 func startMetrics(cfg *models.ServerConfig) {
