@@ -7,6 +7,7 @@ import (
 	"github.com/arslab/lwnsimulator/simulator/components/device/classes"
 	mup "github.com/arslab/lwnsimulator/simulator/components/device/frames/uplink/models"
 	f "github.com/arslab/lwnsimulator/simulator/components/forwarder"
+	c "github.com/arslab/lwnsimulator/simulator/console"
 	res "github.com/arslab/lwnsimulator/simulator/resources"
 	"github.com/arslab/lwnsimulator/simulator/util"
 	"github.com/brocaar/lorawan"
@@ -65,6 +66,10 @@ func (d *Device) Setup(Resources *res.Resources, forwarder *f.Forwarder) {
 
 	d.Print("Setup OK!", nil, util.PrintOnlyConsole)
 
+}
+
+func (d *Device) SetConsole(console *c.Console) {
+	d.Console = *console
 }
 
 func (d *Device) TurnOFF() {

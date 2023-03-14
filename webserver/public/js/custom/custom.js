@@ -1031,7 +1031,6 @@ function Init(){
     });
 
     //list of devices
-    
     $.ajax({
         url: url+"/api/devices",
         type:"GET",
@@ -1060,7 +1059,32 @@ function Init(){
     }).fail((data)=>{
         Show_ErrorSweetToast("Unable to load info of the devices", data.statusText); 
     });
+    
+    // get the current status and set the buttons and status icon accordingly
+    $.ajax({
+        url: url+"/api/status",
+        type:"GET",
+        headers:{
+            "Access-Control-Allow-Origin":"*"
+        }
 
+    }).done((status)=>{
+
+        if (status) {
+            StateSimulator = true;
+            $("#state").attr("src", "img/green_circle.svg")
+            $(".btn-play").parent("button").addClass("hide");
+            $(".btn-stop").parent("button").removeClass("hide");
+        } else {
+            StateSimulator = false;
+            $("#state").attr("src", "img/red_circle.svg")
+            $(".btn-stop").parent("button").addClass("hide");
+            $(".btn-play").parent("button").removeClass("hide");
+        }
+
+    }).fail((data)=>{
+        Show_ErrorSweetToast("Unable to load status", data.statusText); 
+    });
 }
 
 //********************* Event *********************

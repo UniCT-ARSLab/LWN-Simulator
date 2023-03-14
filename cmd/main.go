@@ -15,7 +15,7 @@ import (
 
 func main() {
 
-	var info *models.ServerConfig
+	var cfg *models.ServerConfig
 	var err error
 
 	simulatorRepository := repo.NewSimulatorRepository()
@@ -24,20 +24,28 @@ func main() {
 
 	log.Println("LWN Simulator is online...")
 
-	info, err = models.GetConfigFile("config.json")
+	cfg, err = models.GetConfigFile("config.json")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	go startMetrics(info)
+	go startMetrics(cfg)
 
-	WebServer := ws.NewWebServer(info, simulatorController)
+	if cfg.AutoStart == true {
+		// start the simulator automatically
+		log.Println("Autostart of the simulator")
+		simulatorController.Run()
+	} else {
+		log.Println("Autostart not enabled")
+	}
+
+	WebServer := ws.NewWebServer(cfg, simulatorController)
 	WebServer.Run()
 }
 
-func startMetrics(info *models.ServerConfig) {
+func startMetrics(cfg *models.ServerConfig) {
 	http.Handle("/metrics", promhttp.Handler())
-	err := http.ListenAndServe(info.Address+":"+strconv.Itoa(info.MetricsPort), nil)
+	err := http.ListenAndServe(cfg.Address+":"+strconv.Itoa(cfg.MetricsPort), nil)
 	if err != nil {
 		log.Println("[Metrics] [ERROR]:", err.Error())
 	}

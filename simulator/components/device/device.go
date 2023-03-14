@@ -2,10 +2,10 @@ package device
 
 import (
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
+	c "github.com/arslab/lwnsimulator/simulator/console"
 	res "github.com/arslab/lwnsimulator/simulator/resources"
 
 	"github.com/arslab/lwnsimulator/simulator/components/device/classes"
@@ -22,9 +22,10 @@ type Device struct {
 	Class     classes.Class            `json:"-"`
 	Resources *res.Resources           `json:"-"`
 	Mutex     sync.Mutex               `json:"-"`
+	Console   c.Console                `json:"-"`
 }
 
-//*******************Intern func*******************/
+// *******************Intern func*******************/
 func (d *Device) Run() {
 
 	defer d.Resources.ExitGroup.Done()
@@ -114,12 +115,11 @@ func (d *Device) Print(content string, err error, printType int) {
 
 	switch printType {
 	case util.PrintBoth:
-		d.Resources.WebSocket.Emit(event, data)
-		log.Println(messageLog)
+		d.Console.PrintSocket(event, data)
+		d.Console.PrintLog(messageLog)
 	case util.PrintOnlySocket:
-		d.Resources.WebSocket.Emit(event, data)
+		d.Console.PrintSocket(event, data)
 	case util.PrintOnlyConsole:
-		log.Println(messageLog)
+		d.Console.PrintLog(messageLog)
 	}
-
 }
