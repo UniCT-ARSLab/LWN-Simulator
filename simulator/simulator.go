@@ -318,10 +318,10 @@ func (s *Simulator) Print(content string, err error, printType int) {
 	switch printType {
 	case util.PrintBoth:
 		s.Console.PrintSocket(event, data)
-		s.Console.PrintConsole(messageLog)
+		s.Console.PrintLog(messageLog)
 	case util.PrintOnlySocket:
 		s.Console.PrintSocket(event, data)
 	case util.PrintOnlyConsole:
-		s.Console.PrintConsole(messageLog)
+		s.Console.PrintLog(messageLog)
 	}
 }

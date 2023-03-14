@@ -10,7 +10,7 @@ type Console struct {
 	WebSocket socketio.Conn
 }
 
-func (c *Console) PrintConsole(message string) {
+func (c *Console) PrintLog(message string) {
 	log.Println(message)
 }
 

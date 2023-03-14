@@ -62,10 +62,10 @@ func (g *Gateway) Print(content string, err error, printType int) {
 	switch printType {
 	case util.PrintBoth:
 		g.Console.PrintSocket(event, data)
-		g.Console.PrintConsole(messageLog)
+		g.Console.PrintLog(messageLog)
 	case util.PrintOnlySocket:
 		g.Console.PrintSocket(event, data)
 	case util.PrintOnlyConsole:
-		g.Console.PrintConsole(messageLog)
+		g.Console.PrintLog(messageLog)
 	}
 }

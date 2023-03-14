@@ -116,10 +116,10 @@ func (d *Device) Print(content string, err error, printType int) {
 	switch printType {
 	case util.PrintBoth:
 		d.Console.PrintSocket(event, data)
-		d.Console.PrintConsole(messageLog)
+		d.Console.PrintLog(messageLog)
 	case util.PrintOnlySocket:
 		d.Console.PrintSocket(event, data)
 	case util.PrintOnlyConsole:
-		d.Console.PrintConsole(messageLog)
+		d.Console.PrintLog(messageLog)
 	}
 }
