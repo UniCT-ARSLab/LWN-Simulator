@@ -84,7 +84,7 @@ func NewWebServer(config *models.ServerConfig, controller cnt.SimulatorControlle
 	{
 		apiRoutes.GET("/start", startSimulator)
 		apiRoutes.GET("/stop", stopSimulator)
-		apiRoutes.GET("/status", statusSimulator)
+		apiRoutes.GET("/status", simulatorStatus)
 		apiRoutes.GET("/bridge", getRemoteAddress)
 		apiRoutes.GET("/gateways", getGateways)
 		apiRoutes.GET("/devices", getDevices)
@@ -113,7 +113,7 @@ func stopSimulator(c *gin.Context) {
 	c.JSON(http.StatusOK, simulatorController.Stop())
 }
 
-func statusSimulator(c *gin.Context) {
+func simulatorStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, simulatorController.Status())
 }
 

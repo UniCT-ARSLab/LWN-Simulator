@@ -58,44 +58,32 @@ func (s *simulatorRepository) AddWebSocket(socket *socketio.Conn) {
 }
 
 func (s *simulatorRepository) Run() bool {
-
 	switch s.sim.State {
-
 	case util.Running:
 		s.sim.Print("", errors.New("Already run"), util.PrintOnlyConsole)
 		return false
-
 	case util.Stopped:
-
 		s.sim.Run()
 	}
-
 	return true
 }
 
 func (s *simulatorRepository) Stop() bool {
-
 	switch s.sim.State {
-
 	case util.Stopped:
 		s.sim.Print("", errors.New("Already Stopped"), util.PrintOnlyConsole)
 		return false
-
 	default: //running
 		s.sim.Stop()
 		return true
 	}
-
 }
 
 func (s *simulatorRepository) Status() bool {
-
 	switch s.sim.State {
-
 	case util.Running:
 		return true
 	}
-
 	return false
 }
 

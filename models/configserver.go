@@ -10,7 +10,7 @@ type ServerConfig struct {
 	Port          int    `json:"port"`
 	MetricsPort   int    `json:"metricsPort"`
 	ConfigDirname string `json:"configDirname"`
-	AutoStart	  bool 	 `json:"autoStart"`
+	AutoStart     bool   `json:"autoStart"`
 }
 
 func GetConfigFile(path string) (*ServerConfig, error) {

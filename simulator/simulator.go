@@ -299,7 +299,7 @@ func (s *Simulator) Print(content string, err error, printType int) {
 	now := time.Now()
 	message := ""
 	messageLog := ""
-	event := socket.EventGw
+	event := socket.EventLog
 
 	if err == nil {
 		message = fmt.Sprintf("[ %s ] [SIM]: %s", now.Format(time.Stamp), content)

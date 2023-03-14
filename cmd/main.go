@@ -32,13 +32,11 @@ func main() {
 	go startMetrics(cfg)
 
 	if cfg.AutoStart == true {
-		// start the devices direct
-		// webinterface isn't needed but cann connect
-		log.Println("Autostart of Gateways and Devices")
+		// start the simulator automatically
+		log.Println("Autostart of the simulator")
 		simulatorController.Run()
 	} else {
-		// start Webinterface normal
-		log.Println("Start with Webenterface")
+		log.Println("Autostart not enabled")
 	}
 
 	WebServer := ws.NewWebServer(cfg, simulatorController)
