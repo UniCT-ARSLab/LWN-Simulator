@@ -1,0 +1,19 @@
+{
+	"0": {
+		"id": 0,
+		"info": {
+			"macAddress": "0000000000000002",
+			"keepAlive": 30,
+			"active": true,
+			"typeGateway": false,
+			"name": "Virtual GW",
+			"location": {
+				"latitude": 0,
+				"longitude": 0,
+				"altitude": 0
+			},
+			"ip": "",
+			"port": ""
+		}
+	}
+}

@@ -1,5 +1,5 @@
 install-dep:
-	@go get -d -u github.com/rakyll/statik
+	@go install github.com/rakyll/statik
 	@go get -u -d ./...
 
 build:

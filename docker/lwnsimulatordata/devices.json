@@ -1,0 +1,71 @@
+{
+	"0": {
+		"id": 0,
+		"info": {
+			"devEUI": "a000000000000001",
+			"devAddr": "00be1557",
+			"nwkSKey": "9f7772d29354d07a7e9d51979ba7d214",
+			"appSKey": "7b54299ce867f51560a6ba7aef7aecc0",
+			"appKey": "cd0ee39077f4955043c39a08313a86b9",
+			"name": "Virtual Sensor",
+			"status": {
+				"mtype": "ConfirmedDataUp",
+				"payload": "123",
+				"active": true,
+				"infoUplink": {
+					"fport": 2,
+					"fcnt": 66
+				},
+				"fcntDown": 61
+			},
+			"configuration": {
+				"region": 1,
+				"sendInterval": 60,
+				"ackTimeout": 2,
+				"range": 10000,
+				"disableFCntDown": true,
+				"supportedOtaa": true,
+				"supportedADR": true,
+				"supportedFragment": true,
+				"supportedClassB": false,
+				"supportedClassC": false,
+				"dataRate": 0,
+				"rx1DROffset": 0,
+				"nbRetransmission": 2
+			},
+			"location": {
+				"latitude": 0,
+				"longitude": 0,
+				"altitude": 0
+			},
+			"rxs": [
+				{
+					"delay": 1000,
+					"durationOpen": 3000,
+					"channel": {
+						"active": true,
+						"enableUplink": true,
+						"freqUplink": 868100000,
+						"freqDownlink": 868100000,
+						"minDR": 0,
+						"maxDR": 5
+					},
+					"dataRate": 0
+				},
+				{
+					"delay": 1000,
+					"durationOpen": 3000,
+					"channel": {
+						"active": true,
+						"enableUplink": false,
+						"freqUplink": 0,
+						"freqDownlink": 869525000,
+						"minDR": 0,
+						"maxDR": 0
+					},
+					"dataRate": 0
+				}
+			]
+		}
+	}
+}
