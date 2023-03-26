@@ -1,0 +1,14 @@
+version: "3"
+
+services:
+  lorawan-simulator:
+    container_name: lorawan-simulator
+    hostname: lorawan-simulator
+    image: lorawan-simulator
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 8000:8000
+    volumes:
+      - './data:/root/lwnsimulator'
