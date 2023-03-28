@@ -2,21 +2,21 @@
 	"0": {
 		"id": 0,
 		"info": {
-			"devEUI": "a000000000000001",
-			"devAddr": "00be1557",
+			"devEUI": "%DEV_EUI%",
+			"devAddr": "%DEV_ADDR%",
 			"nwkSKey": "9f7772d29354d07a7e9d51979ba7d214",
 			"appSKey": "7b54299ce867f51560a6ba7aef7aecc0",
 			"appKey": "cd0ee39077f4955043c39a08313a86b9",
 			"name": "Virtual Sensor",
 			"status": {
 				"mtype": "ConfirmedDataUp",
-				"payload": "123",
+				"payload": "%DEV_PAYLOAD%",
 				"active": true,
 				"infoUplink": {
 					"fport": 2,
-					"fcnt": 66
+					"fcnt": 0
 				},
-				"fcntDown": 61
+				"fcntDown": 0
 			},
 			"configuration": {
 				"region": 1,

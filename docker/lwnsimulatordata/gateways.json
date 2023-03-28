@@ -2,7 +2,7 @@
 	"0": {
 		"id": 0,
 		"info": {
-			"macAddress": "0000000000000002",
+			"macAddress": "%GW_MAC_ADDRESSE%",
 			"keepAlive": 30,
 			"active": true,
 			"typeGateway": false,
