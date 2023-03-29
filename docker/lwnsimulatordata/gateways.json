@@ -2,11 +2,11 @@
 	"0": {
 		"id": 0,
 		"info": {
-			"macAddress": "%GW_MAC_ADDRESSE%",
+			"macAddress": "%GTW_MAC_ADDRESSE%",
 			"keepAlive": 30,
 			"active": true,
 			"typeGateway": false,
-			"name": "Virtual GW",
+			"name": "%GTW_NAME%",
 			"location": {
 				"latitude": 0,
 				"longitude": 0,

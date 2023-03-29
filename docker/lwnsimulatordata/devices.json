@@ -4,22 +4,22 @@
 		"info": {
 			"devEUI": "%DEV_EUI%",
 			"devAddr": "%DEV_ADDR%",
-			"nwkSKey": "9f7772d29354d07a7e9d51979ba7d214",
-			"appSKey": "7b54299ce867f51560a6ba7aef7aecc0",
-			"appKey": "cd0ee39077f4955043c39a08313a86b9",
-			"name": "Virtual Sensor",
+			"nwkSKey": "%DEV_NWK_SKEY%",
+			"appSKey": "%DEV_APP_SKEY%",
+			"appKey": "%DEV_APP_KEY%",
+			"name": "%DEV_NAME%",
 			"status": {
-				"mtype": "ConfirmedDataUp",
+				"mtype": "%DEV_MYTYPE%",
 				"payload": "%DEV_PAYLOAD%",
 				"active": true,
 				"infoUplink": {
-					"fport": 2,
+					"fport": %DEV_INFO_UPLINK_FPORT%,
 					"fcnt": 0
 				},
 				"fcntDown": 0
 			},
 			"configuration": {
-				"region": 1,
+				"region": %DEV_REGION%,
 				"sendInterval": 60,
 				"ackTimeout": 2,
 				"range": 10000,
@@ -29,7 +29,7 @@
 				"supportedFragment": true,
 				"supportedClassB": false,
 				"supportedClassC": false,
-				"dataRate": 0,
+				"dataRate": %DEV_CONF_DATARATE%,
 				"rx1DROffset": 0,
 				"nbRetransmission": 2
 			},
@@ -45,12 +45,12 @@
 					"channel": {
 						"active": true,
 						"enableUplink": true,
-						"freqUplink": 868100000,
-						"freqDownlink": 868100000,
-						"minDR": 0,
-						"maxDR": 5
+						"freqUplink": %DEV_RXS0_FREQUPLINK%,
+						"freqDownlink": %DEV_RXS0_FREQDOWNLINK%,
+						"minDR": %DEV_RXS0_MINDR%,
+						"maxDR": %DEV_RXS0_MAXDR%
 					},
-					"dataRate": 0
+					"dataRate": %DEV_RXS0_DATARATE%
 				},
 				{
 					"delay": 1000,
@@ -58,12 +58,12 @@
 					"channel": {
 						"active": true,
 						"enableUplink": false,
-						"freqUplink": 0,
-						"freqDownlink": 869525000,
-						"minDR": 0,
-						"maxDR": 0
+						"freqUplink": %DEV_RXS1_FREQUPLINK%,
+						"freqDownlink": %DEV_RXS1_FREQDOWNLINK%,
+						"minDR": %DEV_RXS1_MINDR%,
+						"maxDR": %DEV_RXS1_MAXDR%
 					},
-					"dataRate": 0
+					"dataRate": %DEV_RXS1_DATARATE%
 				}
 			]
 		}
