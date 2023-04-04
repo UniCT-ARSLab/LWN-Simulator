@@ -2285,7 +2285,7 @@ function LoadDevice(dev){
     $("[name=input-fcnt]").val(dev.info.status.infoUplink.fcnt);
     $("#datarate-uplink").val(dev.info.configuration.dataRate);
 
-    $("[name=input-validate-counter]").prop("checked",dev.info.configuration.disablefcntDown);  
+    $("[name=input-validate-counter]").prop("checked",dev.info.configuration.disableFCntDown); 
     if (!dev.info.configuration.disablefcntDown)
         $("[name=input-fcnt-downlink]").val(dev.info.status.fcntDown);
 
