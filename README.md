@@ -82,6 +82,18 @@ make run
 make run-release
 ```
 
+### From docker
+
+First, build the docker image:
+```bash
+docker-compose build
+```
+
+Then, run the built container:
+```bash
+docker-compose up
+```
+
 ### Configuration file
 The simulator relises on a configuration file (`config.json`) whitch specifies some configurations for the simulator:
 

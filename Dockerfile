@@ -1,31 +1,20 @@
-FROM golang:1.20-buster AS build
+FROM golang:1.20-alpine3.17 as build
 
+RUN apk update
+RUN apk add make
+
+ADD . /build/src
+WORKDIR /build/src
+#RUN make install-dep
+RUN go install github.com/rakyll/statik@latest
+RUN make build
+
+# deployment image
+FROM alpine:3.17.2
 WORKDIR /app
 
-COPY Makefile ./
-
-COPY go.mod ./
-COPY go.sum ./
-
-COPY cmd ./cmd
-COPY codes ./codes
-COPY controllers ./controllers
-COPY models ./models
-COPY repositories ./repositories
-COPY simulator ./simulator
-COPY socket ./socket
-COPY webserver ./webserver
-
-COPY docker/config.json ./
-
-RUN make install-dep && make build
-
-
-FROM debian:buster-slim 
-
-WORKDIR /
-
-COPY --from=build /app/bin/lwnsimulator lwnsimulator 
+COPY --from=build /build/src/bin/config.json /app/config.json
+COPY --from=build /build/src/bin/lwnsimulator /app/lwnsimulator
 
 COPY docker ./
 
@@ -61,6 +50,5 @@ ENV DEV_RXS1_DATARATE 0
 
 ENV GTW_MAC_ADDRESSE 0000000000000001
 ENV GTW_NAME VirtualGateway
-
 
 ENTRYPOINT [ "./entrypoint.sh" ]
