@@ -12,6 +12,7 @@
 				"mtype": "%DEV_MYTYPE%",
 				"payload": "%DEV_PAYLOAD%",
 				"active": true,
+				"base64": %DEV_BASE%,
 				"infoUplink": {
 					"fport": %DEV_INFO_UPLINK_FPORT%,
 					"fcnt": 0
