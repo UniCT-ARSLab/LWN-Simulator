@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/base64"
 	"encoding/json"
 
 	modelClass "github.com/arslab/lwnsimulator/simulator/components/device/classes/models_classes"
@@ -37,6 +38,7 @@ type Status struct {
 	CounterRepUnConfirmedDataUp uint8         `json:"-"`
 	LastMType                   lorawan.MType `json:"-"`
 	LastUplinks                 [][]byte      `json:"-"`
+	Base64                      bool          `json:"base64"`
 }
 
 func (s *Status) MarshalJSON() ([]byte, error) {
@@ -49,6 +51,10 @@ func (s *Status) MarshalJSON() ([]byte, error) {
 	}
 
 	PayloadBytes, _ := s.Payload.MarshalBinary()
+
+	if s.Base64 {
+		PayloadBytes = []byte(base64.StdEncoding.EncodeToString(PayloadBytes))
+	}
 
 	return json.Marshal(&struct {
 		MType   string `json:"mtype"`
@@ -82,6 +88,11 @@ func (s *Status) UnmarshalJSON(data []byte) error {
 		s.MType = lorawan.ConfirmedDataUp
 	} else {
 		s.MType = lorawan.UnconfirmedDataUp
+	}
+
+	if s.Base64 {
+		PayloadStr, _ := base64.StdEncoding.DecodeString(string(aux.Payload))
+		aux.Payload = string(PayloadStr)
 	}
 
 	s.Payload = &lorawan.DataPayload{
