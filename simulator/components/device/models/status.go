@@ -2,7 +2,9 @@ package models
 
 import (
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
+	"time"
 
 	modelClass "github.com/arslab/lwnsimulator/simulator/components/device/classes/models_classes"
 	"github.com/arslab/lwnsimulator/simulator/components/device/features/channels"
@@ -39,6 +41,7 @@ type Status struct {
 	LastMType                   lorawan.MType `json:"-"`
 	LastUplinks                 [][]byte      `json:"-"`
 	Base64                      bool          `json:"base64"`
+	CurrentTime                 bool          `json:"currentTime"`
 }
 
 func (s *Status) MarshalJSON() ([]byte, error) {
@@ -92,6 +95,17 @@ func (s *Status) UnmarshalJSON(data []byte) error {
 
 	if s.Base64 {
 		PayloadStr, _ := base64.StdEncoding.DecodeString(string(aux.Payload))
+		if s.CurrentTime == true {
+			now := time.Now()
+			unixMilli := now.UnixMilli() / 1000
+			x := make([]byte, 8)
+			binary.LittleEndian.PutUint64(x, uint64(unixMilli))
+
+			PayloadStr[7] = x[3]
+			PayloadStr[8] = x[2]
+			PayloadStr[9] = x[1]
+			PayloadStr[10] = x[0]
+		}
 		aux.Payload = string(PayloadStr)
 	}
 
