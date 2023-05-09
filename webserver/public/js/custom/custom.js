@@ -2318,7 +2318,7 @@ function LoadDevice(dev){
   
     $("#textarea-payload").val(dev.info.status.payload);
     $("[name=checkbox-base64]").prop("checked", dev.info.status.base64);
-    $("[name=checkbox-current-time]").prop("checked", dev.info.status.currentTime);
+    $("[name=checkbox-align-current-time]").prop("checked", dev.info.status.aligncurrentTime);
 
     ChangeStateInputDevice(true,dev.info.devEUI);
 
@@ -2530,7 +2530,7 @@ function Click_SaveDevice(){
     var upInterval = $("[name=input-sendInterval]");
     var payload = $("#textarea-payload").val();
     var base64 = $("[name=checkbox-base64-encoded]").prop("checked");
-    var currentTime = $("[name=checkbox-current-time]").prop("checked");
+    var aligncurrentTime = $("[name=checkbox-align-current-time]").prop("checked");
 
     upInterval.val(upInterval.val() == "" ? UplinkIntervalDefault : upInterval.val());
     var validInterval = IsValidNumber(upInterval.val(),-1,Infinity);
@@ -2589,7 +2589,7 @@ function Click_SaveDevice(){
             "status":{
                 "active": active,
                 "base64":base64,
-                "currentTime" : currentTime,
+                "aligncurrentTime" : aligncurrentTime,
                 "infoUplink":{
                     "fport": Number(fport.val()),
                     "fcnt": Number(Fcnt.val()),

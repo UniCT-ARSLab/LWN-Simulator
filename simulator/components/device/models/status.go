@@ -41,7 +41,7 @@ type Status struct {
 	LastMType                   lorawan.MType `json:"-"`
 	LastUplinks                 [][]byte      `json:"-"`
 	Base64                      bool          `json:"base64"`
-	CurrentTime                 bool          `json:"currentTime"`
+	AlignCurrentTime            bool          `json:"aligncurrentTime"`
 }
 
 func (s *Status) MarshalJSON() ([]byte, error) {
@@ -95,7 +95,7 @@ func (s *Status) UnmarshalJSON(data []byte) error {
 
 	if s.Base64 {
 		PayloadStr, _ := base64.StdEncoding.DecodeString(string(aux.Payload))
-		if s.CurrentTime == true {
+		if s.AlignCurrentTime == true {
 			now := time.Now()
 			unixMilli := now.UnixMilli() / 1000
 			x := make([]byte, 8)
