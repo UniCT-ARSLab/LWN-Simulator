@@ -2,9 +2,7 @@ package models
 
 import (
 	"encoding/base64"
-	"encoding/binary"
 	"encoding/json"
-	"time"
 
 	modelClass "github.com/arslab/lwnsimulator/simulator/components/device/classes/models_classes"
 	"github.com/arslab/lwnsimulator/simulator/components/device/features/channels"
@@ -53,10 +51,13 @@ func (s *Status) MarshalJSON() ([]byte, error) {
 		mtype = "ConfirmedDataUp"
 	}
 
-	PayloadBytes, _ := s.Payload.MarshalBinary()
+	payloadBytes, err := s.Payload.MarshalBinary()
+	if err != nil {
+		panic(err)
+	}
 
 	if s.Base64 {
-		PayloadBytes = []byte(base64.StdEncoding.EncodeToString(PayloadBytes))
+		payloadBytes = []byte(base64.StdEncoding.EncodeToString(payloadBytes))
 	}
 
 	return json.Marshal(&struct {
@@ -65,7 +66,7 @@ func (s *Status) MarshalJSON() ([]byte, error) {
 		*Alias
 	}{
 		MType:   mtype,
-		Payload: string(PayloadBytes),
+		Payload: string(payloadBytes),
 		Alias:   (*Alias)(s),
 	})
 
@@ -78,6 +79,7 @@ func (s *Status) UnmarshalJSON(data []byte) error {
 	aux := &struct {
 		MType   string `json:"mtype"`
 		Payload string `json:"payload"`
+
 		*Alias
 	}{
 		Alias: (*Alias)(s),
@@ -94,19 +96,11 @@ func (s *Status) UnmarshalJSON(data []byte) error {
 	}
 
 	if s.Base64 {
-		PayloadStr, _ := base64.StdEncoding.DecodeString(string(aux.Payload))
-		if s.AlignCurrentTime == true {
-			now := time.Now()
-			unixMilli := now.UnixMilli() / 1000
-			x := make([]byte, 8)
-			binary.LittleEndian.PutUint64(x, uint64(unixMilli))
-
-			PayloadStr[7] = x[3]
-			PayloadStr[8] = x[2]
-			PayloadStr[9] = x[1]
-			PayloadStr[10] = x[0]
+		payloadBytes, err := base64.StdEncoding.DecodeString(aux.Payload)
+		if err != nil {
+			panic(err)
 		}
-		aux.Payload = string(PayloadStr)
+		aux.Payload = string(payloadBytes)
 	}
 
 	s.Payload = &lorawan.DataPayload{
