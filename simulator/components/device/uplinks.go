@@ -108,10 +108,7 @@ func alignWithCurrentTime(payload lorawan.DataPayload) lorawan.DataPayload {
 	now := time.Now()
 	currentTime := now.UnixMilli() / 1000
 	currentTimeBytes := make([]byte, 4)
-	binary.LittleEndian.PutUint32(currentTimeBytes, uint32(currentTime))
-	for i, j := 0, len(currentTimeBytes)-1; i < j; i, j = i+1, j-1 {
-		currentTimeBytes[i], currentTimeBytes[j] = currentTimeBytes[j], currentTimeBytes[i]
-	}
+	binary.BigEndian.PutUint32(currentTimeBytes, uint32(currentTime))
 
 	bytesWithCurrentTime := append(payload.Bytes, currentTimeBytes...)
 
