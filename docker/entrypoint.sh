@@ -14,6 +14,7 @@ sed -i s/%DEV_NAME%/$DEV_NAME/g lwnsimulatordata/devices.json
 sed -i s/%DEV_MYTYPE%/$DEV_MYTYPE/g lwnsimulatordata/devices.json
 sed -i s/%DEV_PAYLOAD%/$DEV_PAYLOAD/g lwnsimulatordata/devices.json
 sed -i s/%DEV_PAYLOAD_BASE64%/$DEV_PAYLOAD_BASE64/g lwnsimulatordata/devices.json
+sed -i s/%DEV_ALIGN_CURRENT_TIME%/$DEV_ALIGN_CURRENT_TIME/g lwnsimulatordata/devices.json
 sed -i s/%DEV_INFO_UPLINK_FPORT%/$DEV_INFO_UPLINK_FPORT/g lwnsimulatordata/devices.json
 sed -i s/%DEV_CONF_DATARATE%/$DEV_CONF_DATARATE/g lwnsimulatordata/devices.json
 

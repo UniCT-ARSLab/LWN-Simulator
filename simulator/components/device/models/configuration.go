@@ -8,7 +8,7 @@ import (
 	rp "github.com/arslab/lwnsimulator/simulator/components/device/regional_parameters"
 )
 
-//Configuration contains conf of device
+// Configuration contains conf of device
 type Configuration struct {
 	Region rp.Region `json:"region"`
 

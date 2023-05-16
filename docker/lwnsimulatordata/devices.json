@@ -13,6 +13,7 @@
 				"payload": "%DEV_PAYLOAD%",
 				"active": true,
 				"base64": %DEV_PAYLOAD_BASE64%,
+				"aligncurrentTime": %DEV_ALIGN_CURRENT_TIME%,
 				"infoUplink": {
 					"fport": %DEV_INFO_UPLINK_FPORT%,
 					"fcnt": 0

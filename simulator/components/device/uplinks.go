@@ -1,8 +1,12 @@
 package device
 
 import (
+	"encoding/binary"
+	"time"
+
 	"github.com/arslab/lwnsimulator/simulator/components/device/classes"
 	up "github.com/arslab/lwnsimulator/simulator/components/device/frames/uplink"
+
 	"github.com/arslab/lwnsimulator/simulator/util"
 	"github.com/brocaar/lorawan"
 )
@@ -80,7 +84,13 @@ func (d *Device) CreateUplink() [][]byte {
 
 	for i := 0; i < len(DataPayload); i++ {
 
-		frame, err := d.Info.Status.DataUplink.GetFrame(mtype, DataPayload[i], d.Info.DevAddr, d.Info.AppSKey, d.Info.NwkSKey, false)
+		alignedPayload := DataPayload[i]
+
+		if d.Info.Status.AlignCurrentTime {
+			alignedPayload = alignWithCurrentTime(alignedPayload)
+		}
+
+		frame, err := d.Info.Status.DataUplink.GetFrame(mtype, alignedPayload, d.Info.DevAddr, d.Info.AppSKey, d.Info.NwkSKey, false)
 		if err != nil {
 			d.Print("", err, util.PrintBoth)
 			continue
@@ -92,6 +102,19 @@ func (d *Device) CreateUplink() [][]byte {
 	d.Info.Status.LastUplinks = frames
 
 	return frames
+}
+
+func alignWithCurrentTime(payload lorawan.DataPayload) lorawan.DataPayload {
+	now := time.Now()
+	currentTime := now.UnixMilli() / 1000
+	currentTimeBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(currentTimeBytes, uint32(currentTime))
+
+	bytesWithCurrentTime := append(payload.Bytes, currentTimeBytes...)
+
+	return lorawan.DataPayload{
+		Bytes: []byte(bytesWithCurrentTime),
+	}
 }
 
 func (d *Device) CreateACK() []byte {
