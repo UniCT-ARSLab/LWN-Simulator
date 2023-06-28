@@ -11,6 +11,8 @@ sed -i s/%DEV_NWK_SKEY%/$DEV_NWK_SKEY/g lwnsimulatordata/devices.json
 sed -i s/%DEV_APP_SKEY%/$DEV_APP_SKEY/g lwnsimulatordata/devices.json
 sed -i s/%DEV_APP_KEY%/$DEV_APP_KEY/g lwnsimulatordata/devices.json
 sed -i s/%DEV_NAME%/$DEV_NAME/g lwnsimulatordata/devices.json
+sed -i s/%DEV_SENDINTERVAL%/$DEV_SENDINTERVAL/g lwnsimulatordata/devices.json
+sed -i s/%DEV_ACKTIMEOUT%/$DEV_ACKTIMEOUT/g lwnsimulatordata/devices.json
 sed -i s/%DEV_MYTYPE%/$DEV_MYTYPE/g lwnsimulatordata/devices.json
 sed -i s/%DEV_PAYLOAD%/$DEV_PAYLOAD/g lwnsimulatordata/devices.json
 sed -i s/%DEV_PAYLOAD_BASE64%/$DEV_PAYLOAD_BASE64/g lwnsimulatordata/devices.json
