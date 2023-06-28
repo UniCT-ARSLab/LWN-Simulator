@@ -22,8 +22,8 @@
 			},
 			"configuration": {
 				"region": %DEV_REGION%,
-				"sendInterval": 60,
-				"ackTimeout": 2,
+				"sendInterval": %DEV_SENDINTERVAL%,
+				"ackTimeout": %DEV_ACKTIMEOUT%,
 				"range": 10000,
 				"disableFCntDown": true,
 				"supportedOtaa": true,
