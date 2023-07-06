@@ -2,7 +2,7 @@
 sed -i s/%SIM_BRIDGE_HOST%/$SIM_BRIDGE_HOST/g lwnsimulatordata/simulator.json
 sed -i s/%SIM_BRIDGE_PORT%/$SIM_BRIDGE_PORT/g lwnsimulatordata/simulator.json
 
-sed -i s/%GTW_MAC_ADDRESSE%/$GTW_MAC_ADDRESSE/g lwnsimulatordata/gateways.json
+sed -i s/%GTW_MAC_ADDRESS%/$GTW_MAC_ADDRESS/g lwnsimulatordata/gateways.json
 sed -i s/%GTW_NAME%/$GTW_NAME/g lwnsimulatordata/gateways.json
 
 sed -i s/%DEV_EUI%/$DEV_EUI/g lwnsimulatordata/devices.json
