@@ -8,7 +8,9 @@ import (
 type ServerConfig struct {
 	Address       string `json:"address"`
 	Port          int    `json:"port"`
+	MetricsPort   int    `json:"metricsPort"`
 	ConfigDirname string `json:"configDirname"`
+	AutoStart     bool   `json:"autoStart"`
 }
 
 func GetConfigFile(path string) (*ServerConfig, error) {

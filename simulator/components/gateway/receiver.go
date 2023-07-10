@@ -8,6 +8,23 @@ import (
 	pkt "github.com/arslab/lwnsimulator/simulator/resources/communication/packets"
 	"github.com/arslab/lwnsimulator/simulator/resources/communication/udp"
 	"github.com/arslab/lwnsimulator/simulator/util"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+)
+
+var (
+	pushAckCounter = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "gateway_push_ack_total",
+		Help: "The total number of gateway PUSH ACK",
+	})
+	pullAckCounter = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "gateway_pull_ack_total",
+		Help: "The total number of gateway PULL ACK",
+	})
+	pullRespCounter = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "gateway_pull_resp_total",
+		Help: "The total number of gateway PULL RESP",
+	})
 )
 
 func (g *Gateway) Receiver() {
@@ -84,8 +101,10 @@ func (g *Gateway) Receiver() {
 
 		case pkt.TypePushAck:
 			g.Stat.ACKR++
+			pushAckCounter.Inc()
 
 		case pkt.TypePullAck:
+			pullAckCounter.Inc()
 			break
 
 		case pkt.TypePullResp:
@@ -99,6 +118,8 @@ func (g *Gateway) Receiver() {
 			g.Forwarder.Downlink(phy, *freq, g.Info.MACAddress)
 
 			g.Stat.RXFW++
+
+			pullRespCounter.Inc()
 
 			//TX ACK
 			packet, err := pkt.CreatePacket(pkt.TypeTxAck, g.Info.MACAddress, pkt.Stat{}, nil, pkt.GetTokenFromPullResp(receivedPack))

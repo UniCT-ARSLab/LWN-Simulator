@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	f "github.com/arslab/lwnsimulator/simulator/components/forwarder"
+	c "github.com/arslab/lwnsimulator/simulator/console"
 	res "github.com/arslab/lwnsimulator/simulator/resources"
 	"github.com/arslab/lwnsimulator/simulator/resources/communication/buffer"
 	"github.com/arslab/lwnsimulator/simulator/resources/communication/udp"
@@ -25,6 +26,10 @@ func (g *Gateway) Setup(BridgeAddress *string,
 
 	g.Print("Setup OK!", nil, util.PrintOnlyConsole)
 
+}
+
+func (g *Gateway) SetConsole(console *c.Console) {
+	g.Console = *console
 }
 
 func (g *Gateway) TurnON() {

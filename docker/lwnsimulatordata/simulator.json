@@ -1,0 +1,5 @@
+{
+	"nextIDDev": 1,
+	"nextIDGw": 1,
+	"bridgeAddress": "%SIM_BRIDGE_HOST%:%SIM_BRIDGE_PORT%"
+}

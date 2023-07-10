@@ -1031,7 +1031,6 @@ function Init(){
     });
 
     //list of devices
-    
     $.ajax({
         url: url+"/api/devices",
         type:"GET",
@@ -1060,7 +1059,32 @@ function Init(){
     }).fail((data)=>{
         Show_ErrorSweetToast("Unable to load info of the devices", data.statusText); 
     });
+    
+    // get the current status and set the buttons and status icon accordingly
+    $.ajax({
+        url: url+"/api/status",
+        type:"GET",
+        headers:{
+            "Access-Control-Allow-Origin":"*"
+        }
 
+    }).done((status)=>{
+
+        if (status) {
+            StateSimulator = true;
+            $("#state").attr("src", "img/green_circle.svg")
+            $(".btn-play").parent("button").addClass("hide");
+            $(".btn-stop").parent("button").removeClass("hide");
+        } else {
+            StateSimulator = false;
+            $("#state").attr("src", "img/red_circle.svg")
+            $(".btn-stop").parent("button").addClass("hide");
+            $(".btn-play").parent("button").removeClass("hide");
+        }
+
+    }).fail((data)=>{
+        Show_ErrorSweetToast("Unable to load status", data.statusText); 
+    });
 }
 
 //********************* Event *********************
@@ -2261,7 +2285,7 @@ function LoadDevice(dev){
     $("[name=input-fcnt]").val(dev.info.status.infoUplink.fcnt);
     $("#datarate-uplink").val(dev.info.configuration.dataRate);
 
-    $("[name=input-validate-counter]").prop("checked",dev.info.configuration.disablefcntDown);  
+    $("[name=input-validate-counter]").prop("checked",dev.info.configuration.disableFCntDown); 
     if (!dev.info.configuration.disablefcntDown)
         $("[name=input-fcnt-downlink]").val(dev.info.status.fcntDown);
 
@@ -2293,6 +2317,8 @@ function LoadDevice(dev){
     $("#truncates").prop("checked",!dev.info.configuration.supportedFragment);
   
     $("#textarea-payload").val(dev.info.status.payload);
+    $("[name=checkbox-base64]").prop("checked", dev.info.status.base64);
+    $("[name=checkbox-align-current-time]").prop("checked", dev.info.status.aligncurrentTime);
 
     ChangeStateInputDevice(true,dev.info.devEUI);
 
@@ -2503,6 +2529,8 @@ function Click_SaveDevice(){
     var mtype = $("#confirmed").prop("checked") ? ConfirmedData_uplink : UnConfirmedData_uplink; //true Confirmed
     var upInterval = $("[name=input-sendInterval]");
     var payload = $("#textarea-payload").val();
+    var base64 = $("[name=checkbox-base64-encoded]").prop("checked");
+    var aligncurrentTime = $("[name=checkbox-align-current-time]").prop("checked");
 
     upInterval.val(upInterval.val() == "" ? UplinkIntervalDefault : upInterval.val());
     var validInterval = IsValidNumber(upInterval.val(),-1,Infinity);
@@ -2560,6 +2588,8 @@ function Click_SaveDevice(){
             "location":location,
             "status":{
                 "active": active,
+                "base64":base64,
+                "aligncurrentTime" : aligncurrentTime,
                 "infoUplink":{
                     "fport": Number(fport.val()),
                     "fcnt": Number(Fcnt.val()),
@@ -2581,7 +2611,7 @@ function Click_SaveDevice(){
                 "dataRate": Number(datarate.val()),
                 "disableFCntDown":disablefcntDown,
                 "sendInterval":Number(upInterval.val()),
-                "nbRetransmission":Number(retransmission.val()),
+                "nbRetransmission":Number(retransmission.val())
             },
             "rxs":[
                 {

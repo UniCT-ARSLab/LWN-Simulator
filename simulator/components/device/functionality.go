@@ -5,12 +5,30 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	"github.com/arslab/lwnsimulator/simulator/components/device/classes"
 	"github.com/arslab/lwnsimulator/simulator/components/device/features/adr"
 	dl "github.com/arslab/lwnsimulator/simulator/components/device/frames/downlink"
 	rp "github.com/arslab/lwnsimulator/simulator/components/device/regional_parameters"
 	"github.com/arslab/lwnsimulator/simulator/util"
 	"github.com/brocaar/lorawan"
+)
+
+var (
+	uplinkCounter = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "device_uplink_sent_total",
+		Help: "The total number of uplinks sent",
+	})
+	downlinkCounter = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "device_downlink_received_total",
+		Help: "The total number of downlinks received",
+	})
+	ackTimeoutCounter = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "device_ack_timetou_total",
+		Help: "The total number of ACK timeouts",
+	})
 )
 
 func (d *Device) Execute() {
@@ -30,6 +48,7 @@ func (d *Device) Execute() {
 		d.Class.SendData(data)
 
 		d.Print("Uplink sent", nil, util.PrintBoth)
+		uplinkCounter.Inc()
 	}
 
 	d.Print("Open RXs", nil, util.PrintBoth)
@@ -38,6 +57,7 @@ func (d *Device) Execute() {
 	if phy != nil {
 
 		d.Print("Downlink Received", nil, util.PrintBoth)
+		downlinkCounter.Inc()
 
 		downlink, err = d.ProcessDownlink(*phy)
 		if err != nil {
@@ -61,8 +81,9 @@ func (d *Device) Execute() {
 
 		timerAckTimeout := time.NewTimer(d.Info.Configuration.AckTimeout)
 		<-timerAckTimeout.C
-		d.Print("ACK Timeout", nil, util.PrintBoth)
 
+		d.Print("ACK Timeout", nil, util.PrintBoth)
+		ackTimeoutCounter.Inc()
 	}
 
 	d.ADRProcedure()
@@ -139,6 +160,7 @@ func (d *Device) FPendingProcedure(downlink *dl.InformationDownlink) {
 			if phy != nil {
 
 				d.Print("Downlink Received", nil, util.PrintBoth)
+				downlinkCounter.Inc()
 
 				downlink, err = d.ProcessDownlink(*phy)
 				if err != nil {
@@ -162,6 +184,7 @@ func (d *Device) FPendingProcedure(downlink *dl.InformationDownlink) {
 				<-timerAckTimeout.C
 
 				d.Print("ACK Timeout", nil, util.PrintBoth)
+				ackTimeoutCounter.Inc()
 
 			}
 
@@ -375,7 +398,7 @@ func (d *Device) SwitchClass(class int) {
 
 }
 
-//se il dispositivo non supporta OTAA non può essere unjoined
+// se il dispositivo non supporta OTAA non può essere unjoined
 func (d *Device) UnJoined() bool {
 
 	if d.Info.Configuration.SupportedOtaa {
