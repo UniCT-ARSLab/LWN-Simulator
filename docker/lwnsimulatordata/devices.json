@@ -33,7 +33,8 @@
 				"supportedClassC": false,
 				"dataRate": %DEV_CONF_DATARATE%,
 				"rx1DROffset": 0,
-				"nbRetransmission": 2
+				"nbRetransmission": 2,
+				"rssi": %DEV_CONF_RSSI%
 			},
 			"location": {
 				"latitude": 0,

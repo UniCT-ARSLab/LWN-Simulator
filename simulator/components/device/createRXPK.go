@@ -33,6 +33,7 @@ func (d *Device) SetInfo(payload []byte, joinRequest bool) pkt.RXPK {
 		Size:      uint16(len(payload)),
 		Data:      base64.StdEncoding.EncodeToString(payload),
 		Modu:      d.GetModulation(),
+		RSSI:      int16(d.Info.Configuration.RSSI),
 	}
 
 	return info

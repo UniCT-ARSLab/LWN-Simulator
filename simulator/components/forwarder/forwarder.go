@@ -42,7 +42,7 @@ func createPacket(info pkt.RXPK) pkt.RXPK {
 		DatR:      info.DatR,
 		Brd:       0,
 		CodR:      info.CodR,
-		RSSI:      -60,
+		RSSI:      info.RSSI,
 		LSNR:      7,
 		Size:      info.Size,
 		Data:      info.Data,
