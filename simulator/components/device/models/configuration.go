@@ -35,7 +35,7 @@ type Configuration struct {
 
 	NbRepConfirmedDataUp   int   `json:"nbRetransmission"` //Nb retrasmission of ConfirmedDataUp
 	NbRepUnconfirmedDataUp uint8 `json:"-"`                // Nb retrasmission of UnconfirmedDataUp
-
+	RSSI                   int16 `json:"rssi"`
 }
 
 func (c *Configuration) MarshalJSON() ([]byte, error) {
