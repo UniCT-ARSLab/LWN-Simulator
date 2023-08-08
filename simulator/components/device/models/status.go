@@ -40,6 +40,8 @@ type Status struct {
 	LastUplinks                 [][]byte      `json:"-"`
 	Base64                      bool          `json:"base64"`
 	AlignCurrentTime            bool          `json:"aligncurrentTime"`
+
+	DoSwitchChannel bool `json:"-"` // indicate if switching channel is desired
 }
 
 func (s *Status) MarshalJSON() ([]byte, error) {

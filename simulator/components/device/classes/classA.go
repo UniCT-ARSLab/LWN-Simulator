@@ -31,8 +31,11 @@ func (a *TypeA) SendData(rxpk pkt.RXPK) {
 		a.Info.Status.DataRate, a.Info.Configuration.RX1DROffset,
 		int(a.Info.Status.IndexchannelActive), a.Info.Status.DataDownlink.DwellTime)
 
-	a.Info.RX[0].Channel = a.Info.Configuration.Channels[indexChannelRX1]
+	regionalChannel := a.Info.Configuration.Channels[indexChannelRX1]
 
+	a.Info.RX[0].Channel.FrequencyUplink = regionalChannel.FrequencyUplink
+	a.Info.RX[0].Channel.MinDR = regionalChannel.MinDR
+	a.Info.RX[0].Channel.MaxDR = regionalChannel.MaxDR
 }
 
 func (a *TypeA) ReceiveWindows(delayRX1 time.Duration, delayRX2 time.Duration) *lorawan.PHYPayload {
@@ -55,11 +58,9 @@ func (a *TypeA) ReceiveWindows(delayRX1 time.Duration, delayRX2 time.Duration) *
 		if resp != nil {
 			return resp
 		}
-
 	}
 
 	return nil
-
 }
 
 func (a *TypeA) RetransmissionCData(downlink *dl.InformationDownlink) error {
@@ -73,7 +74,6 @@ func (a *TypeA) RetransmissionCData(downlink *dl.InformationDownlink) error {
 				a.Info.Status.Mode = util.Normal
 				return nil
 			}
-
 		}
 
 		a.Info.Status.Mode = util.Retransmission
@@ -87,9 +87,7 @@ func (a *TypeA) RetransmissionCData(downlink *dl.InformationDownlink) error {
 		err := fmt.Sprintf("Last Uplink sent %v times", a.Info.Configuration.NbRepConfirmedDataUp)
 
 		return errors.New(err)
-
 	}
-
 }
 
 func (a *TypeA) RetransmissionUnCData(downlink *dl.InformationDownlink) error {
@@ -100,7 +98,6 @@ func (a *TypeA) RetransmissionUnCData(downlink *dl.InformationDownlink) error {
 		a.Info.Status.CounterRepUnConfirmedDataUp++
 
 		return nil
-
 	}
 
 	var err error
@@ -110,13 +107,11 @@ func (a *TypeA) RetransmissionUnCData(downlink *dl.InformationDownlink) error {
 
 		a.Info.Status.Mode = util.Normal
 		err = errors.New(fmt.Sprintf("Last Uplink sent %v times", a.Info.Status.CounterRepUnConfirmedDataUp))
-
 	}
 
 	a.Info.Status.CounterRepUnConfirmedDataUp = 1
 
 	return err
-
 }
 
 func (a *TypeA) GetClass() int {

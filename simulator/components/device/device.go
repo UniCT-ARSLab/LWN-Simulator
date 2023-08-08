@@ -60,8 +60,9 @@ func (d *Device) Run() {
 
 			} else {
 				d.OtaaActivation()
-			}
 
+				d.Info.Status.DoSwitchChannel = true
+			}
 		}
 
 	}
