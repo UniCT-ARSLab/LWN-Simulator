@@ -64,7 +64,9 @@ func (d *Device) Execute() {
 		d.Print("Downlink Received", nil, util.PrintBoth)
 		downlinkCounter.Inc()
 
-		d.Info.Status.DoSwitchChannel = false
+		if d.Info.Status.Mode != util.Activation {
+			d.Info.Status.DoSwitchChannel = false
+		}
 
 		downlink, err = d.ProcessDownlink(*phy)
 		if err != nil {

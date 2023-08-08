@@ -44,7 +44,7 @@
 			"rxs": [
 				{
 					"delay": 1000,
-					"durationOpen": 3000,
+					"durationOpen": 5000,
 					"channel": {
 						"active": true,
 						"enableUplink": true,
