@@ -2,6 +2,7 @@ package device
 
 import (
 	"math/rand"
+	"strconv"
 	"time"
 
 	"github.com/arslab/lwnsimulator/simulator/util"
@@ -31,7 +32,8 @@ func (d *Device) OtaaActivation() {
 
 		d.SendJoinRequest()
 
-		d.Print("Open RXs", nil, util.PrintBoth)
+		d.Print("Open RXs for "+strconv.Itoa(int(d.Info.RX[0].Channel.FrequencyDownlink))+
+			" and "+strconv.Itoa(int(d.Info.RX[1].Channel.FrequencyDownlink)), nil, util.PrintBoth)
 
 		phy := d.Class.ReceiveWindows(JOINACCEPTDELAY1, JOINACCEPTDELAY2)
 		if phy != nil {
