@@ -11,9 +11,11 @@ A LoRaWAN nodes' simulator to simulate a LoRaWAN Network.
 * [General Info](#general-info)
 * [Requirements](#requirements)
 * [Installation](#installation)
+* [Tutorials](#tutorials)
+* [Publications and Citations](#publications-and-citations)
 
 ## General Info
-LWN Simulator is a LoRaWAN nodes' simulator equipped with web interface. It allows to comunicate with a real infrastructure LoRaWAN or ad-hoc infrastructure, such as [Chirpstack](https://www.chirpstack.io/).
+LWN Simulator is a LoRaWAN nodes' simulator equipped with a web interface. It allows to communicate with a real infrastructure LoRaWAN or ad-hoc infrastructure, such as [Chirpstack](https://www.chirpstack.io/).
 
 ![dashboard](./readme/dashboard.png)
 
@@ -24,28 +26,28 @@ The project consists of three main components: devices, forwarder and gateways.
 * Supports all [LoRaWAN Regional Parameters v1.0.3](https://lora-alliance.org/resource_hub/lorawan-regional-parameters-v1-0-3reva/).
 * Implements class A,C and partially even the B class;
 * Implements ADR Algorithm;
-* Sends periodically a frame that including some configurable payload;
+* Sends periodically a frame that includes some configurable payload;
 * Supports MAC Command;
 * Implements FPending procedure;
-* It is possibile to interact with it in real-time;
+* It is possible to interact with it in real time;
 
 ### The forwarder
-It receives the frames from devices, creates a RXPK object including them within and forwards to gateways.
+It receives the frames from devices, creates an RXPK object including them within and forwards to gateways.
 
 ### The gateway
 There are two types of gateway:
-* A virtual gateway that comunicates with a real gateway bridge (if it exists);
+* A virtual gateway that communicates with a real gateway bridge (if it exists);
 * A real gateway to which datagrams UDP are forwarded.
 
 ## Requirements
-* If you don't have a real infrastracture, you can download [ChirpStack open-source LoRaWAN® Network Server](https://www.chirpstack.io/project/), or a similar software, to prove it;
-* If you have a real infrastructure, be sure that the gateways and LoRaWAN servers ar reachable from the simulator.
+* If you don't have a real infrastructure, you can download [ChirpStack open-source LoRaWAN® Network Server](https://www.chirpstack.io/project/), or similar software, to prove it;
+* If you have a real infrastructure, be sure that the gateways and LoRaWAN servers are reachable from the simulator.
 
 
 ## Installation
 
 ### From binary file
-You can download from realeses section the pre-compiled binary file.
+You can download it from the releases section the pre-compiled binary file.
 
 [Releases Page](https://github.com/UniCT-ARSLab/LWN-Simulator/releases) 
 
@@ -72,12 +74,12 @@ Now you can launch the build of the simulator:
 make build
 ```
 
-Finally, there are two mode to start the simulator:
+Finally, there are two modes to start the simulator:
 * from source (without building the source)
 ```bash
 make run
 ```
-* from the builded binary
+* from the built binary
 ```bash
 make run-release
 ```
@@ -95,7 +97,7 @@ docker-compose up
 ```
 
 ### Configuration file
-The simulator relises on a configuration file (`config.json`) whitch specifies some configurations for the simulator:
+The simulator realises on a configuration file (`config.json`) which specifies some configurations for the simulator:
 
 ```json
 {
@@ -104,6 +106,26 @@ The simulator relises on a configuration file (`config.json`) whitch specifies s
     "configDirname":"lwnsimulator"
 }
 ```
+
 * address: specifies the IP mask from which the web UI is accessible.
 * port: the web server port.
-* configDirname: the directory name where all status files will be saved and will be created. 
+* configDirname: the directory name where all status files will be saved and will be created.
+
+## Tutorials
+
+### English
+Coming Soon
+
+### Italian
+Coming Soon
+
+### Arabic (thanks to [IdealBit](https://www.youtube.com/@IdealBit365))
+[How to Install on Linux or WLS](https://www.youtube.com/watch?v=TEZcyVdanYE)
+
+[How to Install on Windows](https://www.youtube.com/watch?v=BbemBm3Lzvo)
+
+[How to use LWN Simulator with ChirpStack](https://www.youtube.com/watch?v=OpQkb00gfjs)
+
+## Publications and Citations
+
+[Lightweight Root Key Management Scheme in Smart Grid IoT Network based on Blockchain Technology](https://www.researchsquare.com/article/rs-3330383/v1)
