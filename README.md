@@ -127,5 +127,6 @@ Coming Soon
 [How to use LWN Simulator with ChirpStack](https://www.youtube.com/watch?v=OpQkb00gfjs)
 
 ## Publications and Citations
+[LWN Simulator-A LoRaWAN Network Simulator](https://ieeexplore.ieee.org/document/10477816)
 
 [Lightweight Root Key Management Scheme in Smart Grid IoT Network based on Blockchain Technology](https://www.researchsquare.com/article/rs-3330383/v1)
