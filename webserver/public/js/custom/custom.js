@@ -2317,6 +2317,7 @@ function LoadDevice(dev){
     $("#truncates").prop("checked",!dev.info.configuration.supportedFragment);
   
     $("#textarea-payload").val(dev.info.status.payload);
+    $("[name=checkbox-base64]").prop("checked", dev.info.status.base64);
 
     ChangeStateInputDevice(true,dev.info.devEUI);
 
@@ -2527,6 +2528,7 @@ function Click_SaveDevice(){
     var mtype = $("#confirmed").prop("checked") ? ConfirmedData_uplink : UnConfirmedData_uplink; //true Confirmed
     var upInterval = $("[name=input-sendInterval]");
     var payload = $("#textarea-payload").val();
+    var base64 = $("[name=checkbox-base64-encoded]").prop("checked");
 
     upInterval.val(upInterval.val() == "" ? UplinkIntervalDefault : upInterval.val());
     var validInterval = IsValidNumber(upInterval.val(),-1,Infinity);
@@ -2584,6 +2586,7 @@ function Click_SaveDevice(){
             "location":location,
             "status":{
                 "active": active,
+                "base64":base64,
                 "infoUplink":{
                     "fport": Number(fport.val()),
                     "fcnt": Number(Fcnt.val()),
@@ -2605,7 +2608,7 @@ function Click_SaveDevice(){
                 "dataRate": Number(datarate.val()),
                 "disableFCntDown":disablefcntDown,
                 "sendInterval":Number(upInterval.val()),
-                "nbRetransmission":Number(retransmission.val()),
+                "nbRetransmission":Number(retransmission.val())
             },
             "rxs":[
                 {
