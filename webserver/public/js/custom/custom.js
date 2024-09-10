@@ -2286,7 +2286,7 @@ function LoadDevice(dev){
     $("#datarate-uplink").val(dev.info.configuration.dataRate);
 
     $("[name=input-validate-counter]").prop("checked",dev.info.configuration.disableFCntDown); 
-    if (!dev.info.configuration.disablefcntDown)
+    if (!dev.info.configuration.disableFCntDown)
         $("[name=input-fcnt-downlink]").val(dev.info.status.fcntDown);
 
     //features
@@ -2528,7 +2528,7 @@ function Click_SaveDevice(){
     var mtype = $("#confirmed").prop("checked") ? ConfirmedData_uplink : UnConfirmedData_uplink; //true Confirmed
     var upInterval = $("[name=input-sendInterval]");
     var payload = $("#textarea-payload").val();
-    var base64 = $("[name=checkbox-base64-encoded]").prop("checked");
+    var base64 = $("[name=checkbox-base64]").prop("checked");
 
     upInterval.val(upInterval.val() == "" ? UplinkIntervalDefault : upInterval.val());
     var validInterval = IsValidNumber(upInterval.val(),-1,Infinity);
