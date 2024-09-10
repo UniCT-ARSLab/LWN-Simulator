@@ -311,6 +311,10 @@ func (d *Device) executeDevStatusReq() {
 	rand.Seed(time.Now().UTC().UnixNano())
 	margin := int8(rand.Int()) % MaxMargin //range
 
+	if margin < 0 {
+		margin = -margin
+	}
+
 	if margin <= 32 {
 		margin = margin - 32
 	} else {
