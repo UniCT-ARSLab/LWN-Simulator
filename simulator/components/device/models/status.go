@@ -50,10 +50,13 @@ func (s *Status) MarshalJSON() ([]byte, error) {
 		mtype = "ConfirmedDataUp"
 	}
 
-	PayloadBytes, _ := s.Payload.MarshalBinary()
+	payloadBytes, err := s.Payload.MarshalBinary()
+	if err != nil {
+		panic(err)
+	}
 
 	if s.Base64 {
-		PayloadBytes = []byte(base64.StdEncoding.EncodeToString(PayloadBytes))
+		payloadBytes = []byte(base64.StdEncoding.EncodeToString(payloadBytes))
 	}
 
 	return json.Marshal(&struct {
@@ -62,7 +65,7 @@ func (s *Status) MarshalJSON() ([]byte, error) {
 		*Alias
 	}{
 		MType:   mtype,
-		Payload: string(PayloadBytes),
+		Payload: string(payloadBytes),
 		Alias:   (*Alias)(s),
 	})
 
@@ -75,6 +78,7 @@ func (s *Status) UnmarshalJSON(data []byte) error {
 	aux := &struct {
 		MType   string `json:"mtype"`
 		Payload string `json:"payload"`
+
 		*Alias
 	}{
 		Alias: (*Alias)(s),
@@ -91,8 +95,11 @@ func (s *Status) UnmarshalJSON(data []byte) error {
 	}
 
 	if s.Base64 {
-		PayloadStr, _ := base64.StdEncoding.DecodeString(string(aux.Payload))
-		aux.Payload = string(PayloadStr)
+		payloadBytes, err := base64.StdEncoding.DecodeString(aux.Payload)
+		if err != nil {
+			panic(err)
+		}
+		aux.Payload = string(payloadBytes)
 	}
 
 	s.Payload = &lorawan.DataPayload{
