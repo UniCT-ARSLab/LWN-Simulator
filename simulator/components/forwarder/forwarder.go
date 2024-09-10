@@ -20,11 +20,14 @@ type Forwarder struct {
 	Mutex    sync.Mutex
 }
 
+// GPS offset compensates for the drift between UTC and GPS time
+const GPSOffset = 18000
+
 func createPacket(info pkt.RXPK) pkt.RXPK {
 
 	tnow := time.Now()
 	offset, _ := time.Parse(time.RFC3339, "1980-01-06T00:00:00Z")
-	tmms := tnow.Unix() - offset.Unix()
+	tmms := tnow.UnixMilli() - offset.UnixMilli() + GPSOffset
 
 	rxpk := pkt.RXPK{
 
