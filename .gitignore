@@ -1,1 +1,4 @@
 bin
+.idea
+lwnsimulator
+webserver/statik/statik.go
