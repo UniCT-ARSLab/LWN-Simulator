@@ -2,14 +2,13 @@ package gateway
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	f "github.com/arslab/lwnsimulator/simulator/components/forwarder"
 	"github.com/arslab/lwnsimulator/simulator/components/gateway/models"
+	c "github.com/arslab/lwnsimulator/simulator/console"
 	res "github.com/arslab/lwnsimulator/simulator/resources"
 	"github.com/arslab/lwnsimulator/simulator/resources/communication/buffer"
-
 	"github.com/arslab/lwnsimulator/simulator/util"
 	"github.com/arslab/lwnsimulator/socket"
 )
@@ -26,6 +25,7 @@ type Gateway struct {
 	Stat models.Stat `json:"-"`
 
 	BufferUplink buffer.BufferUplink `json:"-"`
+	Console      c.Console           `json:"-"`
 }
 
 func (g *Gateway) CanExecute() bool {
@@ -60,17 +60,12 @@ func (g *Gateway) Print(content string, err error, printType int) {
 	}
 
 	switch printType {
-
 	case util.PrintBoth:
-		g.Resources.WebSocket.Emit(event, data)
-		log.Println(messageLog)
-
+		g.Console.PrintSocket(event, data)
+		g.Console.PrintLog(messageLog)
 	case util.PrintOnlySocket:
-		g.Resources.WebSocket.Emit(event, data)
-
+		g.Console.PrintSocket(event, data)
 	case util.PrintOnlyConsole:
-		log.Println(messageLog)
-
+		g.Console.PrintLog(messageLog)
 	}
-
 }

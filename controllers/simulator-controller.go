@@ -3,6 +3,7 @@ package controllers
 import (
 	"github.com/arslab/lwnsimulator/models"
 	repo "github.com/arslab/lwnsimulator/repositories"
+
 	dev "github.com/arslab/lwnsimulator/simulator/components/device"
 	gw "github.com/arslab/lwnsimulator/simulator/components/gateway"
 	e "github.com/arslab/lwnsimulator/socket"
@@ -10,10 +11,11 @@ import (
 	socketio "github.com/googollee/go-socket.io"
 )
 
-//SimulatorController interfaccia controller
+// SimulatorController interfaccia controller
 type SimulatorController interface {
 	Run() bool
 	Stop() bool
+	Status() bool
 	GetIstance()
 	AddWebSocket(*socketio.Conn)
 	SaveBridgeAddress(models.AddressIP) error
@@ -35,10 +37,11 @@ type SimulatorController interface {
 }
 
 type simulatorController struct {
-	repo repo.SimulatorRepository
+	repo      repo.SimulatorRepository
+	onConnect func()
 }
 
-//NewSimulatorController return il controller
+// NewSimulatorController return il controller
 func NewSimulatorController(repo repo.SimulatorRepository) SimulatorController {
 	return &simulatorController{
 		repo: repo,
@@ -59,6 +62,10 @@ func (c *simulatorController) Run() bool {
 
 func (c *simulatorController) Stop() bool {
 	return c.repo.Stop()
+}
+
+func (c *simulatorController) Status() bool {
+	return c.repo.Status()
 }
 
 func (c *simulatorController) SaveBridgeAddress(addr models.AddressIP) error {
