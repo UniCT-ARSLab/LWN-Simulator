@@ -2,6 +2,10 @@ package main
 
 import (
 	"log"
+	"net/http"
+	"strconv"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	cnt "github.com/arslab/lwnsimulator/controllers"
 	"github.com/arslab/lwnsimulator/models"
@@ -25,7 +29,16 @@ func main() {
 		log.Fatal(err)
 	}
 
+	go startMetrics(info)
+
 	WebServer := ws.NewWebServer(info, simulatorController)
 	WebServer.Run()
+}
 
+func startMetrics(info *models.ServerConfig) {
+	http.Handle("/metrics", promhttp.Handler())
+	err := http.ListenAndServe(info.Address+":"+strconv.Itoa(info.MetricsPort), nil)
+	if err != nil {
+		log.Println("[Metrics] [ERROR]:", err.Error())
+	}
 }

@@ -8,6 +8,7 @@ import (
 type ServerConfig struct {
 	Address       string `json:"address"`
 	Port          int    `json:"port"`
+	MetricsPort   int    `json:"metricsPort"`
 	ConfigDirname string `json:"configDirname"`
 }
 
