@@ -15,7 +15,7 @@ A LoRaWAN nodes' simulator to simulate a LoRaWAN Network.
 ## General Info
 LWN Simulator is a LoRaWAN nodes' simulator equipped with web interface. It allows to comunicate with a real infrastructure LoRaWAN or ad-hoc infrastructure, such as [Chirpstack](https://www.chirpstack.io/).
 
-![dashboard](./readme/dashboard.png)
+![dashboard](./github/dashboard.png)
 
 The project consists of three main components: devices, forwarder and gateways. 
 
