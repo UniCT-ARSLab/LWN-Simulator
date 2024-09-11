@@ -8,7 +8,6 @@ build:
 	@echo "\e[96mBuilding the \e[94mUser Interface\e[39m"
 	@cd webserver && statik -src=public
 	@mkdir -p bin
-	@export GHW_DISABLE_WARNINGS=1
 	@cp -f config.json bin/config.json
 	@echo "\e[96mBuilding the \e[93msource\e[39m"
 	@go build -o bin/lwnsimulator cmd/main.go
@@ -17,9 +16,8 @@ build:
 build-platform:
 	@echo "\e[96mBuilding the \e[95mLWN Simulator (${SUFFIX})\e[39m"
 	@echo "\e[96mBuilding the \e[94mUser Interface\e[39m"
-	@cd webserver && statik -src=public -f 1>/dev/null
+	@cd webserver && statik -src=public
 	@mkdir -p bin
-	@export GHW_DISABLE_WARNINGS=1
 	@cp -f config.json bin/config.json
 	@echo "\e[96mBuilding the \e[93msource\e[39m"
 	@go build -o bin/lwnsimulator${SUFFIX} cmd/main.go
