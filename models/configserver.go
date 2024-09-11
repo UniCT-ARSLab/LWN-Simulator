@@ -8,11 +8,11 @@ import (
 
 // ServerConfig holds the configuration for the server including address, ports, and other settings.
 type ServerConfig struct {
-	Address       string `json:"address"`
-	Port          int    `json:"port"`
-	MetricsPort   int    `json:"metricsPort"`
-	ConfigDirname string `json:"configDirname"`
-	AutoStart     bool   `json:"autoStart"`
+	Address       string `json:"address"`       // Address to bind to (e.g., "localhost")
+	Port          int    `json:"port"`          // Port to bind to (default is 8000)
+	MetricsPort   int    `json:"metricsPort"`   // Port to bind to for metrics (default is 8081)
+	ConfigDirname string `json:"configDirname"` // Directory name for configuration files
+	AutoStart     bool   `json:"autoStart"`     // Flag to automatically start the simulation when the server starts
 }
 
 // GetConfigFile loads the configuration from the specified file path, parses it as JSON,
@@ -23,10 +23,8 @@ func GetConfigFile(path string) (*ServerConfig, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
-
 	if err := json.Unmarshal(data, config); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config file: %w", err)
 	}
-
 	return config, nil
 }
