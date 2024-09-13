@@ -15,10 +15,8 @@ import (
 
 // Entry point of the program.
 func main() {
-	var cfg *models.ServerConfig
-	var err error
 	// Load the configuration file, and if there is an error, log it and terminate the program.
-	cfg, err = models.GetConfigFile("config.json")
+	cfg, err := models.GetConfigFile("config.json")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -31,7 +29,7 @@ func main() {
 	go startMetrics(cfg)
 	// If the autoStart flag is set to true, start the simulator automatically.
 	if cfg.AutoStart {
-		log.Println("Autostarting the simulation")
+		log.Println("Auto-starting the simulation")
 		simulatorController.Run()
 	} else {
 		log.Println("Autostart not enabled")
