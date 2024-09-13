@@ -8,7 +8,7 @@ require (
 	github.com/brocaar/lorawan v0.0.0-20240507141140-a18a1037da07
 	github.com/gin-contrib/cors v1.7.2
 	github.com/gin-gonic/gin v1.10.0
-	github.com/googollee/go-socket.io v1.7.0
+	github.com/googollee/go-socket.io v1.8.0-rc.1
 	github.com/prometheus/client_golang v1.20.3
 	github.com/rakyll/statik v0.1.7
 )
