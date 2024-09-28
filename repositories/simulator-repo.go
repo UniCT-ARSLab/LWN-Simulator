@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"errors"
-
 	"github.com/brocaar/lorawan"
 
 	"github.com/arslab/lwnsimulator/models"
@@ -15,59 +14,65 @@ import (
 	socketio "github.com/googollee/go-socket.io"
 )
 
-// SimulatorRepository è il repository del simulatore
+// SimulatorRepository is the interface that defines the methods that the simulator repository must implement.
 type SimulatorRepository interface {
-	Run() bool
-	Stop() bool
-	Status() bool
-	GetIstance()
-	AddWebSocket(*socketio.Conn)
-	SaveBridgeAddress(models.AddressIP) error
-	GetBridgeAddress() models.AddressIP
-	GetGateways() []gw.Gateway
-	AddGateway(*gw.Gateway) (int, int, error)
-	UpdateGateway(*gw.Gateway) (int, error)
-	DeleteGateway(int) bool
-	AddDevice(*dev.Device) (int, int, error)
-	GetDevices() []dev.Device
-	UpdateDevice(*dev.Device) (int, error)
-	DeleteDevice(int) bool
-	ToggleStateDevice(int)
-	SendMACCommand(lorawan.CID, e.MacCommand)
-	ChangePayload(e.NewPayload) (string, bool)
-	SendUplink(e.NewPayload)
-	ChangeLocation(e.NewLocation) bool
-	ToggleStateGateway(int)
+	Run() bool                                 // Run the simulator
+	Stop() bool                                // Stop the simulator
+	Status() bool                              // Get the status of the simulator
+	GetInstance()                              // Get the instance of the simulator
+	AddWebSocket(*socketio.Conn)               // Add a websocket connection
+	SaveBridgeAddress(models.AddressIP) error  // Save the bridge address
+	GetBridgeAddress() models.AddressIP        // Get the bridge address
+	GetGateways() []gw.Gateway                 // Get the gateways
+	AddGateway(*gw.Gateway) (int, int, error)  // Add a gateway
+	UpdateGateway(*gw.Gateway) (int, error)    // Update a gateway
+	DeleteGateway(int) bool                    // Delete a gateway
+	AddDevice(*dev.Device) (int, int, error)   // Add a device
+	GetDevices() []dev.Device                  // Get the devices
+	UpdateDevice(*dev.Device) (int, error)     // Update a device
+	DeleteDevice(int) bool                     // Delete a device
+	ToggleStateDevice(int)                     // Toggle the state of a device
+	SendMACCommand(lorawan.CID, e.MacCommand)  // Send a MAC command
+	ChangePayload(e.NewPayload) (string, bool) // Change the payload
+	SendUplink(e.NewPayload)                   // Send an uplink
+	ChangeLocation(e.NewLocation) bool         // Change the location
+	ToggleStateGateway(int)                    // Toggle the state of a gateway
 }
 
+// simulatorRepository repository struct
 type simulatorRepository struct {
 	sim *simulator.Simulator
 }
 
-// NewSimulatorRepository return repository del simulatore
+// NewSimulatorRepository create a new repository instance
 func NewSimulatorRepository() SimulatorRepository {
 	return &simulatorRepository{}
 }
 
-func (s *simulatorRepository) GetIstance() {
-	s.sim = simulator.GetIstance()
+// --- Repository calls to Simulator, no need to comment them, they are self-explanatory ---
+// Check the simulator methods to see what they do
+
+func (s *simulatorRepository) GetInstance() {
+	s.sim = simulator.GetInstance()
 }
 
 func (s *simulatorRepository) AddWebSocket(socket *socketio.Conn) {
 	s.sim.AddWebSocket(socket)
 }
 
+// Run If the simulator is stopped, it starts it and returns True, otherwise it prints an error message and returns False.
 func (s *simulatorRepository) Run() bool {
 	switch s.sim.State {
 	case util.Running:
 		s.sim.Print("", errors.New("Already run"), util.PrintOnlyConsole)
 		return false
-	case util.Stopped:
+	default: // State = util.Stopped
 		s.sim.Run()
 	}
 	return true
 }
 
+// Stop If the simulator is running, it stops it and returns True, otherwise it prints an error message and returns False.
 func (s *simulatorRepository) Stop() bool {
 	switch s.sim.State {
 	case util.Stopped:
@@ -79,9 +84,9 @@ func (s *simulatorRepository) Stop() bool {
 	}
 }
 
+// Status returns True if the simulator is running, otherwise it returns False.
 func (s *simulatorRepository) Status() bool {
-	switch s.sim.State {
-	case util.Running:
+	if s.sim.State == util.Running {
 		return true
 	}
 	return false

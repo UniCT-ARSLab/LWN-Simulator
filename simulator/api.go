@@ -23,7 +23,7 @@ import (
 	socketio "github.com/googollee/go-socket.io"
 )
 
-func GetIstance() *Simulator {
+func GetInstance() *Simulator {
 
 	var s Simulator
 
