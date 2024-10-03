@@ -3,5 +3,6 @@
     "port":8000,
     "metricsPort":8001,
     "configDirname":"lwnsimulator",
-    "autoStart": false
+    "autoStart": false,
+    "verbose": false
 }

@@ -1,15 +1,15 @@
 package main
 
 import (
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"log"
 	"net/http"
 	"strconv"
 
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-
 	cnt "github.com/arslab/lwnsimulator/controllers"
 	"github.com/arslab/lwnsimulator/models"
 	repo "github.com/arslab/lwnsimulator/repositories"
+	"github.com/arslab/lwnsimulator/shared"
 	ws "github.com/arslab/lwnsimulator/webserver"
 )
 
@@ -19,6 +19,11 @@ func main() {
 	cfg, err := models.GetConfigFile("config.json")
 	if err != nil {
 		log.Fatal(err)
+	}
+	// Check if the verbose flag is set to true, and if so, enable verbose logging.
+	if cfg.Verbose {
+		shared.Verbose = true
+		log.Println("Verbose logging enabled")
 	}
 	// Create a new simulator controller and repository.
 	simulatorRepository := repo.NewSimulatorRepository()

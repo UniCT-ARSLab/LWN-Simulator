@@ -13,6 +13,7 @@ type ServerConfig struct {
 	MetricsPort   int    `json:"metricsPort"`   // Port to bind to for metrics (default is 8081)
 	ConfigDirname string `json:"configDirname"` // Directory name for configuration files
 	AutoStart     bool   `json:"autoStart"`     // Flag to automatically start the simulation when the server starts
+	Verbose       bool   `json:"verbose"`       // Flag to enable verbose logging
 }
 
 // GetConfigFile loads the configuration from the specified file path, parses it as JSON,
