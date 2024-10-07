@@ -1,5 +1,6 @@
 package util
 
+// Constants
 const (
 	ConnectedPowerSource = 0
 
@@ -9,11 +10,10 @@ const (
 	PrintOnlySocket
 	PrintOnlyConsole
 
-	//stati
-	Stopped = iota
+	Stopped
 	Running
 
-	Normal = iota
+	Normal
 	Retransmission
 	FPending
 	Activation
