@@ -129,7 +129,6 @@ func newServerSocket() *socketio.Server {
 			simulatorController.SendMACCommand(lorawan.LinkCheckReq, data)
 		case "PingSlotInfoReq":
 			simulatorController.SendMACCommand(lorawan.PingSlotInfoReq, data)
-
 		}
 
 	})
