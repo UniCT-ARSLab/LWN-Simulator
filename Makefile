@@ -4,8 +4,6 @@ install-dep:
 
 build:
 	@echo -e "\e[96mBuilding the \e[95mLWN Simulator\e[39m"
-	@echo -e "\e[96mBuilding the \e[94mUser Interface\e[39m"
-	@cd webserver && statik -src=public -f 1>/dev/null
 	@mkdir -p bin
 	@export GHW_DISABLE_WARNINGS=1
 	@cp -f config.json bin/config.json
