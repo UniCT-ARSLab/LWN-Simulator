@@ -10,8 +10,10 @@ import (
 	cnt "github.com/arslab/lwnsimulator/controllers"
 	"github.com/arslab/lwnsimulator/models"
 	repo "github.com/arslab/lwnsimulator/repositories"
-	ws "github.com/arslab/lwnsimulator/webserver"
+
 )
+
+// ws "github.com/arslab/lwnsimulator/webserver"
 
 func main() {
 
@@ -39,8 +41,8 @@ func main() {
 		log.Println("Autostart not enabled")
 	}
 
-	WebServer := ws.NewWebServer(cfg, simulatorController)
-	WebServer.Run()
+	// WebServer := ws.NewWebServer(cfg, simulatorController)
+	// WebServer.Run()
 }
 
 func startMetrics(cfg *models.ServerConfig) {
