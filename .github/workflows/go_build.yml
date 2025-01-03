@@ -14,4 +14,4 @@ jobs:
       - name: Install dependencies
         run: go install github.com/rakyll/statik@latest && go mod download -x
       - name: Build
-        run: cd webserver && statik -f -src=public && go build -o lwnsimulator ./cmd/main.go
+        run: cd webserver && statik -f -src=public && go build -o lwnsimulator ../cmd/main.go
