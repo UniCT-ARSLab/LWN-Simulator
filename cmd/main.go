@@ -23,7 +23,7 @@ func main() {
 	// Check if the verbose flag is set to true, and if so, enable verbose logging.
 	if cfg.Verbose {
 		shared.Verbose = true
-		log.Println("Verbose logging enabled")
+		shared.DebugPrint("Verbose mode enabled")
 	}
 	// Create a new simulator controller and repository.
 	simulatorRepository := repo.NewSimulatorRepository()

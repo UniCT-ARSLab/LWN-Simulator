@@ -2,9 +2,9 @@ package simulator
 
 import (
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/arslab/lwnsimulator/shared"
 	"log"
 	"strings"
 
@@ -24,20 +24,19 @@ import (
 )
 
 func GetInstance() *Simulator {
-
 	var s Simulator
-
+	shared.DebugPrint("Init new Simulator instance")
+	// Initial state of the simulator is stopped
 	s.State = util.Stopped
-
+	// Load saved data
 	s.loadData()
-
+	// Initialized the active devices and gateways maps
 	s.ActiveDevices = make(map[int]int)
 	s.ActiveGateways = make(map[int]int)
-
+	// Init Forwarder
 	s.Forwarder = *f.Setup()
-
+	// Attach console
 	s.Console = c.Console{}
-
 	return &s
 }
 
@@ -47,152 +46,115 @@ func (s *Simulator) AddWebSocket(WebSocket *socketio.Conn) {
 	s.SetupConsole()
 }
 
+// Run starts the simulation environment
 func (s *Simulator) Run() {
-
+	shared.DebugPrint("Executing Run")
 	s.State = util.Running
 	s.setup()
-
 	s.Print("START", nil, util.PrintBoth)
-
+	shared.DebugPrint("Turning ON active components")
 	for _, id := range s.ActiveGateways {
 		s.turnONGateway(id)
 	}
-
 	for _, id := range s.ActiveDevices {
 		s.turnONDevice(id)
 	}
 }
 
+// Stop terminates the simulation environment
 func (s *Simulator) Stop() {
-
+	shared.DebugPrint("Executing Stop")
 	s.State = util.Stopped
 	s.Resources.ExitGroup.Add(len(s.ActiveGateways) + len(s.ActiveDevices) - s.ComponentsInactiveTmp)
-
+	shared.DebugPrint("Turning OFF active components")
 	for _, id := range s.ActiveGateways {
 		s.Gateways[id].TurnOFF()
 	}
-
 	for _, id := range s.ActiveDevices {
 		s.Devices[id].TurnOFF()
 	}
-
 	s.Resources.ExitGroup.Wait()
-
 	s.saveStatus()
-
 	s.Forwarder.Reset()
-
 	s.Print("STOPPED", nil, util.PrintBoth)
-
 	s.reset()
-
 }
 
+// SaveBridgeAddress stores the bridge address in the simulator struct and saves it to the simulator.json file
 func (s *Simulator) SaveBridgeAddress(remoteAddr models.AddressIP) error {
-
+	// Store the bridge address in the simulator struct
 	s.BridgeAddress = fmt.Sprintf("%v:%v", remoteAddr.Address, remoteAddr.Port)
-
 	pathDir, err := util.GetPath()
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	path := pathDir + "/simulator.json"
-
-	bytes, err := json.MarshalIndent(&s, "", "\t")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = util.WriteConfigFile(path, bytes)
-	if err != nil {
-		log.Fatal(err)
-	}
-
+	s.saveComponent(path, &s)
 	s.Print("Gateway Bridge Address saved", nil, util.PrintOnlyConsole)
-
 	return nil
 }
 
+// GetBridgeAddress returns the bridge address stored in the simulator struct
 func (s *Simulator) GetBridgeAddress() models.AddressIP {
-
+	// Create an empty AddressIP struct with default values
 	var rServer models.AddressIP
 	if s.BridgeAddress == "" {
 		return rServer
 	}
-
+	// Split the bridge address into address and port
 	parts := strings.Split(s.BridgeAddress, ":")
-
 	rServer.Address = parts[0]
 	rServer.Port = parts[1]
-
 	return rServer
 }
 
+// GetGateways returns an array of all gateways in the simulator
 func (s *Simulator) GetGateways() []gw.Gateway {
-
 	var gateways []gw.Gateway
-
 	for _, g := range s.Gateways {
 		gateways = append(gateways, *g)
 	}
-
 	return gateways
-
 }
 
+// GetDevices returns an array of all devices in the simulator
 func (s *Simulator) GetDevices() []dev.Device {
-
 	var devices []dev.Device
-
 	for _, d := range s.Devices {
 		devices = append(devices, *d)
 	}
-
 	return devices
-
 }
 
+// SetGateway adds or updates a gateway
 func (s *Simulator) SetGateway(gateway *gw.Gateway, update bool) (int, int, error) {
-
+	shared.DebugPrint(fmt.Sprintf("Adding/Updating Gateway [%s]", gateway.Info.MACAddress.String()))
 	emptyAddr := lorawan.EUI64{0, 0, 0, 0, 0, 0, 0, 0}
-
+	// Check if the MAC address is valid
 	if gateway.Info.MACAddress == emptyAddr {
-
 		s.Print("Error: MAC Address invalid", nil, util.PrintOnlyConsole)
 		return codes.CodeErrorAddress, -1, errors.New("Error: MAC Address invalid")
-
 	}
-
-	if !update { //new
-
+	// If the gateway is new, assign a new ID
+	if !update {
 		gateway.Id = s.NextIDGw
-		s.NextIDGw++
-
-	} else {
-
+	} else { // If the gateway is being updated, it must be turned off
 		if s.Gateways[gateway.Id].IsOn() {
 			return codes.CodeErrorDeviceActive, -1, errors.New("Gateway is running, unable update")
 		}
-
 	}
-
+	// Check if the name is already used
 	code, err := s.searchName(gateway.Info.Name, gateway.Id, true)
 	if err != nil {
-
 		s.Print("Name already used", nil, util.PrintOnlyConsole)
 		return code, -1, err
-
 	}
-
+	// Check if the name is already used
 	code, err = s.searchAddress(gateway.Info.MACAddress, gateway.Id, true)
 	if err != nil {
-
 		s.Print("DevEUI already used", nil, util.PrintOnlyConsole)
 		return code, -1, err
-
 	}
-
 	if !gateway.Info.TypeGateway {
 
 		if s.BridgeAddress == "" {
@@ -230,7 +192,7 @@ func (s *Simulator) SetGateway(gateway *gw.Gateway, update bool) (int, int, erro
 			delete(s.ActiveGateways, gateway.Id)
 		}
 	}
-
+	s.NextIDGw++
 	return codes.CodeOK, gateway.Id, nil
 }
 
