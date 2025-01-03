@@ -1,6 +1,6 @@
 # LWN Simulator
 
-[![Build Status](https://www.travis-ci.com/UniCT-ARSLab/LWN-Simulator.svg?branch=main)](https://www.travis-ci.com/UniCT-ARSLab/LWN-Simulator)
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/UniCT-ARSLab/LWN-Simulator/go_build.yml)
 [![GitHub license](https://img.shields.io/github/license/UniCT-ARSLab/LWN-Simulator)](https://github.com/UniCT-ARSLab/LWN-Simulator/blob/main/LICENSE.txt)
 [![made-with-Go](https://img.shields.io/badge/Made%20with-Go-1f425f.svg)](https://golang.org)
 [![GitHub go.mod Go version of a Go module](https://img.shields.io/github/go-mod/go-version/UniCT-ARSLab/LWN-Simulator.svg)](https://github.com/UniCT-ARSLab/LWN-Simulator)
@@ -19,7 +19,7 @@ A LoRaWAN nodes' simulator to simulate a LoRaWAN Network.
 LWN Simulator is a LoRaWAN nodes' simulator equipped with web interface. It allows to comunicate with a real
 infrastructure LoRaWAN or ad-hoc infrastructure, such as [Chirpstack](https://www.chirpstack.io/).
 
-![dashboard](./github/dashboard.png)
+![dashboard](./.github/dashboard.png)
 
 The project consists of three main components: devices, forwarder and gateways.
 
