@@ -90,7 +90,7 @@ git clone https://github.com/UniCT-ARSLab/LWN-Simulator.git
 After the download, you must enter in main directory:
 
 ```bash
-cd LWNSimulator
+cd LWN-Simulator
 ```
 
 You must install all dependencies to build the simulator:
