@@ -29,7 +29,7 @@ func main() {
 	simulatorRepository := repo.NewSimulatorRepository()
 	simulatorController := cnt.NewSimulatorController(simulatorRepository)
 	simulatorController.GetInstance()
-	log.Println("LWN Simulator is ready to start...")
+	log.Printf("LWN Simulator (%s) is ready to start...\n", shared.Version)
 	// Start the metrics server.
 	go startMetrics(cfg)
 	// If the autoStart flag is set to true, start the simulator automatically.
