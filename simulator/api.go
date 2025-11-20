@@ -2,6 +2,7 @@ package simulator
 
 import (
 	"encoding/hex"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"github.com/arslab/lwnsimulator/shared"
@@ -352,15 +353,34 @@ func (s *Simulator) ChangePayload(pl socket.NewPayload) (string, bool) {
 		MType = lorawan.ConfirmedDataUp
 	}
 
-	Payload := &lorawan.DataPayload{
-		Bytes: []byte(pl.Payload),
-	}
+    // -------------------------------
+    //  NEW: decode payload if IsBase64
+    // -------------------------------
+    var payloadBytes []byte
+    var err error
 
-	s.Devices[pl.Id].ChangePayload(MType, Payload)
+    if pl.IsBase64 {
+        payloadBytes, err = base64.StdEncoding.DecodeString(pl.Payload)
+        if err != nil {
+            s.Console.PrintSocket(socket.EventResponseCommand,
+                "Invalid Base64 payload: "+err.Error())
+            return devEUIstring, false
+        }
+    } else {
+        // original behavior: raw bytes from string
+        payloadBytes = []byte(pl.Payload)
+    }
 
-	s.Console.PrintSocket(socket.EventResponseCommand, s.Devices[pl.Id].Info.Name+": Payload changed")
+    Payload := &lorawan.DataPayload{
+        Bytes: payloadBytes,
+    }
 
-	return devEUIstring, true
+    s.Devices[pl.Id].ChangePayload(MType, Payload)
+
+    s.Console.PrintSocket(socket.EventResponseCommand,
+        s.Devices[pl.Id].Info.Name+": Payload changed")
+
+    return devEUIstring, true
 }
 
 func (s *Simulator) SendUplink(pl socket.NewPayload) {

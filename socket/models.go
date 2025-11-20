@@ -20,9 +20,10 @@ type NewStatusDev struct {
 
 // NewPayload represents a structure for handling payload changes with ID, message type, and payload data.
 type NewPayload struct {
-	Id      int    `json:"id"`      // Id is the unique identifier of the payload.
-	MType   string `json:"mtype"`   // MType is the message type.
-	Payload string `json:"payload"` // Payload is the actual payload data.
+	Id       int    `json:"id"`      // Id is the unique identifier of the payload.
+	MType    string `json:"mtype"`   // MType is the message type.
+	Payload  string `json:"payload"` // Payload is the actual payload data.
+	IsBase64 bool   `json:"isbase64"` // If True, payload is decoded as base64.
 }
 
 // NewLocation represents the geographical location of a device.
