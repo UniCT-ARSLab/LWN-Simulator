@@ -95,7 +95,7 @@ Während die Simulation dieses Profils läuft oder pausiert ist, können Sie unt
 
 Die Änderung gilt für die nächste neue Anwendungsnachricht. Wiederholungen und restliche Fragmente einer bereits begonnenen Nachricht behalten ihre ursprünglichen Bytes. LoRaWAN-Sitzung, Schlüssel und Zähler bleiben erhalten. Das Deaktivieren eines Geräts verwirft dessen ausstehenden Datenverkehr.
 
-Ein Terminal oder externes Skript kann `PUT /api/profiles/{profileID}/device/update-device/{deviceID}` verwenden. Senden Sie das vollständige Gerät unter `device` und ändern Sie ausschließlich `active`, `payloadConfig.payload` und `payloadConfig.base64Encoded`. Andere Konfigurationsänderungen weist der Server während einer laufenden oder pausierten Simulation zurück. Nach dem Stoppen können Sie das Gerät wieder normal bearbeiten.
+Ein Terminal oder externes Skript kann `PUT /api/profiles/{profileID}/device/update-device/{deviceID}` verwenden. Senden Sie das vollständige Gerät unter `device` und ändern Sie ausschließlich `active`, `payloadConfig.payload` und `payloadConfig.base64Encoded`, `locationConfig.latitude`, `locationConfig.longitude`, `locationConfig.altitude`. Andere Konfigurationsänderungen weist der Server während einer laufenden oder pausierten Simulation zurück. Nach dem Stoppen können Sie das Gerät wieder normal bearbeiten.
 
 Dieses Python-3-Beispiel liest die aktuelle Konfiguration und aktualisiert den Payload. Ersetzen Sie `PROFILE_UUID` und `DEVICE_UUID` durch Ihre Profil- und Geräte-IDs. Wiederholen Sie den Aufruf mit anderen Werten, um veränderliche Messwerte darzustellen. Der JavaScript-Codec decodiert empfangene Daten; dieses Skript liefert die zu sendenden Daten.
 

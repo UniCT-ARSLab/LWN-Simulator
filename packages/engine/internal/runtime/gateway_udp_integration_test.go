@@ -650,3 +650,35 @@ func TestEngineExternalMACNegotiationOverSemtechUDP(t *testing.T) {
 		t.Fatalf("MAC responses did not reach UDP bridge: %x %v", response.FOpts, err)
 	}
 }
+
+func TestReactivatingVirtualGatewayRestartsBridgeTransport(t *testing.T) {
+	bridge := listenIntegrationUDP(t)
+	address := bridge.LocalAddr().(*net.UDPAddr)
+	factory := gateway.NewUDPFactory(gateway.UDPOptions{LocalAddress: "127.0.0.1:0"})
+	if err := factory.ConfigureGatewayBridge(contracts.GatewayBridgeConfig{Enabled: true, Address: "127.0.0.1", Port: int32(address.Port)}); err != nil {
+		t.Fatal(err)
+	}
+	gw := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7999")
+	engine, err := New(contracts.SimulationConfig{Speed: 1}, nil, []contracts.Gateway{gw}, types.Options{GatewayAdapterFactory: factory})
+	if err != nil {
+		t.Fatal(err)
+	}
+	startEngine(t, engine)
+	defer stopEngine(t, engine)
+	connect := func() {
+		t.Helper()
+		pull := readIntegrationPacket(t, bridge, semtechPullData)
+		writeIntegrationPacket(t, bridge, pull.remote, semtechPullAck, pull.token, nil)
+		waitForEventType(t, engine.Events(), contracts.GatewayConnected)
+	}
+	connect()
+	gw.Active = false
+	if err := engine.UpdateGateway(gw); err != nil {
+		t.Fatal(err)
+	}
+	gw.Active = true
+	if err := engine.UpdateGateway(gw); err != nil {
+		t.Fatal(err)
+	}
+	connect()
+}

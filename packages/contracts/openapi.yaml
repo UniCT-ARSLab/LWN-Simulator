@@ -9,6 +9,12 @@ paths: {}
 
 components:
   schemas:
+    UpdatePositionRequest:
+      $ref: "./schemas/Hardware/UpdatePositionRequest.yaml"
+    UpdateActiveRequest:
+      $ref: "./schemas/Hardware/UpdateActiveRequest.yaml"
+    UpdateDevicePayloadRequest:
+      $ref: "./schemas/Device/UpdateDevicePayloadRequest.yaml"
     Profile:
       $ref: "./schemas/Profile/Profile.yaml"
     CreateProfileRequest:

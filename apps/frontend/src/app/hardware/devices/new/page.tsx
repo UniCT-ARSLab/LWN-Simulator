@@ -75,6 +75,12 @@ const NewDevicePage = () => {
           device: {
             ...editingDevice,
             active: values.active as boolean,
+            locationConfig: {
+              ...editingDevice.locationConfig,
+              latitude: Number(values.latitude),
+              longitude: Number(values.longitude),
+              altitude: Number(values.altitude),
+            },
             payloadConfig: {
               ...editingDevice.payloadConfig,
               payload: values.payload as string,
@@ -212,7 +218,7 @@ const NewDevicePage = () => {
         title={editingDevice ? "Edit Device" : "Create new Device"}
         subTitle={
           editLocked
-            ? "Simulation is active. You can change Active, Payload and Base64 Encoded."
+            ? "Simulation is active. You can change the device status, position and payload."
             : undefined
         }
       />

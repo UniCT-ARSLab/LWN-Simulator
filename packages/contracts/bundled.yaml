@@ -6,6 +6,57 @@ info:
 paths: {}
 components:
   schemas:
+    UpdatePositionRequest:
+      title: UpdatePositionRequest
+      type: object
+      description: Replace the geographic position without changing the radio region.
+      properties:
+        latitude:
+          type: number
+          x-go-type: '*float32'
+          x-oapi-codegen-extra-tags:
+            validate: required,min=-90,max=90
+        longitude:
+          type: number
+          x-go-type: '*float32'
+          x-oapi-codegen-extra-tags:
+            validate: required,min=-180,max=180
+        altitude:
+          type: number
+          description: Altitude in meters.
+          x-go-type: '*float32'
+          x-oapi-codegen-extra-tags:
+            validate: required
+      required:
+        - latitude
+        - longitude
+        - altitude
+    UpdateActiveRequest:
+      title: UpdateActiveRequest
+      type: object
+      properties:
+        active:
+          type: boolean
+          x-go-type: '*bool'
+          x-oapi-codegen-extra-tags:
+            validate: required
+      required:
+        - active
+    UpdateDevicePayloadRequest:
+      title: UpdateDevicePayloadRequest
+      type: object
+      properties:
+        payload:
+          type: string
+          description: Application payload. An empty string clears the payload.
+          x-go-type: '*string'
+          x-oapi-codegen-extra-tags:
+            validate: required
+        base64Encoded:
+          type: boolean
+          description: Whether the payload is Base64. Omit to keep the current setting.
+      required:
+        - payload
     Profile:
       title: Profile
       type: object

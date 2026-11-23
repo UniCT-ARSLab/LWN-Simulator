@@ -291,7 +291,7 @@ for (const deviceCodec of ["empty", "absent"] as const) {
   });
 }
 
-test("updates status and payload while locking other device settings during simulation", async ({ page }) => {
+test("updates device status, position and payload during simulation", async ({ page }) => {
   await mockBackend(page, { devices: "active" });
   await page.goto("/simulation/dashboard");
 
@@ -306,11 +306,14 @@ test("updates status and payload while locking other device settings during simu
     .filter({ has: activeField });
   await expect(activeField).toBeChecked();
   await expect(page.getByLabel("Name")).toBeDisabled();
-  await expect(page.getByLabel("Latitude")).toBeDisabled();
+
   await expect(page.getByRole("textbox", { name: "Payload*" })).toBeEnabled();
   await expect(page.locator('input[name="base64Encoded"]')).toBeEnabled();
   await page.getByRole("textbox", { name: "Payload*" }).fill("TmV3IHBheWxvYWQ=");
   await expect(activeField).toBeEnabled();
+  await page.getByLabel("Latitude").fill("37.5079");
+  await page.getByLabel("Longitude").fill("15.0830");
+  await page.getByLabel("Altitude").fill("125");
   await activeControl.locator(".box").click();
   await expect(activeField).not.toBeChecked();
   await page.getByRole("button", { name: "Save" }).click();
@@ -320,6 +323,9 @@ test("updates status and payload while locking other device settings during simu
 
   await page.goto("/hardware/devices/new?deviceId=device-1");
   await expect(activeField).not.toBeChecked();
+  await expect(page.getByLabel("Latitude")).toHaveValue("37.5079");
+  await expect(page.getByLabel("Longitude")).toHaveValue("15.083");
+  await expect(page.getByLabel("Altitude")).toHaveValue("125");
   await expect(page.getByRole("textbox", { name: "Payload*" })).toHaveValue("TmV3IHBheWxvYWQ=");
   const base64Field = page.locator('input[name="base64Encoded"]');
   await expect(base64Field).toBeChecked();
@@ -339,7 +345,7 @@ test("updates status and payload while locking other device settings during simu
   await expect(page.getByText("Running", { exact: true })).toBeVisible();
 });
 
-test("allows only gateway status changes while the simulation is running", async ({
+test("updates gateway status and position during simulation", async ({
   page,
 }) => {
   await mockBackend(page, { devices: "active" });
@@ -359,11 +365,18 @@ test("allows only gateway status changes while the simulation is running", async
   await expect(page.getByLabel("Name")).toBeDisabled();
   await expect(page.getByLabel("Gateway IPv4")).toBeDisabled();
   await expect(activeField).toBeEnabled();
+  await page.getByLabel("Latitude").fill("37.5079");
+  await page.getByLabel("Longitude").fill("15.0830");
+  await page.getByLabel("Altitude").fill("125");
   await activeControl.locator(".box").click();
   await page.getByRole("button", { name: "Save" }).click();
 
   await expect(page).toHaveURL(/\/hardware\/gateways\/?$/);
   await expect(page.getByText("inactive", { exact: true })).toBeVisible();
+  await page.goto("/hardware/gateways/new?gatewayId=gateway-1");
+  await expect(page.getByLabel("Latitude")).toHaveValue("37.5079");
+  await expect(page.getByLabel("Longitude")).toHaveValue("15.083");
+  await expect(page.getByLabel("Altitude")).toHaveValue("125");
 });
 
 test("loads and saves an edited real gateway", async ({ page }) => {

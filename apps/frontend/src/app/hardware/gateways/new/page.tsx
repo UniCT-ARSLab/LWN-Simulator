@@ -23,7 +23,9 @@ const NewGatewayPage = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const gatewayId = searchParams.get("gatewayId");
-  const simulationActive = profileService.simulationActivity?.active === true;
+  const simulationActive = profileService.simulationActivity?.active === true &&
+    (!profileService.simulationActivity.profileID ||
+      profileService.simulationActivity.profileID === profileService.activeProfileID);
 
   // States
   const [editingGateway, setEditingGateway] = useState<Gateway | null>(null);
@@ -55,7 +57,13 @@ const NewGatewayPage = () => {
       try {
         await gatewayService.updateGateway({
           id: editingGateway.id,
-          gateway: { ...editingGateway, active: values.active as boolean },
+          gateway: {
+            ...editingGateway,
+            active: values.active as boolean,
+            latitude: Number(values.latitude),
+            longitude: Number(values.longitude),
+            altitude: Number(values.altitude),
+          },
         });
         NotificationHandler.instance.success("Gateway updated");
         router.back();
@@ -108,7 +116,7 @@ const NewGatewayPage = () => {
         title={editingGateway ? "Edit Gateway" : "Create new Gateway"}
         subTitle={
           editLocked
-            ? "Simulation is active. Only the gateway status can be changed."
+            ? "Simulation is active. You can change the gateway status and position."
             : undefined
         }
       />

@@ -205,11 +205,11 @@ configured range, not a guarantee of successful radio delivery.
 
 ## Change a payload during a simulation
 
-While this profile's simulation is running or paused, **Edit Device** allows changes to **Active**, **Payload** and **Base64 Encoded**. Other fields are disabled. Use Active to simulate a failure; change Payload to provide new temperature, humidity or other application data. Enable Base64 Encoded for exact binary bytes.
+While this profile's simulation is running or paused, **Edit Device** allows changes to **Active**, **Payload** and **Base64 Encoded**, latitude, longitude and altitude. Other fields are disabled. Use Active to simulate a failure; change Payload to provide new temperature, humidity or other application data. Enable Base64 Encoded for exact binary bytes.
 
 Payload changes apply to the next new application message. A retransmission or remaining fragment of a message already started retains its original bytes. Changing the payload preserves the LoRaWAN session, keys and frame counters. Disabling a device cancels its pending traffic.
 
-A terminal command or external script can make the same update through `PUT /api/profiles/{profileID}/device/update-device/{deviceID}`. Send the full device object in the `device` property, keeping every field unchanged except `active`, `payloadConfig.payload` and `payloadConfig.base64Encoded`. The server rejects other configuration changes while the simulation is running or paused. After stopping it, normal device edits are available again.
+A terminal command or external script can make the same update through `PUT /api/profiles/{profileID}/device/update-device/{deviceID}`. Send the full device object in the `device` property, keeping every field unchanged except `active`, `payloadConfig.payload` and `payloadConfig.base64Encoded`, `locationConfig.latitude`, `locationConfig.longitude`, `locationConfig.altitude`. The server rejects other configuration changes while the simulation is running or paused. After stopping it, normal device edits are available again.
 
 This Python 3 example reads the current configuration and updates its payload. Replace `PROFILE_UUID` and `DEVICE_UUID` with the IDs of your profile and device. Repeat with different values to represent changing readings. The JavaScript payload codec decodes received data; this script supplies the data to transmit.
 

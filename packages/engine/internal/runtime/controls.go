@@ -307,6 +307,10 @@ func (e *Engine) UpdateGateway(updated contracts.Gateway) error {
 		e.mu.Unlock()
 		return fmt.Errorf("%w: %s", ErrGatewayNotFound, updated.ID)
 	}
+	if err := validateRunningGatewayUpdate(current, updated, e.state.Status); err != nil {
+		e.mu.Unlock()
+		return err
+	}
 	gateways := e.registry.Gateways()
 	for index := range gateways {
 		if gateways[index].ID == updated.ID {
@@ -335,7 +339,7 @@ func (e *Engine) UpdateGateway(updated contracts.Gateway) error {
 		adapter = e.gatewayAdapters[updated.ID]
 		delete(e.gatewayAdapters, updated.ID)
 	}
-	if runtimeState := e.gatewayRuntime[updated.ID]; runtimeState != nil {
+	if runtimeState := e.gatewayRuntime[updated.ID]; restart && runtimeState != nil {
 		if !updated.Active || updated.Type == contracts.Real {
 			runtimeState.State = contracts.Disconnected
 		} else {
@@ -351,7 +355,7 @@ func (e *Engine) UpdateGateway(updated contracts.Gateway) error {
 	if adapter != nil {
 		_ = adapter.Close()
 	}
-	if restart && updated.Active && updated.Type == contracts.Real && runContext != nil {
+	if restart && updated.Active && runContext != nil && requiresRealtimeTransport([]contracts.Gateway{updated}, e.gatewayAdapterFactory) {
 		e.startGatewayAdapter(runContext, updated)
 	}
 	e.signalWake()
@@ -474,10 +478,39 @@ func validateRunningDeviceUpdate(current, updated contracts.Device, status contr
 	}
 	allowed := current
 	allowed.Active = updated.Active
+	allowed.LocationConfig.Latitude = updated.LocationConfig.Latitude
+	allowed.LocationConfig.Longitude = updated.LocationConfig.Longitude
+	allowed.LocationConfig.Altitude = updated.LocationConfig.Altitude
 	allowed.PayloadConfig.Payload = updated.PayloadConfig.Payload
 	allowed.PayloadConfig.Base64Encoded = updated.PayloadConfig.Base64Encoded
 	if !reflect.DeepEqual(allowed, updated) {
-		return fmt.Errorf("only active, payload and Base64 encoding can change while a simulation is running or paused")
+		return fmt.Errorf("only active, position, payload and Base64 encoding can change while a simulation is running or paused")
+	}
+	return nil
+}
+
+// ValidateGatewayUpdate checks a hardware edit before it is persisted.
+func (e *Engine) ValidateGatewayUpdate(updated contracts.Gateway) error {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	current, exists := e.registry.Gateway(updated.ID)
+	if !exists {
+		return fmt.Errorf("%w: %s", ErrGatewayNotFound, updated.ID)
+	}
+	return validateRunningGatewayUpdate(current, updated, e.state.Status)
+}
+
+func validateRunningGatewayUpdate(current, updated contracts.Gateway, status contracts.SimulationStatus) error {
+	if !runtimeControlStatus(status) {
+		return nil
+	}
+	allowed := current
+	allowed.Active = updated.Active
+	allowed.Latitude = updated.Latitude
+	allowed.Longitude = updated.Longitude
+	allowed.Altitude = updated.Altitude
+	if !reflect.DeepEqual(allowed, updated) {
+		return fmt.Errorf("only active and position can change while a simulation is running or paused")
 	}
 	return nil
 }

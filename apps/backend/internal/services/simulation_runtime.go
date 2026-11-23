@@ -284,6 +284,10 @@ func (s *SimulationService) RegisterGatewayLocked(gateway contracts.Gateway) err
 	return s.withHardwareRuntimeLocked(func(runtime *engine.Engine) error { return runtime.RegisterGateway(gateway) })
 }
 
+func (s *SimulationService) ValidateGatewayUpdateLocked(gateway contracts.Gateway) error {
+	return s.withHardwareRuntimeLocked(func(runtime *engine.Engine) error { return runtime.ValidateGatewayUpdate(gateway) })
+}
+
 func (s *SimulationService) UpdateGatewayLocked(gateway contracts.Gateway) error {
 	return s.withHardwareRuntimeLocked(func(runtime *engine.Engine) error { return runtime.UpdateGateway(gateway) })
 }

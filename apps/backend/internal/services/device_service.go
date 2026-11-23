@@ -194,18 +194,34 @@ func (s *DeviceService) ImportDevices(devices []contracts.Device) error {
 func (s *DeviceService) UpdateDevice(
 	req contracts.UpdateDeviceRequest,
 ) (contracts.UpdateDeviceResponse, error) {
+	return s.updateDevice(req.ID, func(device *contracts.Device) error {
+		*device = req.Device
+		return nil
+	})
+}
+
+func (s *DeviceService) updateDevice(
+	id string,
+	apply func(*contracts.Device) error,
+) (contracts.UpdateDeviceResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	releaseRuntime := acquireHardwareMutation(s.runtime)
 	defer releaseRuntime()
 
-	previous, err := s.repository.GetByID(req.ID)
+	previous, err := s.repository.GetByID(id)
 	if err != nil {
 		return contracts.UpdateDeviceResponse{}, wrapDeviceRepositoryError(
 			"get device by id",
 			err,
 		)
 	}
+
+	device := previous
+	if err := apply(&device); err != nil {
+		return contracts.UpdateDeviceResponse{}, err
+	}
+	device.ID = id
 
 	devices, err := s.repository.GetAll()
 	if err != nil {
@@ -216,16 +232,13 @@ func (s *DeviceService) UpdateDevice(
 	}
 
 	for _, existing := range devices {
-		if existing.ID != req.ID && existing.DevEUI == req.Device.DevEUI {
+		if existing.ID != id && existing.DevEUI == device.DevEUI {
 			return contracts.UpdateDeviceResponse{}, apperrors.Conflict(
 				"device with DevEUI %q already exists",
-				req.Device.DevEUI,
+				device.DevEUI,
 			)
 		}
 	}
-
-	device := req.Device
-	device.ID = req.ID
 
 	if s.runtime != nil {
 		if err := s.runtime.ValidateDeviceUpdateLocked(device); err != nil {

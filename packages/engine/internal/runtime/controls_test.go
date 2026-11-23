@@ -352,3 +352,26 @@ func TestExternalGatewayTransportsRequireRealtimeSpeed(t *testing.T) {
 		})
 	}
 }
+
+func TestMovingRealGatewayPreservesConnection(t *testing.T) {
+	gateway := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c01")
+	gateway.Type = contracts.Real
+	gateway.KeepAlive = nil
+	gateway.GatewayIPv4 = engineStringPtr("127.0.0.1")
+	gateway.GatewayPort = engineInt32Ptr(1700)
+	engine, err := New(contracts.SimulationConfig{Speed: 1}, nil, []contracts.Gateway{gateway}, types.Options{Clock: types.NewManualClock(0)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	engine.state.Status = contracts.SimulationStatusPaused
+	adapter := newFakeGatewayAdapter()
+	engine.gatewayAdapters[gateway.ID] = adapter
+	engine.gatewayRuntime[gateway.ID].State = contracts.Connected
+	gateway.Longitude = float32Ptr(16)
+	if err := engine.UpdateGateway(gateway); err != nil {
+		t.Fatal(err)
+	}
+	if engine.gatewayRuntime[gateway.ID].State != contracts.Connected || engine.gatewayAdapters[gateway.ID] != adapter {
+		t.Fatal("moving a connected gateway changed its connection")
+	}
+}

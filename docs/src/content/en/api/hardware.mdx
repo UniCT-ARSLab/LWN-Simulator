@@ -113,8 +113,27 @@ curl -fsS "$BASE/gateway/create-gateway" -H 'Content-Type: application/json' --d
 ## Live device updates
 
 <Callout type="info">
-While this profile is running or paused, a device PUT may change only `active`, `payloadConfig.payload` and `payloadConfig.base64Encoded`. Other changes return an error. New payload bytes apply to the next new message; retries and remaining fragments keep their original bytes. Stop the run before editing identity, radio or session settings. For gateway fault testing, GET the gateway, change only `active`, and PUT the full object.
+While this profile is running or paused, a device PUT may change only `active`, `payloadConfig.payload` and `payloadConfig.base64Encoded`, `locationConfig.latitude`, `locationConfig.longitude`, `locationConfig.altitude`. Other changes return an error. New payload bytes apply to the next new message; retries and remaining fragments keep their original bytes. Stop the run before editing identity, radio or session settings. For gateways, a PUT may change `active`, `latitude`, `longitude` and `altitude` during the run.
 </Callout>
+
+## Update a single setting
+
+Use these PATCH routes relative to `$BASE` in any simulation state, including while running or paused. Position requires all three coordinates in decimal degrees and meters. A successful response is HTTP 200 with the updated object in `device` or `gateway`. Send `active: false` to deactivate a device or gateway. For payload, omit `base64Encoded` to keep its current value. An empty string clears the payload.
+
+| Path | JSON body |
+| --- | --- |
+| `PATCH /device/{id}/position` | `{"latitude":37.5079,"longitude":15.083,"altitude":125}` |
+| `PATCH /device/{id}/active` | `{"active":false}` |
+| `PATCH /device/{id}/payload` | `{"payload":"temperature=24.5","base64Encoded":false}` |
+| `PATCH /gateway/{id}/position` | `{"latitude":37.5079,"longitude":15.083,"altitude":125}` |
+| `PATCH /gateway/{id}/active` | `{"active":false}` |
+
+```bash
+DEVICE_ID=DEVICE_UUID
+curl -fsS -X PATCH "$BASE/device/$DEVICE_ID/position" \
+  -H 'Content-Type: application/json' \
+  -d '{"latitude":37.5079,"longitude":15.083,"altitude":125}'
+```
 
 ## External sensor script
 
@@ -129,15 +148,12 @@ BASE = "http://127.0.0.1:8080/api/profiles/PROFILE_UUID"
 DEVICE_ID = "DEVICE_UUID"
 
 for temperature in (23.5, 24.0, 24.5):
-    with urlopen(f"{BASE}/device/get-device/{DEVICE_ID}", timeout=10) as response:
-        device = json.load(response)["device"]
-    device["payloadConfig"]["payload"] = json.dumps({"temperature": temperature})
-    device["payloadConfig"]["base64Encoded"] = False
+    reading = json.dumps({"temperature": temperature})
     request = Request(
-        f"{BASE}/device/update-device/{DEVICE_ID}",
-        data=json.dumps({"device": device}).encode("utf-8"),
+        f"{BASE}/device/{DEVICE_ID}/payload",
+        data=json.dumps({"payload": reading, "base64Encoded": False}).encode("utf-8"),
         headers={"Content-Type": "application/json"},
-        method="PUT",
+        method="PATCH",
     )
     with urlopen(request, timeout=10) as response:
         print(response.status)

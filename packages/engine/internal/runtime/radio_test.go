@@ -262,3 +262,48 @@ func TestBridgeUplinkPreservesCalculatedSignal(t *testing.T) {
 		})
 	}
 }
+
+func TestLivePositionChangesAffectNextTransmission(t *testing.T) {
+	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000001")
+	configureABP(&device)
+	gateway := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c01")
+	engine, err := New(contracts.SimulationConfig{Speed: 1}, []contracts.Device{device}, []contracts.Gateway{gateway}, types.Options{Clock: types.NewManualClock(0)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	engine.state.Status = contracts.SimulationStatusRunning
+	session := engine.sessions[device.ID]
+	transmit := func(id string) *types.RadioTransmission {
+		current, _ := engine.registry.Device(device.ID)
+		engine.startRadioTransmissionLocked(current, types.ScheduledEvent{DeviceID: device.ID, Attempt: 1}, id, 1, false)
+		packet := engine.radio[id]
+		if packet == nil {
+			t.Fatal("expected a radio transmission")
+		}
+		delete(engine.radio, id)
+		return packet
+	}
+
+	initial := transmit("initial")
+	if len(initial.GatewayIDs) != 1 {
+		t.Fatal("expected initial coverage")
+	}
+	device.LocationConfig.Latitude = float32Ptr(40)
+	if err := engine.UpdateDevice(device); err != nil {
+		t.Fatal(err)
+	}
+	if packet := transmit("out-of-range"); len(packet.GatewayIDs) != 0 {
+		t.Fatal("device movement did not remove coverage")
+	}
+	gateway.Latitude = float32Ptr(40)
+	gateway.Altitude = float32Ptr(150)
+	if err := engine.UpdateGateway(gateway); err != nil {
+		t.Fatal(err)
+	}
+	if packet := transmit("back-in-range"); len(packet.GatewayIDs) != 1 || packet.GatewayIDs[0] != gateway.ID || packet.RSSI >= initial.RSSI {
+		t.Fatalf("expected coverage restored with weaker signal after moving the gateway: %+v", packet)
+	}
+	if engine.sessions[device.ID] != session || !session.Joined {
+		t.Fatal("movement reset the device session")
+	}
+}

@@ -62,7 +62,7 @@ const lockFieldsDuringSimulation = (
   locked: boolean,
 ): Array<FormField> =>
   fields.map((field) =>
-    locked && !["active", "payload", "base64Encoded"].includes(field.name)
+    locked && !["active", "payload", "base64Encoded", "latitude", "longitude", "altitude"].includes(field.name)
       ? { ...field, disabled: true, toolbar: undefined }
       : field,
   );

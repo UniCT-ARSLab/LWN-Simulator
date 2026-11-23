@@ -30,7 +30,7 @@ const lockFieldsDuringSimulation = (
   locked: boolean,
 ): Array<FormField> =>
   fields.map((field) =>
-    locked && field.name !== "active"
+    locked && !["active", "latitude", "longitude", "altitude"].includes(field.name)
       ? { ...field, disabled: true, toolbar: undefined }
       : field,
   );

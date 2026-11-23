@@ -104,11 +104,11 @@ Usa DevEUI diversi per ogni device. Per ABP compila tutti i parametri di session
 
 ## Cambiare il payload durante una simulazione
 
-Quando la simulazione di questo profilo è in esecuzione o in pausa, **Edit Device** permette di modificare **Active**, **Payload** e **Base64 Encoded**. Gli altri campi sono disabilitati. Usa Active per simulare un guasto e Payload per cambiare temperatura, umidità o altri dati applicativi. Attiva Base64 Encoded per inviare byte binari esatti.
+Quando la simulazione di questo profilo è in esecuzione o in pausa, **Edit Device** permette di modificare **Active**, **Payload** e **Base64 Encoded**, latitudine, longitudine e quota. Gli altri campi sono disabilitati. Usa Active per simulare un guasto e Payload per cambiare temperatura, umidità o altri dati applicativi. Attiva Base64 Encoded per inviare byte binari esatti.
 
 La modifica del payload vale dal prossimo nuovo messaggio applicativo. Ritrasmissioni e frammenti di un messaggio già iniziato mantengono i byte originali. La modifica conserva sessione LoRaWAN, chiavi e contatori. Disattivare un device annulla il suo traffico in sospeso.
 
-Un comando da terminale o uno script esterno può usare `PUT /api/profiles/{profileID}/device/update-device/{deviceID}`. Invia l'oggetto device completo nella proprietà `device`, mantenendo invariati tutti i campi tranne `active`, `payloadConfig.payload` e `payloadConfig.base64Encoded`. Il server rifiuta le altre modifiche mentre la simulazione è in esecuzione o in pausa. Dopo averla fermata, la normale modifica del device torna disponibile.
+Un comando da terminale o uno script esterno può usare `PUT /api/profiles/{profileID}/device/update-device/{deviceID}`. Invia l'oggetto device completo nella proprietà `device`, mantenendo invariati tutti i campi tranne `active`, `payloadConfig.payload` e `payloadConfig.base64Encoded`, `locationConfig.latitude`, `locationConfig.longitude`, `locationConfig.altitude`. Il server rifiuta le altre modifiche mentre la simulazione è in esecuzione o in pausa. Dopo averla fermata, la normale modifica del device torna disponibile.
 
 Questo esempio Python 3 legge la configurazione corrente e aggiorna il payload. Sostituisci `PROFILE_UUID` e `DEVICE_UUID` con gli ID del profilo e del device. Ripeti con valori diversi per rappresentare letture variabili. Il codec JavaScript decodifica i dati ricevuti; questo script fornisce quelli da trasmettere.
 

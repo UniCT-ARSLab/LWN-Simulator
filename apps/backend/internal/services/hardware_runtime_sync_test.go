@@ -44,6 +44,10 @@ func (runtime *fakeGatewayRuntimeSynchronizer) RegisterGatewayLocked(gateway con
 	runtime.registered = append(runtime.registered, gateway)
 	return runtime.err
 }
+func (*fakeGatewayRuntimeSynchronizer) ValidateGatewayUpdateLocked(contracts.Gateway) error {
+	return nil
+}
+
 func (runtime *fakeGatewayRuntimeSynchronizer) UpdateGatewayLocked(gateway contracts.Gateway) error {
 	runtime.updated = append(runtime.updated, gateway)
 	return runtime.err
