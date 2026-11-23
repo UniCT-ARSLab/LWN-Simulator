@@ -48,6 +48,19 @@ type simulationEventOffset struct {
 	Offset   int64 `json:"offset"`
 }
 
+const simulationEventIndexStride = 1024
+
+type simulationEventWriter struct {
+	writer io.Writer
+	offset int64
+}
+
+func (writer *simulationEventWriter) Write(data []byte) (int, error) {
+	count, err := writer.writer.Write(data)
+	writer.offset += int64(count)
+	return count, err
+}
+
 type FileSimulationLogStore struct {
 	path   string
 	mu     sync.Mutex
@@ -81,24 +94,20 @@ func (store *FileSimulationLogStore) List() (contracts.SimulationRunsResponse, e
 }
 
 func (store *FileSimulationLogStore) Get(id string) (contracts.SimulationRun, []contracts.SimulationEvent, error) {
-	store.mu.Lock()
-	defer store.mu.Unlock()
-	runs, err := store.loadLocked()
+	run, reader, err := store.openRunEvents(id)
 	if err != nil {
 		return contracts.SimulationRun{}, nil, err
 	}
-	for _, run := range runs {
-		if run.Run.Summary.Id == id {
-			events := append([]contracts.SimulationEvent(nil), run.Events...)
-			sidecar, sidecarErr := store.loadEventSidecarLocked(id)
-			if sidecarErr != nil {
-				return contracts.SimulationRun{}, nil, sidecarErr
-			}
-			events = append(events, sidecar...)
-			return run.Run, events, nil
-		}
+	defer reader.close()
+	events := append([]contracts.SimulationEvent(nil), run.Events...)
+	err = reader.scan(0, reader.size, func(event contracts.SimulationEvent) bool {
+		events = append(events, event)
+		return false
+	})
+	if err != nil {
+		return contracts.SimulationRun{}, nil, err
 	}
-	return contracts.SimulationRun{}, nil, os.ErrNotExist
+	return run.Run, events, nil
 }
 
 func (store *FileSimulationLogStore) GetRun(id string) (contracts.SimulationRun, error) {
@@ -114,53 +123,6 @@ func (store *FileSimulationLogStore) GetRun(id string) (contracts.SimulationRun,
 		}
 	}
 	return contracts.SimulationRun{}, os.ErrNotExist
-}
-
-func (store *FileSimulationLogStore) Events(id string, query SimulationLogEventQuery) (contracts.SimulationEventsResponse, error) {
-	store.mu.Lock()
-	defer store.mu.Unlock()
-	runs, err := store.loadLocked()
-	if err != nil {
-		return contracts.SimulationEventsResponse{}, err
-	}
-	for _, run := range runs {
-		if run.Run.Summary.Id != id {
-			continue
-		}
-		result := make([]contracts.SimulationEvent, 0, max(0, query.Limit))
-		lastSequence := int64(run.Run.Summary.EventCount)
-		appendEvent := func(event contracts.SimulationEvent) bool {
-			if event.Sequence > lastSequence {
-				lastSequence = event.Sequence
-			}
-			if !simulationLogEventMatches(event, query) {
-				return false
-			}
-			if query.BeforeSequence > 0 {
-				result = append(result, event)
-				if query.Limit > 0 && len(result) > query.Limit {
-					result = result[1:]
-				}
-				return false
-			}
-			result = append(result, event)
-			return query.Limit > 0 && len(result) >= query.Limit
-		}
-		for _, event := range run.Events {
-			if appendEvent(event) {
-				return contracts.SimulationEventsResponse{Events: result, LastSequence: lastSequence}, nil
-			}
-		}
-		afterSequence := query.AfterSequence
-		if query.BeforeSequence > 0 {
-			afterSequence = 0
-		}
-		if err := store.scanEventSidecarLocked(id, afterSequence, appendEvent); err != nil {
-			return contracts.SimulationEventsResponse{}, err
-		}
-		return contracts.SimulationEventsResponse{Events: result, LastSequence: lastSequence}, nil
-	}
-	return contracts.SimulationEventsResponse{}, os.ErrNotExist
 }
 
 func simulationLogEventMatches(event contracts.SimulationEvent, query SimulationLogEventQuery) bool {
@@ -244,6 +206,7 @@ func (store *FileSimulationLogStore) AppendBatch(id string, events []contracts.S
 			seen[event.Sequence] = struct{}{}
 			newEvents = append(newEvents, event)
 		}
+		sort.Slice(newEvents, func(i, j int) bool { return newEvents[i].Sequence < newEvents[j].Sequence })
 		if err := store.appendEventSidecarLocked(id, newEvents); err != nil {
 			return err
 		}
@@ -303,8 +266,8 @@ func (store *FileSimulationLogStore) lastEventSequenceLocked(id string) (int64, 
 		return sequence, nil
 	}
 	// Index entries point to the first event of each batch, so their sequence
-	// is not necessarily the last sequence in the sidecar. Scan the sidecar
-	// once after a process restart; the result is cached for subsequent batches.
+	// is not necessarily the last sequence in the sidecar. Read the tail once
+	// after restart and cache it for subsequent batches.
 	sequence, err := store.scanLastEventSequenceLocked(id)
 	if err != nil {
 		return 0, err
@@ -314,11 +277,15 @@ func (store *FileSimulationLogStore) lastEventSequenceLocked(id string) (int64, 
 }
 
 func (store *FileSimulationLogStore) scanLastEventSequenceLocked(id string) (int64, error) {
-	sequence := int64(0)
-	err := store.scanEventSidecarLocked(id, 0, func(event contracts.SimulationEvent) bool {
-		if event.Sequence > sequence {
-			sequence = event.Sequence
-		}
+	reader, err := store.openEventReader(id)
+	if err != nil {
+		return 0, err
+	}
+	defer reader.close()
+	offsets := reader.offsets()
+	var sequence int64
+	err = reader.scan(offsets[len(offsets)-1].Offset, reader.size, func(event contracts.SimulationEvent) bool {
+		sequence = max(sequence, event.Sequence)
 		return false
 	})
 	return sequence, err
@@ -363,12 +330,20 @@ func (store *FileSimulationLogStore) appendEventSidecarLocked(id string, events 
 		_ = file.Close()
 		return fmt.Errorf("seek simulation event log: %w", err)
 	}
-	encoder := json.NewEncoder(file)
-	for _, event := range events {
-		if err := encoder.Encode(event); err != nil {
-			_ = file.Close()
-			return fmt.Errorf("encode simulation event: %w", err)
+	buffer := bufio.NewWriterSize(file, 64*1024)
+	writer := &simulationEventWriter{writer: buffer, offset: offset}
+	encoder := json.NewEncoder(writer)
+	offsets := make([]simulationEventOffset, 0, 1+(len(events)-1)/simulationEventIndexStride)
+	for i, event := range events {
+		if i%simulationEventIndexStride == 0 {
+			offsets = append(offsets, simulationEventOffset{Sequence: event.Sequence, Offset: writer.offset})
 		}
+		if err := encoder.Encode(event); err != nil {
+			return errors.Join(fmt.Errorf("encode simulation event: %w", err), file.Truncate(offset), file.Close())
+		}
+	}
+	if err := buffer.Flush(); err != nil {
+		return errors.Join(fmt.Errorf("write simulation event batch: %w", err), file.Truncate(offset), file.Close())
 	}
 	if err := file.Sync(); err != nil {
 		_ = file.Close()
@@ -377,7 +352,7 @@ func (store *FileSimulationLogStore) appendEventSidecarLocked(id string, events 
 	if err := file.Close(); err != nil {
 		return fmt.Errorf("close simulation event log: %w", err)
 	}
-	if err := store.appendEventOffsetLocked(id, simulationEventOffset{Sequence: events[0].Sequence, Offset: offset}); err != nil {
+	if err := store.appendEventOffsetsLocked(id, offsets); err != nil {
 		// The event stream is the source of truth. A missing index only makes a
 		// historical query slower and must never cause the durable events to be
 		// retried and duplicated.
@@ -386,7 +361,7 @@ func (store *FileSimulationLogStore) appendEventSidecarLocked(id string, events 
 	return nil
 }
 
-func (store *FileSimulationLogStore) appendEventOffsetLocked(id string, entry simulationEventOffset) error {
+func (store *FileSimulationLogStore) appendEventOffsetsLocked(id string, entries []simulationEventOffset) error {
 	path, err := store.eventIndexPath(id)
 	if err != nil {
 		return err
@@ -395,9 +370,12 @@ func (store *FileSimulationLogStore) appendEventOffsetLocked(id string, entry si
 	if err != nil {
 		return fmt.Errorf("open simulation event index: %w", err)
 	}
-	if err := json.NewEncoder(file).Encode(entry); err != nil {
-		_ = file.Close()
-		return fmt.Errorf("encode simulation event index: %w", err)
+	encoder := json.NewEncoder(file)
+	for _, entry := range entries {
+		if err := encoder.Encode(entry); err != nil {
+			_ = file.Close()
+			return fmt.Errorf("encode simulation event index: %w", err)
+		}
 	}
 	if err := file.Sync(); err != nil {
 		_ = file.Close()
@@ -407,90 +385,6 @@ func (store *FileSimulationLogStore) appendEventOffsetLocked(id string, entry si
 		return fmt.Errorf("close simulation event index: %w", err)
 	}
 	return nil
-}
-
-func (store *FileSimulationLogStore) loadEventSidecarLocked(id string) ([]contracts.SimulationEvent, error) {
-	events := make([]contracts.SimulationEvent, 0)
-	err := store.scanEventSidecarLocked(id, 0, func(event contracts.SimulationEvent) bool {
-		events = append(events, event)
-		return false
-	})
-	return events, err
-}
-
-func (store *FileSimulationLogStore) scanEventSidecarLocked(id string, afterSequence int64, visit func(contracts.SimulationEvent) bool) error {
-	path, err := store.eventPath(id)
-	if err != nil {
-		return err
-	}
-	file, err := os.Open(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("open simulation event log: %w", err)
-	}
-	defer file.Close()
-	if afterSequence > 0 {
-		offset, offsetErr := store.eventOffsetLocked(id, afterSequence)
-		if offsetErr != nil {
-			return offsetErr
-		}
-		if offset > 0 {
-			if _, err := file.Seek(offset, io.SeekStart); err != nil {
-				return fmt.Errorf("seek simulation event log: %w", err)
-			}
-		}
-	}
-
-	scanner := bufio.NewScanner(file)
-	buffer := make([]byte, 64*1024)
-	scanner.Buffer(buffer, 4*1024*1024)
-	for scanner.Scan() {
-		var event contracts.SimulationEvent
-		if err := json.Unmarshal(scanner.Bytes(), &event); err != nil {
-			return fmt.Errorf("decode simulation event: %w", err)
-		}
-		if visit(event) {
-			return nil
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("read simulation event log: %w", err)
-	}
-	return nil
-}
-
-func (store *FileSimulationLogStore) eventOffsetLocked(id string, afterSequence int64) (int64, error) {
-	path, err := store.eventIndexPath(id)
-	if err != nil {
-		return 0, err
-	}
-	file, err := os.Open(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return 0, nil
-	}
-	if err != nil {
-		return 0, fmt.Errorf("open simulation event index: %w", err)
-	}
-	defer file.Close()
-
-	offset := int64(0)
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		var entry simulationEventOffset
-		if err := json.Unmarshal(scanner.Bytes(), &entry); err != nil {
-			return 0, fmt.Errorf("decode simulation event index: %w", err)
-		}
-		if entry.Sequence > afterSequence {
-			break
-		}
-		offset = entry.Offset
-	}
-	if err := scanner.Err(); err != nil {
-		return 0, fmt.Errorf("read simulation event index: %w", err)
-	}
-	return offset, nil
 }
 
 func (store *FileSimulationLogStore) loadLocked() ([]persistedSimulationRun, error) {

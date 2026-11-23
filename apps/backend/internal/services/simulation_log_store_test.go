@@ -3,6 +3,7 @@ package services
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
@@ -130,5 +131,99 @@ func TestFileSimulationLogStoreAppendBatchIsIdempotentAcrossRetries(t *testing.T
 	}
 	if len(page.Events) != 1 || page.Events[0].Sequence != 2 || page.LastSequence != 2 {
 		t.Fatalf("unexpected latest page: %+v", page)
+	}
+}
+
+func TestFileSimulationLogStorePaginatesAcrossBatchesAndLegacyEvents(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "logs.json")
+	store := NewFileSimulationLogStore(path)
+	const runID = "run"
+	// Older profiles can still contain inline events.
+	data := `[{"run":{"summary":{"id":"run","eventCount":2}},"events":[{"sequence":1},{"sequence":2}]}]`
+	if err := os.WriteFile(path, []byte(data), 0600); err != nil {
+		t.Fatal(err)
+	}
+	deviceID := "device"
+	for _, batch := range [][]int64{{5, 3, 4}, {6, 8}, {10, 11, 12, 13, 14}, {15, 16}} {
+		var events []contracts.SimulationEvent
+		for _, seq := range batch {
+			event := contracts.SimulationEvent{Sequence: seq}
+			if seq%2 == 0 {
+				event.DeviceID = &deviceID
+			}
+			events = append(events, event)
+		}
+		if err := store.AppendBatch(runID, events, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	tests := []struct {
+		query SimulationLogEventQuery
+		want  []int64
+	}{
+		{SimulationLogEventQuery{BeforeSequence: 15, Limit: 3}, []int64{12, 13, 14}},
+		{SimulationLogEventQuery{BeforeSequence: 13, Limit: 4}, []int64{8, 10, 11, 12}},
+		{SimulationLogEventQuery{BeforeSequence: 5, Limit: 5}, []int64{1, 2, 3, 4}},
+		{SimulationLogEventQuery{BeforeSequence: 16, Limit: 4, DeviceID: deviceID}, []int64{8, 10, 12, 14}},
+		{SimulationLogEventQuery{AfterSequence: 8, Limit: 3}, []int64{10, 11, 12}},
+	}
+	checkPages := func(t *testing.T, store *FileSimulationLogStore) {
+		t.Helper()
+		for _, test := range tests {
+			result, err := store.Events(runID, test.query)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got []int64
+			for _, event := range result.Events {
+				got = append(got, event.Sequence)
+			}
+			if !slices.Equal(got, test.want) || result.LastSequence != 16 {
+				t.Fatalf("query %+v: got %v (last %d), want %v (last 16)", test.query, got, result.LastSequence, test.want)
+			}
+		}
+	}
+	checkPages(t, NewFileSimulationLogStore(path))
+	indexPath, err := store.eventIndexPath(runID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(indexPath, []byte("incomplete index\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	checkPages(t, NewFileSimulationLogStore(path))
+}
+
+func TestSimulationEventReaderHasStableEndWhileWriterAppends(t *testing.T) {
+	store := NewFileSimulationLogStore(filepath.Join(t.TempDir(), "logs.json"))
+	const runID = "run"
+	if err := store.Create(contracts.SimulationRun{Summary: contracts.SimulationRunSummary{Id: runID}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Append(runID, contracts.SimulationEvent{Sequence: 1}); err != nil {
+		t.Fatal(err)
+	}
+	_, reader, err := store.openRunEvents(runID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.close()
+
+	if err := store.Append(runID, contracts.SimulationEvent{Sequence: 2}); err != nil {
+		t.Fatal(err)
+	}
+	var sequences []int64
+	if err := reader.scan(0, reader.size, func(event contracts.SimulationEvent) bool {
+		sequences = append(sequences, event.Sequence)
+		return false
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(sequences, []int64{1}) {
+		t.Fatalf("reader included an event appended after it opened: %v", sequences)
+	}
+	page, err := store.Events(runID, SimulationLogEventQuery{AfterSequence: 1})
+	if err != nil || len(page.Events) != 1 || page.Events[0].Sequence != 2 {
+		t.Fatalf("next reader did not see the new event: %+v, %v", page, err)
 	}
 }

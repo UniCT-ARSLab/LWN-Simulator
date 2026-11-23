@@ -626,12 +626,27 @@ func (e *Engine) QueueDownlink(downlink types.Downlink) (string, error) {
 	return downlink.ID, nil
 }
 
+// StateAndMetrics returns the current counters without building the hardware view.
+func (e *Engine) StateAndMetrics() (contracts.SimulationState, contracts.SimulationMetrics) {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	return e.currentStateLocked(), e.metrics
+}
+
+func (e *Engine) currentStateLocked() contracts.SimulationState {
+	state := e.state
+	if elapsed := e.clock.Now().Milliseconds(); elapsed > state.ElapsedMilliseconds {
+		state.ElapsedMilliseconds = elapsed
+	}
+	return state
+}
+
 func (e *Engine) Snapshot() contracts.SimulationSnapshot {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 
 	snapshot := e.registry.Snapshot()
-	snapshot.State = e.state
+	snapshot.State = e.currentStateLocked()
 	snapshot.Metrics = e.metrics
 	for index, device := range e.registry.Devices() {
 		if session := e.sessions[device.ID]; session != nil {
@@ -665,9 +680,6 @@ func (e *Engine) Snapshot() contracts.SimulationSnapshot {
 			snapshot.Gateways[index].EgressPackets = runtime.EgressPackets
 		}
 	}
-	if elapsed := e.clock.Now().Milliseconds(); elapsed > snapshot.State.ElapsedMilliseconds {
-		snapshot.State.ElapsedMilliseconds = elapsed
-	}
 	return snapshot
 }
 
@@ -677,15 +689,11 @@ func (e *Engine) Checkpoint() types.EngineCheckpoint {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 
-	state := e.state
-	if elapsed := e.clock.Now().Milliseconds(); elapsed > state.ElapsedMilliseconds {
-		state.ElapsedMilliseconds = elapsed
-	}
 	checkpoint := types.EngineCheckpoint{
 		Config:         e.config,
 		Devices:        e.registry.Devices(),
 		Gateways:       e.registry.Gateways(),
-		State:          state,
+		State:          e.currentStateLocked(),
 		Metrics:        e.metrics,
 		Sessions:       make(map[string]types.DeviceSession, len(e.sessions)),
 		Radio:          make(map[string]types.RadioTransmission, len(e.radio)),

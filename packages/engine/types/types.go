@@ -108,39 +108,39 @@ type Options struct {
 // the contract snapshot and the engine runtime state together so a backend
 // restart can continue from the same simulation timeline.
 type EngineCheckpoint struct {
-	RunID          string
-	Config         contracts.SimulationConfig
-	Devices        []contracts.Device
-	Gateways       []contracts.Gateway
-	State          contracts.SimulationState
-	Metrics        contracts.SimulationMetrics
-	Sessions       map[string]DeviceSession
-	Radio          map[string]RadioTransmission
-	Scheduled      []ScheduledEvent
-	GatewayPackets []GatewayPacket
-	EventLog       []contracts.SimulationEvent
+	RunID          string                       `json:",omitzero"`
+	Config         contracts.SimulationConfig   `json:",omitzero"`
+	Devices        []contracts.Device           `json:",omitzero"`
+	Gateways       []contracts.Gateway          `json:",omitzero"`
+	State          contracts.SimulationState    `json:",omitzero"`
+	Metrics        contracts.SimulationMetrics  `json:",omitzero"`
+	Sessions       map[string]DeviceSession     `json:",omitzero"`
+	Radio          map[string]RadioTransmission `json:",omitzero"`
+	Scheduled      []ScheduledEvent             `json:",omitzero"`
+	GatewayPackets []GatewayPacket              `json:",omitzero"`
+	EventLog       []contracts.SimulationEvent  `json:",omitzero"`
 }
 
 type ScheduledEvent struct {
-	ID               string
-	At               time.Duration
-	Type             contracts.SimulationEventType
-	Message          string
-	DeviceID         string
-	GatewayID        string
-	Kind             ScheduledEventKind
-	Attempt          int
-	PacketID         string
-	FrameCounter     int64
-	Confirmed        bool
-	Window           contracts.SimulationRxWindow
-	WindowDuration   time.Duration
-	DataRate         int
-	ChannelFrequency int64
-	WindowBaseAt     time.Duration
-	FragmentIndex    int
-	FragmentCount    int
-	FPendingPoll     bool
+	ID               string                        `json:",omitzero"`
+	At               time.Duration                 `json:",omitzero"`
+	Type             contracts.SimulationEventType `json:",omitzero"`
+	Message          string                        `json:",omitzero"`
+	DeviceID         string                        `json:",omitzero"`
+	GatewayID        string                        `json:",omitzero"`
+	Kind             ScheduledEventKind            `json:",omitzero"`
+	Attempt          int                           `json:",omitzero"`
+	PacketID         string                        `json:",omitzero"`
+	FrameCounter     int64                         `json:",omitzero"`
+	Confirmed        bool                          `json:",omitzero"`
+	Window           contracts.SimulationRxWindow  `json:",omitzero"`
+	WindowDuration   time.Duration                 `json:",omitzero"`
+	DataRate         int                           `json:",omitzero"`
+	ChannelFrequency int64                         `json:",omitzero"`
+	WindowBaseAt     time.Duration                 `json:",omitzero"`
+	FragmentIndex    int                           `json:",omitzero"`
+	FragmentCount    int                           `json:",omitzero"`
+	FPendingPoll     bool                          `json:",omitzero"`
 }
 
 type ScheduledEventKind string
@@ -179,63 +179,63 @@ type NetworkChannel struct {
 
 type DeviceSession struct {
 	// PendingMACResponses contains complete uplink MAC responses waiting for transmission.
-	PendingMACResponses [][]byte
+	PendingMACResponses [][]byte `json:",omitzero"`
 	// NetworkChannels overrides the regional channel table by channel index.
-	NetworkChannels map[int]NetworkChannel
+	NetworkChannels map[int]NetworkChannel `json:",omitzero"`
 	// DisabledChannels records channels disabled by a network channel mask.
-	DisabledChannels map[int]bool
+	DisabledChannels map[int]bool `json:",omitzero"`
 	// PendingDownlinkACK acknowledges a confirmed downlink on the next new uplink.
-	PendingDownlinkACK bool
+	PendingDownlinkACK bool `json:",omitzero"`
 	// ExternalADR leaves ADR decisions to the connected network server.
-	ExternalADR                      bool
-	Joined                           bool
-	FrameCounterUp                   int64
-	LastExternalFrameCounter         uint32
-	FrameCounterDown                 int64
-	LastExternalDownlinkFrameCounter uint32
-	ExternalDownlinkFrameCounterSet  bool
-	CurrentDataRate                  int
-	CurrentSpreadingFactor           int
-	DeviceAddress                    string
-	JoinEUI                          string
-	SecurityFingerprint              string
-	PendingUplink                    *PendingUplink
-	PendingJoinRequest               *PendingJoinRequest
-	LastRSSI                         float64
-	LastSNR                          float64
-	LastAirtime                      time.Duration
-	LastChannel                      int64
-	LastPayloadSize                  int
-	LastFPort                        int
-	ClassBSynchronized               bool
-	LastBeaconAt                     time.Duration
-	NextPingSlotAt                   time.Duration
-	ClassBMissedBeacons              int64
-	ClassBGatewayID                  string
-	ClassBNextPingEventID            string
-	ClassBBeaconTimeoutID            string
-	PendingClassBDownlinks           []ClassBDownlink
-	PendingClassADownlinks           []Downlink
-	PendingClassCDownlinks           []Downlink
-	ClassCNextDownlinkEventID        string
-	NwkSKey                          []byte
-	AppSKey                          []byte
-	DevNonce                         uint16
-	CurrentTxPower                   int
-	UnconfirmedRepetitions           int
-	MaximumDutyCycle                 float64
-	RX1DataRateOffset                int
-	RX2DataRate                      int
-	RX2Frequency                     int64
-	ReceiveDelay                     time.Duration
-	UplinkDwellTime                  bool
-	DownlinkDwellTime                bool
-	MaximumEIRP                      int
-	PingSlotDataRate                 int
-	PingSlotFrequency                int64
-	PingSlotPeriodicity              int
-	BeaconFrequency                  int64
-	AdditionalChannels               []RadioChannel
+	ExternalADR                      bool                `json:",omitzero"`
+	Joined                           bool                `json:",omitzero"`
+	FrameCounterUp                   int64               `json:",omitzero"`
+	LastExternalFrameCounter         uint32              `json:",omitzero"`
+	FrameCounterDown                 int64               `json:",omitzero"`
+	LastExternalDownlinkFrameCounter uint32              `json:",omitzero"`
+	ExternalDownlinkFrameCounterSet  bool                `json:",omitzero"`
+	CurrentDataRate                  int                 `json:",omitzero"`
+	CurrentSpreadingFactor           int                 `json:",omitzero"`
+	DeviceAddress                    string              `json:",omitzero"`
+	JoinEUI                          string              `json:",omitzero"`
+	SecurityFingerprint              string              `json:",omitzero"`
+	PendingUplink                    *PendingUplink      `json:",omitzero"`
+	PendingJoinRequest               *PendingJoinRequest `json:",omitzero"`
+	LastRSSI                         float64             `json:",omitzero"`
+	LastSNR                          float64             `json:",omitzero"`
+	LastAirtime                      time.Duration       `json:",omitzero"`
+	LastChannel                      int64               `json:",omitzero"`
+	LastPayloadSize                  int                 `json:",omitzero"`
+	LastFPort                        int                 `json:",omitzero"`
+	ClassBSynchronized               bool                `json:",omitzero"`
+	LastBeaconAt                     time.Duration       `json:",omitzero"`
+	NextPingSlotAt                   time.Duration       `json:",omitzero"`
+	ClassBMissedBeacons              int64               `json:",omitzero"`
+	ClassBGatewayID                  string              `json:",omitzero"`
+	ClassBNextPingEventID            string              `json:",omitzero"`
+	ClassBBeaconTimeoutID            string              `json:",omitzero"`
+	PendingClassBDownlinks           []ClassBDownlink    `json:",omitzero"`
+	PendingClassADownlinks           []Downlink          `json:",omitzero"`
+	PendingClassCDownlinks           []Downlink          `json:",omitzero"`
+	ClassCNextDownlinkEventID        string              `json:",omitzero"`
+	NwkSKey                          []byte              `json:",omitzero"`
+	AppSKey                          []byte              `json:",omitzero"`
+	DevNonce                         uint16              `json:",omitzero"`
+	CurrentTxPower                   int                 `json:",omitzero"`
+	UnconfirmedRepetitions           int                 `json:",omitzero"`
+	MaximumDutyCycle                 float64             `json:",omitzero"`
+	RX1DataRateOffset                int                 `json:",omitzero"`
+	RX2DataRate                      int                 `json:",omitzero"`
+	RX2Frequency                     int64               `json:",omitzero"`
+	ReceiveDelay                     time.Duration       `json:",omitzero"`
+	UplinkDwellTime                  bool                `json:",omitzero"`
+	DownlinkDwellTime                bool                `json:",omitzero"`
+	MaximumEIRP                      int                 `json:",omitzero"`
+	PingSlotDataRate                 int                 `json:",omitzero"`
+	PingSlotFrequency                int64               `json:",omitzero"`
+	PingSlotPeriodicity              int                 `json:",omitzero"`
+	BeaconFrequency                  int64               `json:",omitzero"`
+	AdditionalChannels               []RadioChannel      `json:",omitzero"`
 }
 
 // Downlink is queued for delivery according to the device class. An empty ID
