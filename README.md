@@ -1,4 +1,4 @@
-# <img src=".github/readme-assets/logo.png" width="36" height="36" alt=""> LWN Simulator
+# <img src=".github/readme-assets/logo.png" width="36" height="36" align="absmiddle" alt=""> LWN Simulator
 
 [![CI](https://github.com/Giuseppe-Compagnone/LWN-Simulator/actions/workflows/ci.yml/badge.svg)](https://github.com/Giuseppe-Compagnone/LWN-Simulator/actions/workflows/ci.yml)
 [![Documentation](https://github.com/Giuseppe-Compagnone/LWN-Simulator/actions/workflows/deploy-docs.yml/badge.svg)](https://github.com/Giuseppe-Compagnone/LWN-Simulator/actions/workflows/deploy-docs.yml)
