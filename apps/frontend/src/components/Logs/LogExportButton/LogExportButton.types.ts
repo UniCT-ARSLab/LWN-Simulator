@@ -1,7 +1,9 @@
 /** Options for downloading simulation logs belonging to the current profile. */
 export interface LogExportButtonProps {
-  /** Run identifier to export as JSON. Omit to download all runs in a ZIP archive. */
+  /** Run identifier. Omit to export data for the active profile. */
   runID?: string;
+  /** Downloads aggregated telemetry in place of the raw log export. */
+  telemetry?: boolean;
   /** Prevents exporting before the history has loaded or when it is empty. */
   disabled?: boolean;
 }

@@ -246,6 +246,7 @@ func (e *Engine) handleGatewayPacket(packet types.GatewayPacket) {
 	}
 	if classificationErr == nil {
 		packet.Protocol = classified.Protocol
+		event.RadioProtocol = &classified.Protocol
 		if classified.Protocol == contracts.RawLoRa {
 			senderID := packet.DeviceID
 			if senderID == "" {
@@ -253,9 +254,9 @@ func (e *Engine) handleGatewayPacket(packet types.GatewayPacket) {
 			}
 			event.Message = "raw LoRa frame received from gateway transport"
 			event.RadioFrame = radioFrameFromGatewayPacket(packet, senderID, event.TimestampMilliseconds)
-			e.eventLog[len(e.eventLog)-1] = event
 		}
 	}
+	e.eventLog[len(e.eventLog)-1] = event
 	events := []contracts.SimulationEvent{event}
 	if packet.Kind == types.GatewayPacketDownlink || packet.Kind == types.GatewayPacketClassBDownlink {
 		if classificationErr != nil {
@@ -335,7 +336,7 @@ func (e *Engine) processRawUplinkLocked(packet types.GatewayPacket) []contracts.
 	)
 	event.PayloadSize = &payloadSize
 	event.RadioFrame = radioFrameFromGatewayPacket(packet, device.ID, event.TimestampMilliseconds)
-	e.eventLog[len(e.eventLog)-1] = event
+	e.setUplinkOutcomeLocked(&event, contracts.UplinkAccepted)
 	return []contracts.SimulationEvent{event}
 }
 
@@ -545,7 +546,7 @@ func (e *Engine) completeExternalUplinkACKLocked(device contracts.Device, sessio
 	session.PendingUplink = nil
 	e.metrics.SuccessfulUplinks++
 	e.metrics.PacketSuccessRate = e.packetSuccessRate()
-	events = append(events, e.newPacketEventLocked(contracts.MetricsUpdated, "simulation metrics updated", device.ID, gatewayID, "", pending.PacketID))
+	events = append(events, e.newUplinkOutcomeEventLocked(contracts.MetricsUpdated, "simulation metrics updated", device.ID, gatewayID, "", pending.PacketID, contracts.UplinkSucceeded))
 	return append(events, e.scheduleUplinkLocked(device, pending.TransmissionAt)...)
 }
 
@@ -772,6 +773,7 @@ func (e *Engine) processRealUplinkLocked(packet types.GatewayPacket, decoded lor
 		"uplink received from real gateway",
 		device.ID, packet.GatewayID, "", packetID, int64(frameCounter), 1, decoded.Confirmed, nil,
 	)}
+	e.setUplinkOutcomeLocked(&events[0], contracts.UplinkAccepted)
 	decodeKey := session.AppSKey
 	if decoded.FPort != nil && *decoded.FPort == 0 {
 		decodeKey = session.NwkSKey

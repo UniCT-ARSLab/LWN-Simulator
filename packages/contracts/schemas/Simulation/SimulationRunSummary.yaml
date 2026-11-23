@@ -1,6 +1,8 @@
 title: SimulationRunSummary
 type: object
 properties:
+  telemetry:
+    $ref: "./SimulationTelemetry.yaml"
   id:
     type: string
     x-oapi-codegen-extra-tags:

@@ -2,6 +2,18 @@ title: SimulationEvent
 type: object
 
 properties:
+  radioProtocol:
+    $ref: "../Device/DeviceProps/RadioProtocol.yaml"
+  telemetry:
+    $ref: "./SimulationTelemetry.yaml"
+  uplinkOutcome:
+    type: string
+    x-enum-varnames:
+      - UplinkStarted
+      - UplinkSucceeded
+      - UplinkDropped
+      - UplinkAccepted
+    enum: [started, succeeded, dropped, accepted]
   id:
     type: string
     x-go-name: ID

@@ -217,14 +217,14 @@ func (e *Engine) completeRadioLossLocked(transmission *types.RadioTransmission, 
 				e.applyADRLocked(device, session)
 				e.metrics.SuccessfulUplinks++
 				e.metrics.PacketSuccessRate = e.packetSuccessRate()
-				return append([]contracts.SimulationEvent{e.newPacketEventLocked(contracts.MetricsUpdated, "simulation metrics updated", transmission.DeviceID, "", scheduledID, transmission.PacketID)}, e.scheduleNextUplinkAfterTransmissionLocked(device, transmission)...)
+				return append([]contracts.SimulationEvent{e.newUplinkOutcomeEventLocked(contracts.MetricsUpdated, "simulation metrics updated", transmission.DeviceID, "", scheduledID, transmission.PacketID, contracts.UplinkSucceeded)}, e.scheduleNextUplinkAfterTransmissionLocked(device, transmission)...)
 			}
 			session.PendingUplink = nil
 		}
 		e.metrics.DroppedUplinks++
 		e.metrics.PacketSuccessRate = e.packetSuccessRate()
 		events := []contracts.SimulationEvent{
-			e.newPacketEventLocked(contracts.PacketDropped, "uplink dropped by radio model", transmission.DeviceID, "", scheduledID, transmission.PacketID),
+			e.newUplinkOutcomeEventLocked(contracts.PacketDropped, "uplink dropped by radio model", transmission.DeviceID, "", scheduledID, transmission.PacketID, contracts.UplinkDropped),
 			e.newPacketEventLocked(contracts.MetricsUpdated, "simulation metrics updated", transmission.DeviceID, "", scheduledID, transmission.PacketID),
 		}
 		return append(events, e.scheduleNextUplinkAfterTransmissionLocked(device, transmission)...)
@@ -250,7 +250,7 @@ func (e *Engine) completeRadioSuccessLocked(transmission *types.RadioTransmissio
 			e.applyADRLocked(device, session)
 			e.metrics.SuccessfulUplinks++
 			e.metrics.PacketSuccessRate = e.packetSuccessRate()
-			events := []contracts.SimulationEvent{e.newPacketEventLocked(contracts.MetricsUpdated, "simulation metrics updated", transmission.DeviceID, "", scheduledID, transmission.PacketID)}
+			events := []contracts.SimulationEvent{e.newUplinkOutcomeEventLocked(contracts.MetricsUpdated, "simulation metrics updated", transmission.DeviceID, "", scheduledID, transmission.PacketID, contracts.UplinkSucceeded)}
 			if len(session.PendingClassADownlinks) > 0 {
 				events = append(events, e.scheduleWindowLocked(device, radioWindowSource(transmission), contracts.RX1, transmission.PacketID, transmission.FrameCounter, false))
 			}
@@ -288,7 +288,7 @@ func (e *Engine) completeRadioSuccessLocked(transmission *types.RadioTransmissio
 	e.applyADRLocked(device, session)
 	e.metrics.SuccessfulUplinks++
 	e.metrics.PacketSuccessRate = e.packetSuccessRate()
-	events := []contracts.SimulationEvent{e.newPacketEventLocked(contracts.MetricsUpdated, "simulation metrics updated", transmission.DeviceID, "", scheduledID, transmission.PacketID)}
+	events := []contracts.SimulationEvent{e.newUplinkOutcomeEventLocked(contracts.MetricsUpdated, "simulation metrics updated", transmission.DeviceID, "", scheduledID, transmission.PacketID, contracts.UplinkSucceeded)}
 	return append(events, e.scheduleNextUplinkAfterTransmissionLocked(device, transmission)...)
 }
 
@@ -309,7 +309,7 @@ func (e *Engine) scheduleUnconfirmedRepetitionLocked(device contracts.Device, pe
 		}
 		e.metrics.DroppedUplinks++
 		e.metrics.PacketSuccessRate = e.packetSuccessRate()
-		return []contracts.SimulationEvent{e.newPacketEventLocked(contracts.PacketDropped, "unconfirmed uplink repetition could not be scheduled", device.ID, "", repetition.ID, pending.PacketID)}
+		return []contracts.SimulationEvent{e.newUplinkOutcomeEventLocked(contracts.PacketDropped, "unconfirmed uplink repetition could not be scheduled", device.ID, "", repetition.ID, pending.PacketID, contracts.UplinkDropped)}
 	}
 	return []contracts.SimulationEvent{e.newProtocolEventLocked(
 		contracts.UplinkRetryScheduled, "unconfirmed uplink repetition scheduled", device.ID,

@@ -435,6 +435,10 @@ func (s *ProfileSimulationService) ExportLogs(ctx context.Context, id string, de
 	return s.inner.ExportLogs(ctx, id, destination)
 }
 
+func (s *ProfileSimulationService) ExportTelemetry(ctx context.Context, id string, destination io.Writer) error {
+	return s.inner.ExportTelemetry(ctx, id, destination)
+}
+
 func (s *ProfileSimulationService) GetLog(id string) (contracts.SimulationRun, []contracts.SimulationEvent, error) {
 	return s.inner.GetLog(id)
 }

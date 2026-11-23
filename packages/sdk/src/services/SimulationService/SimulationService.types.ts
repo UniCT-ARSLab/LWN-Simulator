@@ -81,6 +81,9 @@ export interface SimulationServiceContent {
   /** Builds the profile-scoped JSON download URL for a run, or the ZIP URL for all runs. */
   getLogExportURL: (id?: string) => string;
 
+  /** Builds the URL for one run's telemetry archive or the profile's summary CSV. */
+  getTelemetryExportURL: (id?: string) => string;
+
   /** Retrieves stored simulation runs. */
   getLogs: () => Promise<SimulationRunsResponse>;
 

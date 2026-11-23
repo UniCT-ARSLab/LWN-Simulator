@@ -1368,6 +1368,22 @@ components:
       title: SimulationEvent
       type: object
       properties:
+        radioProtocol:
+          $ref: '#/components/schemas/RadioProtocol'
+        telemetry:
+          $ref: '#/components/schemas/SimulationTelemetry'
+        uplinkOutcome:
+          type: string
+          x-enum-varnames:
+            - UplinkStarted
+            - UplinkSucceeded
+            - UplinkDropped
+            - UplinkAccepted
+          enum:
+            - started
+            - succeeded
+            - dropped
+            - accepted
         id:
           type: string
           x-go-name: ID
@@ -2200,6 +2216,8 @@ components:
       title: SimulationLogObject
       type: object
       properties:
+        gatewayType:
+          $ref: '#/components/schemas/GatewayType'
         id:
           type: string
           x-oapi-codegen-extra-tags:
@@ -2219,10 +2237,35 @@ components:
         - name
         - kind
         - identifier
+    SimulationTelemetry:
+      title: SimulationTelemetry
+      type: object
+      required:
+        - elapsedMilliseconds
+        - sequence
+        - metrics
+        - connectedGateways
+      properties:
+        elapsedMilliseconds:
+          type: integer
+          format: int64
+          minimum: 0
+        sequence:
+          type: integer
+          format: int64
+          minimum: 0
+        metrics:
+          $ref: '#/components/schemas/SimulationMetrics'
+        connectedGateways:
+          type: integer
+          format: int64
+          minimum: 0
     SimulationRunSummary:
       title: SimulationRunSummary
       type: object
       properties:
+        telemetry:
+          $ref: '#/components/schemas/SimulationTelemetry'
         id:
           type: string
           x-oapi-codegen-extra-tags:

@@ -210,8 +210,13 @@ func (store *FileSimulationLogStore) AppendBatch(id string, events []contracts.S
 		if err := store.appendEventSidecarLocked(id, newEvents); err != nil {
 			return err
 		}
+		telemetry := runs[index].Run.Summary.Telemetry
+		if summary != nil {
+			telemetry = latestTelemetry(telemetry, summary.Telemetry)
+		}
 		if len(newEvents) > 0 {
 			for _, event := range newEvents {
+				telemetry = latestTelemetry(telemetry, event.Telemetry)
 				if event.Sequence > persistedSequence {
 					persistedSequence = event.Sequence
 				}
@@ -226,6 +231,7 @@ func (store *FileSimulationLogStore) AppendBatch(id string, events []contracts.S
 			runs[index].Run.Summary = *summary
 		}
 		runs[index].Run.Summary.EventCount = eventCount
+		runs[index].Run.Summary.Telemetry = telemetry
 		// Keep the in-memory view consistent even when the metadata replacement
 		// fails after the sidecar has already been synced. A retry can then save
 		// the metadata without appending the same events again.
@@ -253,6 +259,7 @@ func (store *FileSimulationLogStore) UpdateSummary(id string, summary contracts.
 			if persistedSequence, sequenceErr := store.lastEventSequenceLocked(id); sequenceErr == nil && int32(persistedSequence) > eventCount {
 				eventCount = int32(persistedSequence)
 			}
+			summary.Telemetry = latestTelemetry(runs[index].Run.Summary.Telemetry, summary.Telemetry)
 			runs[index].Run.Summary = summary
 			runs[index].Run.Summary.EventCount = eventCount
 			return store.saveLocked(runs)

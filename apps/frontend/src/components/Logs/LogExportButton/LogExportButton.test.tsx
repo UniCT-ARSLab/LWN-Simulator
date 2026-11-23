@@ -6,6 +6,7 @@ import { LogExportButton } from "./LogExportButton";
 vi.mock("@lwn-simulator/sdk", () => ({
   useSimulationService: () => ({
     getLogExportURL: (id?: string) => id ? `/api/logs/${id}/export` : "/api/logs/export",
+    getTelemetryExportURL: (id?: string) => id ? `/api/logs/${id}/telemetry` : "/api/logs/telemetry",
   }),
 }));
 
@@ -27,16 +28,18 @@ describe("simulation log downloads", () => {
   });
 
   it.each([
-    ["run-1", "Export JSON", "simulation-run-1.json"],
-    [undefined, "Export all (ZIP)", "simulation-logs.zip"],
-  ])("downloads %s using the expected filename", async (runID, label, filename) => {
+    ["run-1", "Export JSON", "simulation-run-1.json", false],
+    [undefined, "Export all (ZIP)", "simulation-logs.zip", false],
+    ["run-1", "Export telemetry", "simulation-run-1-telemetry.zip", true],
+    [undefined, "Export telemetry summary", "simulation-telemetry-summary.csv", true],
+  ])("downloads %s with %s", async (runID, label, filename, telemetry) => {
     const blob = new Blob(["export"]);
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, blob: async () => blob });
     vi.stubGlobal("fetch", fetchMock);
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
-    render(<LogExportButton runID={runID} />);
+    render(<LogExportButton runID={runID} telemetry={telemetry} />);
     await act(async () => fireEvent.click(screen.getByRole("button", { name: label })));
-    expect(fetchMock).toHaveBeenCalledWith(runID ? `/api/logs/${runID}/export` : "/api/logs/export");
+    expect(fetchMock).toHaveBeenCalledWith(`/api/logs${runID ? `/${runID}` : ""}/${telemetry ? "telemetry" : "export"}`);
     expect(createObjectURL).toHaveBeenCalledWith(blob);
     expect(click).toHaveBeenCalledOnce();
     expect(document.querySelector("a[download]")).toHaveAttribute("download", filename);

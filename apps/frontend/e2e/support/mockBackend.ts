@@ -344,6 +344,16 @@ export const mockBackend = async (
       return;
     }
 
+    if (path.endsWith("/simulation/logs/telemetry")) {
+      await route.fulfill({ status: 200, contentType: "text/csv", body: "run_id,packet_success_rate_pct\nrun-new,80\n" });
+      return;
+    }
+
+    if (/\/simulation\/logs\/[^/]+\/telemetry$/.test(path)) {
+      await route.fulfill({ status: 200, contentType: "application/zip", body: Buffer.from("PK-telemetry-archive") });
+      return;
+    }
+
     if (path.endsWith("/simulation/logs/export")) {
       await route.fulfill({ status: 200, contentType: "application/zip", body: Buffer.from("PK-test-archive") });
       return;

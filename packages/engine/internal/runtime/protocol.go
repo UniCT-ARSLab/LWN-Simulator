@@ -106,7 +106,8 @@ func (e *Engine) processUplinkLocked(scheduled types.ScheduledEvent) []contracts
 		}
 	}
 	payloadSize := payloadSizeForFragment(device, dataRate, fragmentIndex, session)
-	if attempt == 1 && !isFragmentContinuation {
+	newUplink := attempt == 1 && !isFragmentContinuation
+	if newUplink {
 		if frameCounter == 0 {
 			session.FrameCounterUp++
 			frameCounter = session.FrameCounterUp
@@ -151,7 +152,11 @@ func (e *Engine) processUplinkLocked(scheduled types.ScheduledEvent) []contracts
 		scheduled.DeviceID, "", scheduled.ID, packetID, frameCounter, attempt, confirmed, nil,
 	)}
 	e.decorateDeviceEventLocked(&events[0], session, device.LocationConfig.Region, device.FrameConfig.FPort, dataRate, payloadSize)
-	e.eventLog[len(e.eventLog)-1] = events[0]
+	if newUplink {
+		e.setUplinkOutcomeLocked(&events[0], contracts.UplinkStarted)
+	} else {
+		e.eventLog[len(e.eventLog)-1] = events[0]
+	}
 	scheduled.FragmentIndex = fragmentIndex
 	scheduled.FragmentCount = fragmentCount
 	return append(events, e.startRadioTransmissionLocked(device, scheduled, packetID, frameCounter, confirmed)...)
@@ -274,7 +279,7 @@ func (e *Engine) processReceiveWindowLocked(scheduled types.ScheduledEvent) []co
 		session.PendingUplink = nil
 		e.metrics.SuccessfulUplinks++
 		e.metrics.PacketSuccessRate = e.packetSuccessRate()
-		events = append(events, e.newPacketEventLocked(contracts.MetricsUpdated, "simulation metrics updated", device.ID, "", scheduled.ID, pending.PacketID))
+		events = append(events, e.newUplinkOutcomeEventLocked(contracts.MetricsUpdated, "simulation metrics updated", device.ID, "", scheduled.ID, pending.PacketID, contracts.UplinkSucceeded))
 		return append(events, e.scheduleUplinkLocked(device, pending.TransmissionAt)...)
 	}
 
@@ -458,7 +463,7 @@ func (e *Engine) rescheduleJoinRequestLocked(device contracts.Device, base time.
 func (e *Engine) finalizeDroppedUplinkLocked(deviceID, scheduledID string, pending *types.PendingUplink) contracts.SimulationEvent {
 	e.metrics.DroppedUplinks++
 	e.metrics.PacketSuccessRate = e.packetSuccessRate()
-	return e.newPacketEventLocked(contracts.PacketDropped, "confirmed uplink dropped after retry limit", deviceID, "", scheduledID, pending.PacketID)
+	return e.newUplinkOutcomeEventLocked(contracts.PacketDropped, "confirmed uplink dropped after retry limit", deviceID, "", scheduledID, pending.PacketID, contracts.UplinkDropped)
 }
 
 func (e *Engine) newProtocolEventLocked(eventType contracts.SimulationEventType, message, deviceID, gatewayID, scheduledID, packetID string, frameCounter int64, attempt int, confirmed bool, window *contracts.SimulationRxWindow) contracts.SimulationEvent {

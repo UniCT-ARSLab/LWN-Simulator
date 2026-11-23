@@ -170,6 +170,10 @@ func (h *ProfileScopedHandler) ExportSimulationLogs(c *gin.Context) {
 	h.withSimulationHandler(c, func(handler *SimulationHandler) { handler.ExportLogs(c) })
 }
 
+func (h *ProfileScopedHandler) ExportSimulationTelemetry(c *gin.Context) {
+	h.withSimulationHandler(c, func(handler *SimulationHandler) { handler.ExportTelemetry(c) })
+}
+
 func (h *ProfileScopedHandler) SimulationLogs(c *gin.Context) {
 	h.withSimulationHandler(c, func(handler *SimulationHandler) { handler.Logs(c) })
 }

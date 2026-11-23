@@ -139,6 +139,7 @@ const LogsPage = () => {
         </div>
         <div className="logs-page__header-actions">
           <LogExportButton disabled={loading || Boolean(error) || runs.length === 0} />
+          <LogExportButton telemetry disabled={loading || Boolean(error) || runs.length === 0} />
           <Link href="/simulation/dashboard">
             <Button value="Open dashboard" type={ButtonType.Primary} />
           </Link>

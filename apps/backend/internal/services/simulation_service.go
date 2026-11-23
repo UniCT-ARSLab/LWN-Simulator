@@ -33,9 +33,10 @@ type SimulationUpdate struct {
 }
 
 type simulationPersistenceCommand struct {
-	runID   string
-	event   *contracts.SimulationEvent
-	barrier chan error
+	runID           string
+	event           *contracts.SimulationEvent
+	barrier         chan error
+	forceCheckpoint bool
 }
 
 const (
@@ -270,7 +271,7 @@ func (s *SimulationService) Start(
 			objects = append(objects, contracts.SimulationLogObject{Id: device.ID, Name: device.Name, Kind: contracts.SimulationLogObjectKindDevice, Identifier: device.DevEUI})
 		}
 		for _, gateway := range gateways.Gateways {
-			objects = append(objects, contracts.SimulationLogObject{Id: gateway.ID, Name: gateway.Name, Kind: contracts.SimulationLogObjectKindGateway, Identifier: gateway.GatewayEUI})
+			objects = append(objects, contracts.SimulationLogObject{Id: gateway.ID, Name: gateway.Name, Kind: contracts.SimulationLogObjectKindGateway, Identifier: gateway.GatewayEUI, GatewayType: &gateway.Type})
 		}
 		seed := config.Seed
 		state, _ := runtime.StateAndMetrics()
@@ -636,7 +637,7 @@ func (s *SimulationService) runPersistenceWorker() {
 				}
 			}
 			if command.barrier != nil {
-				command.barrier <- flush(true)
+				command.barrier <- flush(command.forceCheckpoint)
 				continue
 			}
 			if terminalStatus != nil {
@@ -658,11 +659,15 @@ func (s *SimulationService) runPersistenceWorker() {
 }
 
 func (s *SimulationService) flushPersistence(ctx context.Context) error {
+	return s.flushPendingPersistence(ctx, true)
+}
+
+func (s *SimulationService) flushPendingPersistence(ctx context.Context, forceCheckpoint bool) error {
 	if s.checkpointStore == nil && s.logStore == nil {
 		return nil
 	}
 	barrier := make(chan error, 1)
-	command := simulationPersistenceCommand{barrier: barrier}
+	command := simulationPersistenceCommand{barrier: barrier, forceCheckpoint: forceCheckpoint}
 	select {
 	case s.persistenceQueue <- command:
 	case <-ctx.Done():

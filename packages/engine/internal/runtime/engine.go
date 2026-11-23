@@ -18,6 +18,7 @@ import (
 )
 
 const runtimeEventLogLimit = 10_000
+const telemetrySampleInterval = 10 * time.Second
 
 type Engine struct {
 	mu sync.RWMutex
@@ -38,8 +39,9 @@ type Engine struct {
 	eventLog  []contracts.SimulationEvent
 	sink      types.EventSink
 
-	state   contracts.SimulationState
-	metrics contracts.SimulationMetrics
+	state                 contracts.SimulationState
+	metrics               contracts.SimulationMetrics
+	lastTelemetrySampleAt int64
 
 	runCancel    context.CancelFunc
 	runContext   context.Context
@@ -1041,11 +1043,47 @@ func (e *Engine) newEventLocked(
 	if scheduledEventID != "" {
 		event.ScheduledEventID = &scheduledEventID
 	}
+	switch event.Type {
+	case contracts.SimulationStarted, contracts.SimulationStopped, contracts.SimulationFailed,
+		contracts.SimulationPaused, contracts.SimulationResumed, contracts.SimulationRecovered:
+		e.sampleTelemetryLocked(&event)
+	default:
+		if event.TimestampMilliseconds-e.lastTelemetrySampleAt >= telemetrySampleInterval.Milliseconds() {
+			e.sampleTelemetryLocked(&event)
+		}
+	}
 	e.eventLog = append(e.eventLog, event)
 	if len(e.eventLog) >= runtimeEventLogLimit*2 {
 		e.eventLog = recentSimulationEvents(e.eventLog, runtimeEventLogLimit)
 	}
 	return event
+}
+
+func (e *Engine) sampleTelemetryLocked(event *contracts.SimulationEvent) {
+	var connectedGateways int64
+	for _, gateway := range e.gatewayRuntime {
+		if gateway.State == contracts.Connected {
+			connectedGateways++
+		}
+	}
+	e.lastTelemetrySampleAt = event.TimestampMilliseconds
+	event.Telemetry = &contracts.SimulationTelemetry{
+		ElapsedMilliseconds: event.TimestampMilliseconds,
+		Sequence:            event.Sequence,
+		Metrics:             e.metrics,
+		ConnectedGateways:   connectedGateways,
+	}
+}
+
+func (e *Engine) newUplinkOutcomeEventLocked(eventType contracts.SimulationEventType, message, deviceID, gatewayID, scheduledID, packetID string, outcome contracts.SimulationEventUplinkOutcome) contracts.SimulationEvent {
+	event := e.newPacketEventLocked(eventType, message, deviceID, gatewayID, scheduledID, packetID)
+	e.setUplinkOutcomeLocked(&event, outcome)
+	return event
+}
+
+func (e *Engine) setUplinkOutcomeLocked(event *contracts.SimulationEvent, outcome contracts.SimulationEventUplinkOutcome) {
+	event.UplinkOutcome = &outcome
+	e.eventLog[len(e.eventLog)-1] = *event
 }
 
 func recentSimulationEvents(events []contracts.SimulationEvent, limit int) []contracts.SimulationEvent {

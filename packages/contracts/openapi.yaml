@@ -179,6 +179,8 @@ components:
       $ref: "./schemas/Simulation/SimulationLogObjectKind.yaml"
     SimulationLogObject:
       $ref: "./schemas/Simulation/SimulationLogObject.yaml"
+    SimulationTelemetry:
+      $ref: "./schemas/Simulation/SimulationTelemetry.yaml"
     SimulationRunSummary:
       $ref: "./schemas/Simulation/SimulationRunSummary.yaml"
     SimulationRun:

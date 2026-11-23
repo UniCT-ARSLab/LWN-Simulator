@@ -2,6 +2,7 @@ package services
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -202,4 +203,27 @@ func (store *FileSimulationLogStore) Events(id string, query SimulationLogEventQ
 		return contracts.SimulationEventsResponse{}, err
 	}
 	return response, nil
+}
+
+// visitRunEvents reads a fixed prefix of the run without holding the writer lock.
+func (store *FileSimulationLogStore) visitRunEvents(ctx context.Context, id string, visit func(contracts.SimulationEvent)) (contracts.SimulationRun, error) {
+	run, reader, err := store.openRunEvents(id)
+	if err != nil {
+		return contracts.SimulationRun{}, err
+	}
+	defer reader.close()
+	for _, event := range run.Events {
+		if err := ctx.Err(); err != nil {
+			return contracts.SimulationRun{}, err
+		}
+		visit(event)
+	}
+	err = reader.scan(0, reader.size, func(event contracts.SimulationEvent) bool {
+		if ctx.Err() != nil {
+			return true
+		}
+		visit(event)
+		return false
+	})
+	return run.Run, errors.Join(err, ctx.Err())
 }

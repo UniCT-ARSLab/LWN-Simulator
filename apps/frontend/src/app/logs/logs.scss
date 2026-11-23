@@ -26,6 +26,8 @@
   }
 
   &__header-actions {
+    justify-content: flex-end;
+    flex-wrap: wrap;
     gap: 1rem;
   }
 
@@ -299,6 +301,7 @@
 
     &__header-actions {
       align-items: flex-start;
+      justify-content: flex-start;
     }
 
     &__panel-head { flex-direction: column; }

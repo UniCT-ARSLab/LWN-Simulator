@@ -32,4 +32,20 @@ test("disables the archive button when there are no logs", async ({ page }) => {
   await mockBackend(page, { logs: "empty" });
   await page.goto("/logs");
   await expect(page.getByRole("button", { name: "Export all (ZIP)" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Export telemetry summary" })).toBeDisabled();
 });
+
+for (const scenario of [
+  { path: "/logs", button: "Export telemetry summary", filename: "simulation-telemetry-summary.csv", content: "run_id,packet_success_rate_pct\nrun-new,80\n" },
+  { path: "/logs/detail?runId=run-new", button: "Export telemetry", filename: "simulation-run-new-telemetry.zip", content: "PK-telemetry-archive" },
+]) {
+  test(`downloads ${scenario.filename} from the logs UI`, async ({ page }) => {
+    await mockBackend(page);
+    await page.goto(scenario.path);
+    const pendingDownload = page.waitForEvent("download");
+    await page.getByRole("button", { name: scenario.button, exact: true }).click();
+    const download = await pendingDownload;
+    expect(download.suggestedFilename()).toBe(scenario.filename);
+    expect(await readFile((await download.path())!, "utf8")).toBe(scenario.content);
+  });
+}

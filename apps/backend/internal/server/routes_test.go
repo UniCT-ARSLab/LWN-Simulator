@@ -33,6 +33,8 @@ func TestRegisterRoutesIncludesSimulationRuntimeAPI(t *testing.T) {
 		"GET /api/simulation/logs",
 		"GET /api/simulation/logs/export",
 		"GET /api/simulation/logs/:id/export",
+		"GET /api/simulation/logs/telemetry",
+		"GET /api/simulation/logs/:id/telemetry",
 		"GET /api/simulation/logs/:id",
 		"GET /api/simulation/logs/:id/events",
 		"GET /api/simulation/metrics",
@@ -62,6 +64,8 @@ func TestRegisterRoutesIncludesProfileConfigurationAPI(t *testing.T) {
 		"GET /api/profiles/:profileID/configuration/gateway-bridge",
 		"GET /api/profiles/:profileID/simulation/logs/export",
 		"GET /api/profiles/:profileID/simulation/logs/:id/export",
+		"GET /api/profiles/:profileID/simulation/logs/telemetry",
+		"GET /api/profiles/:profileID/simulation/logs/:id/telemetry",
 		"PUT /api/profiles/:profileID/configuration/gateway-bridge",
 		"GET /api/simulation/activity",
 	} {

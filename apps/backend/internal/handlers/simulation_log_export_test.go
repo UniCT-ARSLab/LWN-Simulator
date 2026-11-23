@@ -82,6 +82,8 @@ func TestProfileLogExportsAreIsolated(t *testing.T) {
 	router := gin.New()
 	router.GET("/profiles/:profileID/logs/export", handler.ExportSimulationLogs)
 	router.GET("/profiles/:profileID/logs/:id/export", handler.ExportSimulationLogs)
+	router.GET("/profiles/:profileID/logs/telemetry", handler.ExportSimulationTelemetry)
+	router.GET("/profiles/:profileID/logs/:id/telemetry", handler.ExportSimulationTelemetry)
 	for _, profile := range []contracts.Profile{first, second} {
 		response := httptest.NewRecorder()
 		router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/profiles/"+profile.ID+"/logs/export", nil))
@@ -103,10 +105,31 @@ func TestProfileLogExportsAreIsolated(t *testing.T) {
 			t.Fatalf("profile export leaked another network: %+v %v", log, err)
 		}
 	}
-	response := httptest.NewRecorder()
-	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/profiles/"+first.ID+"/logs/"+second.ID+"/export", nil))
-	if response.Code != http.StatusNotFound {
-		t.Fatalf("another profile's run was accessible: %d", response.Code)
+	for _, download := range []struct {
+		path, contentType, filename string
+	}{
+		{"/profiles/" + first.ID + "/logs/telemetry", "text/csv; charset=utf-8", "simulation-telemetry-summary.csv"},
+		{"/profiles/" + first.ID + "/logs/" + first.ID + "/telemetry", "application/zip", "simulation-" + first.ID + "-telemetry.zip"},
+	} {
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, download.path, nil))
+		if response.Code != http.StatusOK ||
+			response.Header().Get("Content-Type") != download.contentType ||
+			!strings.Contains(response.Header().Get("Content-Disposition"), download.filename) {
+			t.Fatalf("invalid telemetry attachment: %d %v", response.Code, response.Header())
+		}
+		if strings.HasPrefix(download.contentType, "text/csv") &&
+			(!strings.Contains(response.Body.String(), first.ID) || strings.Contains(response.Body.String(), second.ID)) {
+			t.Fatalf("summary CSV contains runs from another profile: %s", response.Body.String())
+		}
+	}
+	for _, endpoint := range []string{"export", "telemetry"} {
+		response := httptest.NewRecorder()
+		path := "/profiles/" + first.ID + "/logs/" + second.ID + "/" + endpoint
+		router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, path, nil))
+		if response.Code != http.StatusNotFound {
+			t.Fatalf("another profile's run was accessible through %s: %d", endpoint, response.Code)
+		}
 	}
 }
 

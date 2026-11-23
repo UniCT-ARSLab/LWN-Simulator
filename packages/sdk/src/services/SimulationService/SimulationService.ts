@@ -65,6 +65,9 @@ export class SimulationService extends BaseService {
   public getLogExportURL = (id?: string): string =>
     this.apiCaller.buildUrl(id ? `/logs/${encodeURIComponent(id)}/export` : "/logs/export");
 
+  public getTelemetryExportURL = (id?: string): string =>
+    this.apiCaller.buildUrl(id ? `/logs/${encodeURIComponent(id)}/telemetry` : "/logs/telemetry");
+
   public getLogs = async (): Promise<SimulationRunsResponse> =>
     this.apiCaller.get<SimulationRunsResponse>("/logs");
 
