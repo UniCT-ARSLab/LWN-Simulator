@@ -1,4 +1,4 @@
-# LWN Simulator
+# <img src=".github/readme-assets/logo.png" width="36" height="36" alt=""> LWN Simulator
 
 [![CI](https://github.com/Giuseppe-Compagnone/LWN-Simulator/actions/workflows/ci.yml/badge.svg)](https://github.com/Giuseppe-Compagnone/LWN-Simulator/actions/workflows/ci.yml)
 [![Documentation](https://github.com/Giuseppe-Compagnone/LWN-Simulator/actions/workflows/deploy-docs.yml/badge.svg)](https://github.com/Giuseppe-Compagnone/LWN-Simulator/actions/workflows/deploy-docs.yml)
@@ -18,6 +18,8 @@ remote backend.
 The simulator supports virtual networks, real gateway transports, ChirpStack
 integration, repeatable simulations, profile-based configurations, persistent
 logs and live updates through WebSocket connections.
+
+![LWN Simulator homepage screenshot](.github/readme-assets/homepage.png)
 
 ## Documentation
 
