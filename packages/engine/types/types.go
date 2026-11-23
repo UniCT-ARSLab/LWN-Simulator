@@ -66,6 +66,11 @@ type GatewayUplinkAdapter interface {
 	SendUplink(context.Context, GatewayPacket) error
 }
 
+// GatewayPositionAdapter advertises changes to a gateway's location over its transport.
+type GatewayPositionAdapter interface {
+	SetGatewayPosition(latitude, longitude, altitude *float32)
+}
+
 // VirtualGatewayAdapterFactory identifies factories that can transport
 // in-process virtual gateways to an external Gateway Bridge.
 type VirtualGatewayAdapterFactory interface {

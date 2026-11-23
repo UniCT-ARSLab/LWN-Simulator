@@ -520,6 +520,12 @@ func readIntegrationPacket(t *testing.T, socket *net.UDPConn, expectedType byte)
 		if size < 4 || buffer[0] != semtechVersion || buffer[3] != expectedType {
 			continue
 		}
+		if expectedType == semtechPushData && size >= 12 {
+			var body semtechPushDataPayload
+			if json.Unmarshal(buffer[12:size], &body) == nil && len(body.RXPK) == 0 {
+				continue
+			}
+		}
 		return integrationPacket{
 			token:  [2]byte{buffer[1], buffer[2]},
 			remote: remote,

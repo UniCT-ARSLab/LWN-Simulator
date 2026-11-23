@@ -10,6 +10,10 @@ Dans sa page, activez **Enable the Semtech UDP Bridge**, puis renseignez **Gatew
 
 Le bridge transporte le trafic des passerelles virtuelles. Les passerelles réelles utilisent leur propre adresse et port UDP. La configuration applicative de ChirpStack se fait à l'extérieur du simulateur.
 
+Lorsqu’elle est active, la passerelle virtuelle envoie ses statistiques à ChirpStack au démarrage puis à chaque intervalle **Keep Alive**, même sans trafic des appareils. Ces rapports mettent à jour **Last seen** dans ChirpStack.
+
+Les passerelles virtuelles utilisent l’horloge de la machine qui exécute le simulateur pour horodater les uplinks en temps GPS et programmer les downlinks à une heure GPS. Si le simulateur et le serveur réseau s’exécutent sur des machines différentes, synchronisez leurs horloges.
+
 ## Trafic Raw LoRa
 
 Le transport UDP prend aussi en charge les octets **Raw LoRa**. Réglez **Radio

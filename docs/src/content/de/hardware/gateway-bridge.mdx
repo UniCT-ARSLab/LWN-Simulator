@@ -10,6 +10,10 @@ Aktivieren Sie **Enable the Semtech UDP Bridge** und tragen Sie **Gateway Bridge
 
 Der Bridge transportiert Daten virtueller Gateways. Reale Gateways verwenden weiterhin ihre eigene UDP-Adresse und ihren eigenen Port. Die Anwendungskonfiguration von ChirpStack erfolgt außerhalb des Simulators.
 
+Ein aktives virtuelles Gateway sendet beim Start und in jedem **Keep Alive**-Intervall Statistiken an ChirpStack, auch ohne Datenverkehr von Geräten. Diese Berichte aktualisieren **Last seen** in ChirpStack.
+
+Virtuelle Gateways verwenden die Uhr des Simulator-Rechners für GPS-Zeitstempel in Uplinks und für die Planung von Downlinks zur GPS-Zeit. Synchronisiere die Uhren des Simulator-Rechners und des externen Netzwerkservers, wenn sie auf verschiedenen Rechnern laufen.
+
 ## Raw-LoRa-Daten
 
 Der UDP-Transport unterstützt auch **Raw LoRa**-Bytes. Stellen Sie **Radio

@@ -333,11 +333,12 @@ func (e *Engine) UpdateGateway(updated contracts.Gateway) error {
 		!reflect.DeepEqual(current.KeepAlive, updated.KeepAlive)
 	e.registry = registry
 	e.metrics.ActiveGateways = int64(len(registry.ActiveGateways()))
-	var adapter types.GatewayAdapter
+	adapter := e.gatewayAdapters[updated.ID]
 	if restart {
 		e.cancelGatewayRuntimeLocked(updated.ID)
-		adapter = e.gatewayAdapters[updated.ID]
 		delete(e.gatewayAdapters, updated.ID)
+	} else if positionAdapter, ok := adapter.(types.GatewayPositionAdapter); ok && updated.Type == contracts.Virtual {
+		positionAdapter.SetGatewayPosition(updated.Latitude, updated.Longitude, updated.Altitude)
 	}
 	if runtimeState := e.gatewayRuntime[updated.ID]; restart && runtimeState != nil {
 		if !updated.Active || updated.Type == contracts.Real {
@@ -352,7 +353,7 @@ func (e *Engine) UpdateGateway(updated contracts.Gateway) error {
 	}
 	logged := e.newEventLocked(contracts.GatewayRegistered, "gateway runtime configuration updated", "", updated.ID, "")
 	e.mu.Unlock()
-	if adapter != nil {
+	if restart && adapter != nil {
 		_ = adapter.Close()
 	}
 	if restart && updated.Active && runContext != nil && requiresRealtimeTransport([]contracts.Gateway{updated}, e.gatewayAdapterFactory) {

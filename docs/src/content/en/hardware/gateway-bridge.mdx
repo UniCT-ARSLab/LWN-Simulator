@@ -65,6 +65,10 @@ Open **Hardware → Gateway Bridge**, enable the bridge and enter the address an
 Create an active **Virtual** gateway and start the simulation. The simulator sends the gateway's uplinks to the external bridge and receives its replies over that connection. Monitor **Connectivity**, **Engine activity** and **Logs**.
 </Steps>
 
+When the virtual gateway is active, it reports statistics to ChirpStack on startup and at the **Keep Alive** interval, even without device traffic. These reports update **Last seen** in ChirpStack.
+
+Virtual gateways use the simulator host’s clock to provide GPS timestamps on uplinks and to schedule GPS-timed downlinks. Keep the simulator host and the external network server synchronized when they run on different machines.
+
 The gateway should move from connecting/reconnecting to connected after its
 heartbeat is received. The runtime panel reports incoming and outgoing packet
 counts. The event stream reports connection changes, heartbeats, UDP ingress,

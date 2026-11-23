@@ -20,6 +20,10 @@ Salva le impostazioni prima di avviare una simulazione. Il bridge viene applicat
 
 Il bridge inoltra il traffico dei gateway virtuali verso il servizio esterno. I gateway reali continuano a usare il proprio indirizzo e la propria porta UDP. Per usare ChirpStack come network server applicativo sono necessarie anche le sue configurazioni esterne.
 
+Quando il gateway virtuale è attivo, invia statistiche a ChirpStack all’avvio e a ogni intervallo **Keep Alive**, anche in assenza di traffico dai dispositivi. Questi report aggiornano **Last seen** in ChirpStack.
+
+I gateway virtuali usano l’orologio del computer su cui gira il simulatore per aggiungere un timestamp GPS agli uplink e programmare i downlink con orario GPS. Se il simulatore e il server di rete sono su macchine diverse, mantieni sincronizzati i loro orologi.
+
 ## Traffico Raw LoRa
 
 Il trasporto UDP gestisce anche i byte **Raw LoRa**. Imposta **Radio Protocol**

@@ -107,20 +107,21 @@ func TestUDPBridgeRejectsMalformedDownlinksAndContinuesReceiving(t *testing.T) {
 	}
 	waitAdapterEvent(t, adapter.Events(), contracts.Connected)
 	waitHeartbeat(t, adapter.Events())
-	for index, body := range []string{
-		`{`,
-		`{"txpk":{"modu":"FSK","data":"3q0=","size":2}}`,
-		`{"txpk":{"modu":"LORA","data":"???","size":2}}`,
-		`{"txpk":{"modu":"LORA","data":"3q0=","size":9}}`,
-		`{"txpk":{"modu":"LORA","data":""}}`,
+	for index, test := range []struct{ body, want string }{
+		{`{`, "INVALID_DATA"},
+		{`{"txpk":{"modu":"FSK","data":"3q0=","size":2}}`, "INVALID_DATA"},
+		{`{"txpk":{"modu":"LORA","data":"???","size":2}}`, "INVALID_DATA"},
+		{`{"txpk":{"modu":"LORA","data":"3q0=","size":9}}`, "INVALID_DATA"},
+		{`{"txpk":{"modu":"LORA","data":""}}`, "INVALID_DATA"},
+		{`{"txpk":{"tmms":1234567890,"modu":"LORA","data":"3q0=","size":2}}`, "TOO_LATE"},
 	} {
-		request := append(packetHeader([2]byte{byte(index), 2}, pullResponseType), body...)
+		request := append(packetHeader([2]byte{byte(index), 2}, pullResponseType), test.body...)
 		if _, err := peer.WriteToUDP(request, remote); err != nil {
 			t.Fatal(err)
 		}
 		ack := readSemtechPacket(t, peer, txAckType)
 		var decoded txAckPayload
-		if err := json.Unmarshal(ack[12:], &decoded); err != nil || decoded.TXPKAck.Error != "INVALID_DATA" {
+		if err := json.Unmarshal(ack[12:], &decoded); err != nil || decoded.TXPKAck.Error != test.want {
 			t.Fatalf("invalid downlink %d was acknowledged as valid: %s (%v)", index, ack, err)
 		}
 		waitAdapterEvent(t, adapter.Events(), contracts.Error)
@@ -180,7 +181,11 @@ func TestUDPRawPacketSurvivesTimeoutAndReconnect(t *testing.T) {
 				t.Helper()
 				var frame []byte
 				if bridge {
-					frame = packetHeader([2]byte{7, 8}, pullAckType)
+					rawAdapter := adapter.(*udpAdapter)
+					rawAdapter.mu.Lock()
+					token := rawAdapter.pullToken
+					rawAdapter.mu.Unlock()
+					frame = packetHeader(token, pullAckType)
 				} else {
 					factory.mu.Lock()
 					remote = cloneUDPAddr(factory.runtime.conn.LocalAddr().(*net.UDPAddr))

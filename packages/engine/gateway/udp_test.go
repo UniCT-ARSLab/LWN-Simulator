@@ -228,6 +228,25 @@ func TestUDPAdapterRejectsUnsupportedOrInconsistentRXPK(t *testing.T) {
 	if err := rawAdapter.handlePushData(ctx, mismatch); err == nil {
 		t.Fatal("inconsistent RXPK size should be rejected")
 	}
+
+	batch := []byte(`{"rxpk":[null,{"modu":"FSK","datr":50000,"data":"AA=="},
+		{"stat":-1,"modu":"LORA","data":"AA=="},{"stat":1,"modu":"LORA","datr":"SF7BW125","data":"AQI="}]}`)
+	if err := rawAdapter.handlePushData(ctx, batch); err == nil {
+		t.Fatal("invalid packets in the batch should be reported")
+	}
+	select {
+	case packet := <-adapter.Packets():
+		if !equalBytes(packet.Payload, []byte{1, 2}) {
+			t.Fatalf("unexpected packet accepted from mixed batch: %x", packet.Payload)
+		}
+	default:
+		t.Fatal("the valid LoRa packet was lost")
+	}
+	select {
+	case packet := <-adapter.Packets():
+		t.Fatalf("another packet was accepted from the mixed batch: %x", packet.Payload)
+	default:
+	}
 }
 
 func TestUDPAdapterRejectsTXAckWithMissingGatewayEUI(t *testing.T) {
@@ -808,15 +827,23 @@ func readSemtechPacket(t *testing.T, socket *net.UDPConn, expectedType byte) []b
 		t.Fatalf("set fake gateway deadline: %v", err)
 	}
 	buffer := make([]byte, 4096)
-	size, _, err := socket.ReadFromUDP(buffer)
-	if err != nil {
-		t.Fatalf("read Semtech packet: %v", err)
+	for {
+		size, _, err := socket.ReadFromUDP(buffer)
+		if err != nil {
+			t.Fatalf("read Semtech packet: %v", err)
+		}
+		packet := buffer[:size]
+		if len(packet) >= 12 && packet[3] == pushDataType {
+			var body pushDataPayload
+			if json.Unmarshal(packet[12:], &body) == nil && body.Stat != nil && len(body.RXPK) == 0 {
+				continue
+			}
+		}
+		if len(packet) < 4 || packet[0] != protocolVersion || packet[3] != expectedType {
+			t.Fatalf("unexpected Semtech packet: %x", packet)
+		}
+		return packet
 	}
-	packet := buffer[:size]
-	if len(packet) < 4 || packet[0] != protocolVersion || packet[3] != expectedType {
-		t.Fatalf("unexpected Semtech packet: %x", packet)
-	}
-	return packet
 }
 
 func readSemtechPacketWithDeadline(socket *net.UDPConn, expectedType byte, timeout time.Duration) ([]byte, error) {
@@ -877,7 +904,7 @@ func TestVirtualGatewayDecodesConcentratorDownlinkTime(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			packet, err := adapter.decodePullResponse(body)
+			packet, _, err := adapter.decodePullResponse(body)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -894,13 +921,13 @@ func TestVirtualGatewayDecodesConcentratorDownlinkTime(t *testing.T) {
 func TestGatewayConcentratorTimestampDoesNotOverrideImmediateOrPhysicalClock(t *testing.T) {
 	for _, virtual := range []bool{false, true} {
 		adapter := &udpAdapter{virtual: virtual}
-		packet, err := adapter.decodePullResponse([]byte(`{"txpk":{"tmst":42,"imme":true,"data":"AQ=="}}`))
+		packet, _, err := adapter.decodePullResponse([]byte(`{"txpk":{"tmst":42,"imme":true,"data":"AQ=="}}`))
 		if err != nil || !packet.TransmitAt.IsZero() {
 			t.Fatalf("immediate packet gained a transmission deadline: %+v %v", packet, err)
 		}
 	}
 	adapter := &udpAdapter{}
-	packet, err := adapter.decodePullResponse([]byte(`{"txpk":{"tmst":42,"data":"AQ=="}}`))
+	packet, _, err := adapter.decodePullResponse([]byte(`{"txpk":{"tmst":42,"data":"AQ=="}}`))
 	if err != nil || !packet.TransmitAt.IsZero() {
 		t.Fatalf("physical concentrator clock was interpreted as local wall time: %+v %v", packet, err)
 	}

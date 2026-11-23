@@ -10,6 +10,10 @@ En su página configura **Enable the Semtech UDP Bridge**, **Gateway Bridge's ad
 
 El bridge transporta el tráfico de gateways virtuales. Los gateways reales mantienen su propia dirección y puerto UDP. La configuración de aplicaciones y dispositivos de ChirpStack se realiza fuera del simulador.
 
+Cuando la puerta de enlace virtual está activa, envía estadísticas a ChirpStack al arrancar y en cada intervalo **Keep Alive**, aunque no haya tráfico de los dispositivos. Estos informes actualizan **Last seen** en ChirpStack.
+
+Las puertas de enlace virtuales utilizan el reloj del equipo que ejecuta el simulador para añadir marcas de tiempo GPS a los uplinks y programar downlinks con hora GPS. Si el simulador y el servidor de red se ejecutan en equipos distintos, mantén sus relojes sincronizados.
+
 ## Tráfico Raw LoRa
 
 El transporte UDP también admite bytes **Raw LoRa**. Configura **Radio
