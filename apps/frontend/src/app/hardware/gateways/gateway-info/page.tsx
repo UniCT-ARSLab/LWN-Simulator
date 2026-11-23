@@ -4,7 +4,6 @@ import { Gateway, GatewayType } from "@lwn-simulator/contracts";
 import { useGatewayService } from "@lwn-simulator/sdk";
 import {
   Button,
-  ButtonType,
   EntityDetailTone,
   EntityDetailSection,
   EntityDetails,
@@ -14,6 +13,7 @@ import {
   NotificationHandler,
   Spinner,
 } from "@lwn-simulator/ui-components";
+import { DeleteHardwareButton } from "@/components/Hardware";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
@@ -177,18 +177,6 @@ const GatewayInfoContent = () => {
     };
   }, [gatewayService, searchParams]);
 
-  const handleDelete = async () => {
-    if (!gateway || !window.confirm("Delete this gateway?")) return;
-
-    try {
-      await gatewayService.deleteGateway({ id: gateway.id });
-      NotificationHandler.instance.success("Gateway deleted");
-      router.back();
-    } catch {
-      NotificationHandler.instance.error("Failed to delete gateway");
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="page entity-details-loading">
@@ -213,7 +201,20 @@ const GatewayInfoContent = () => {
             onClick={() => router.push("/hardware/gateways/new?gatewayId=" + encodeURIComponent(gateway.id))}
           />
         )}
-        {gateway && <Button value="Delete" type={ButtonType.Outlined} onClick={handleDelete} />}
+        {gateway && (
+          <DeleteHardwareButton
+            key={gateway.id}
+            kind="gateway"
+            name={gateway.name}
+            onDelete={async () => {
+              await gatewayService.deleteGateway({ id: gateway.id });
+            }}
+            onDeleted={() => {
+              NotificationHandler.instance.success("Gateway deleted");
+              router.back();
+            }}
+          />
+        )}
       </PageHeader>
       {error || !gateway ? (
         <p>Unable to load this gateway.</p>

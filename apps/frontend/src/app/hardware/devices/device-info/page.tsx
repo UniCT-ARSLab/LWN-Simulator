@@ -4,7 +4,6 @@ import { Device, RadioProtocol, RadioReceiveMode } from "@lwn-simulator/contract
 import { useDeviceService } from "@lwn-simulator/sdk";
 import {
   Button,
-  ButtonType,
   EntityDetailSection,
   EntityDetailTone,
   EntityDetails,
@@ -14,6 +13,7 @@ import {
   NotificationHandler,
   Spinner,
 } from "@lwn-simulator/ui-components";
+import { DeleteHardwareButton } from "@/components/Hardware";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
@@ -258,18 +258,6 @@ const DeviceInfoContent = () => {
     };
   }, [deviceService, searchParams]);
 
-  const handleDelete = async () => {
-    if (!device || !window.confirm("Delete this device?")) return;
-
-    try {
-      await deviceService.deleteDevice({ id: device.id });
-      NotificationHandler.instance.success("Device deleted");
-      router.back();
-    } catch {
-      NotificationHandler.instance.error("Failed to delete device");
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="page entity-details-loading">
@@ -286,7 +274,20 @@ const DeviceInfoContent = () => {
       >
         <Button value="Back" onClick={() => router.back()} />
         {device && <Button value="Edit" onClick={() => router.push("/hardware/devices/new?deviceId=" + encodeURIComponent(device.id))} />}
-        {device && <Button value="Delete" type={ButtonType.Outlined} onClick={handleDelete} />}
+        {device && (
+          <DeleteHardwareButton
+            key={device.id}
+            kind="device"
+            name={device.name}
+            onDelete={async () => {
+              await deviceService.deleteDevice({ id: device.id });
+            }}
+            onDeleted={() => {
+              NotificationHandler.instance.success("Device deleted");
+              router.back();
+            }}
+          />
+        )}
       </PageHeader>
       {error || !device ? (
         <p>Unable to load this device.</p>

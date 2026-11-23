@@ -403,3 +403,47 @@ test("keeps invalid device identifiers from being submitted", async ({ page }) =
   await expect(page.getByText("Invalid DevEUI", { exact: true })).toBeVisible();
   await expect(page).toHaveURL(/\/hardware\/devices\/new\/?$/);
 });
+
+for (const kind of ["device", "gateway"] as const) {
+  test(`confirms ${kind} deletion in the application popup`, async ({ page }) => {
+    await mockBackend(page);
+    let requests = 0;
+    const nativeDialogs: string[] = [];
+    page.on("dialog", async (dialog) => {
+      nativeDialogs.push(dialog.type());
+      await dialog.dismiss();
+    });
+    await page.route(`**/${kind}/delete-${kind}/*`, async (route) => {
+      expect(route.request().method()).toBe("DELETE");
+      requests += 1;
+      await route.fulfill(requests === 1
+        ? { status: 500, json: { error: "Failed to delete hardware" } }
+        : { status: 204 });
+    });
+
+    const list = `/hardware/${kind}s`;
+    await page.goto(list);
+    await page.goto(`${list}/${kind}-info?${kind}Id=${kind}-1`);
+    const trigger = page.getByRole("button", { name: "Delete", exact: true });
+    const popup = page.getByRole("dialog", { name: `Delete ${kind}` });
+
+    await trigger.click();
+    await expect(popup).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(popup).toBeHidden();
+    await expect(trigger).toBeFocused();
+
+    await trigger.click();
+    await popup.getByRole("button", { name: "Cancel" }).click();
+    await expect(popup).toBeHidden();
+    expect(requests).toBe(0);
+
+    await trigger.click();
+    await popup.getByRole("button", { name: `Delete ${kind}` }).click();
+    await expect(popup.getByRole("alert")).toHaveText(`Failed to delete this ${kind}. Try again.`);
+    await popup.getByRole("button", { name: `Delete ${kind}` }).click();
+    await expect(page).toHaveURL(new RegExp(`${list}/?$`));
+    expect(requests).toBe(2);
+    expect(nativeDialogs).toEqual([]);
+  });
+}

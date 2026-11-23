@@ -18,6 +18,12 @@ export interface PopupProps extends PropsWithChildren {
    * Title displayed in the popup header.
    */
   title: string;
+
+  /**
+   * Whether the close button, Escape and clicks outside can dismiss the popup.
+   * Defaults to true.
+   */
+  dismissible?: boolean;
 }
 
 /**
