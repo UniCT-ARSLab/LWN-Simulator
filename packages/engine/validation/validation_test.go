@@ -218,7 +218,6 @@ func TestValidateHardwareCoversDeviceAndGatewayRules(t *testing.T) {
 		{"gateway identity and location", func(_ *contracts.Device, gateway *contracts.Gateway) {
 			gateway.ID = "bad"
 			gateway.Name = ""
-			gateway.MacAddress = "bad"
 			gateway.GatewayEUI = "bad"
 			gateway.Latitude = float32Pointer(91)
 			gateway.Longitude = float32Pointer(-181)
@@ -259,7 +258,6 @@ func TestValidateHardwareRejectsDuplicateIdentityAcrossEntities(t *testing.T) {
 	duplicateGateway := validationGateway()
 	duplicateGateway.ID = "8b75c9a2-9e1b-4da2-9226-000000000005"
 	duplicateGateway.GatewayEUI = gateway.GatewayEUI
-	duplicateGateway.MacAddress = gateway.MacAddress
 
 	err := ValidateHardware([]contracts.Device{device, duplicateDevice}, []contracts.Gateway{gateway, duplicateGateway})
 	if err == nil || !strings.Contains(err.Error(), "must be unique") {
@@ -368,7 +366,7 @@ func validationDevice() contracts.Device {
 
 func validationGateway() contracts.Gateway {
 	return contracts.Gateway{
-		ID: "8b75c9a2-9e1b-4da2-9226-000000000003", Active: true, Name: "Validation Gateway", Type: contracts.Virtual, MacAddress: "02:00:00:10:00:01", GatewayEUI: "A840410001000101", KeepAlive: int32Pointer(30),
+		ID: "8b75c9a2-9e1b-4da2-9226-000000000003", Active: true, Name: "Validation Gateway", Type: contracts.Virtual, GatewayEUI: "A840410001000101", KeepAlive: int32Pointer(30),
 		Latitude: float32Pointer(37.5), Longitude: float32Pointer(15.1), Altitude: float32Pointer(100),
 	}
 }

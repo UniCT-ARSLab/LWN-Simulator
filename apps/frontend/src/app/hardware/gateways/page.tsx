@@ -43,7 +43,6 @@ const GatewaysPage = () => {
         orderBy="name"
         filters={[
           { field: "name", label: "Name", placeholder: "Search by name" },
-          { field: "macAddress", label: "MAC", placeholder: "Search by MAC address" },
           { field: "gatewayEUI", label: "Gateway EUI", placeholder: "Search by EUI" },
           {
             field: "type",
@@ -73,7 +72,6 @@ const GatewaysPage = () => {
                   { label: "type", value: gateway.type },
                   { label: "status", value: gateway.active ? "active" : "inactive" },
                   { label: "location", value: `${gateway.latitude}, ${gateway.longitude}` },
-                  { label: "macAddress", value: gateway.macAddress },
                   { label: "gatewayEUI", value: gateway.gatewayEUI },
                 ],
               }))

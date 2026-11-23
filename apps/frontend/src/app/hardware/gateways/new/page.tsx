@@ -77,7 +77,6 @@ const NewGatewayPage = () => {
     const req: CreateGatewayRequest = {
       name: values.name as string,
       type,
-      macAddress: values.macAddress as string,
       gatewayEUI: values.gatewayEUI as string,
       latitude: Number(values.latitude),
       longitude: Number(values.longitude),
@@ -94,7 +93,7 @@ const NewGatewayPage = () => {
       if (editingGateway) {
         await gatewayService.updateGateway({
           id: editingGateway.id,
-          gateway: { ...editingGateway, ...req, type: editingGateway.type, macAddress: editingGateway.macAddress, gatewayEUI: editingGateway.gatewayEUI, active: values.active as boolean },
+          gateway: { ...editingGateway, ...req, type: editingGateway.type, gatewayEUI: editingGateway.gatewayEUI, active: values.active as boolean },
         });
         NotificationHandler.instance.success("Gateway updated");
         router.back();

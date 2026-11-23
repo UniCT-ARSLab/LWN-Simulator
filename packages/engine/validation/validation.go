@@ -47,7 +47,6 @@ func ValidateHardware(devices []contracts.Device, gateways []contracts.Gateway) 
 	ids := make(map[string]string, len(devices)+len(gateways))
 	devEUIs := make(map[string]struct{}, len(devices))
 	gatewayEUIs := make(map[string]struct{}, len(gateways))
-	macAddresses := make(map[string]struct{}, len(gateways))
 
 	for index, device := range devices {
 		prefix := fmt.Sprintf("devices[%d]", index)
@@ -71,16 +70,6 @@ func ValidateHardware(devices []contracts.Device, gateways []contracts.Gateway) 
 			issues.Add(prefix+".gatewayEUI", "duplicate", "Gateway EUI must be unique")
 		}
 		gatewayEUIs[gatewayEUI] = struct{}{}
-
-		macAddress, err := net.ParseMAC(gateway.MacAddress)
-		canonicalMAC := strings.ToLower(gateway.MacAddress)
-		if err == nil && len(macAddress) == 6 {
-			canonicalMAC = hex.EncodeToString(macAddress)
-		}
-		if _, exists := macAddresses[canonicalMAC]; exists {
-			issues.Add(prefix+".macAddress", "duplicate", "MAC address must be unique")
-		}
-		macAddresses[canonicalMAC] = struct{}{}
 	}
 
 	return validationResult(issues)
@@ -175,10 +164,6 @@ func validateGateway(issues *types.ValidationErrors, prefix string, gateway cont
 	validateRequired(issues, prefix+".name", gateway.Name)
 	if !gateway.Type.Valid() {
 		issues.Add(prefix+".type", "invalid_enum", "gateway type is not supported")
-	}
-	macAddress, err := net.ParseMAC(gateway.MacAddress)
-	if err != nil || len(macAddress) != 6 {
-		issues.Add(prefix+".macAddress", "invalid_mac_address", "MAC address must be a valid hardware address")
 	}
 	validateHex(issues, prefix+".gatewayEUI", gateway.GatewayEUI, 16)
 	validateCoordinate(issues, prefix+".latitude", gateway.Latitude, -90, 90)

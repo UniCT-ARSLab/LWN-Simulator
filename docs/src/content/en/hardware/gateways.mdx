@@ -26,15 +26,10 @@ virtual or real.
 | `active` | Whether the gateway is enabled. | Available when editing the gateway. |
 | `name` | Friendly name shown in lists, details, and map tooltips. | Required. |
 | `type` | Connectivity model used by the gateway. | `virtual` or `real`; it determines the conditional fields. |
-| `macAddress` | Network interface MAC address. | Required. It is generated automatically during creation and is kept separately from the Gateway EUI. |
 | `gatewayEUI` | LoRaWAN gateway identifier. | Required hexadecimal value with exactly 16 characters. It is generated automatically during creation and cannot be changed while editing. |
 | `latitude` | North/south position used by the map. | Decimal degrees from `-90` to `90`. |
 | `longitude` | East/west position used by the map. | Decimal degrees from `-180` to `180`. |
 | `altitude` | Height above sea level. | Numeric value in meters. |
-
-The MAC address and Gateway EUI identify different things and must not be
-treated as interchangeable values: the MAC address identifies the network
-interface, while the Gateway EUI identifies the LoRaWAN gateway.
 
 ## Virtual gateways
 
@@ -57,8 +52,7 @@ the network.
 | `gatewayIPv4` | IPv4 address where the gateway can be reached. | Required for real gateways; valid IPv4 address. |
 | `gatewayPort` | Network port exposed by the gateway. | Required for real gateways; integer from `1` to `65535`. |
 
-The create form only shows these fields when the gateway type is real. The
-gateway’s MAC address and Gateway EUI are still required for real gateways.
+The create form shows these fields when the gateway type is real.
 
 <Tabs items={["Virtual", "Real"]}>
   <Tabs.Tab>
@@ -74,7 +68,7 @@ gateway’s MAC address and Gateway EUI are still required for real gateways.
 ## Map and details
 
 Selecting a gateway marker opens a tooltip containing its name, status, type,
-Gateway EUI, and MAC address. Long identifiers are constrained to the tooltip
+and Gateway EUI. Long identifiers are constrained to the tooltip
 width so they remain readable without overflowing the map.
 
 The gateway detail page groups the information into identity, connectivity,
@@ -83,9 +77,8 @@ to the selected gateway type.
 
 ## Editing rules
 
-The type, MAC address, and Gateway EUI are identity-level properties. The form
-keeps generated identifiers stable while editing. Use the edit page to change
-the active state, name, location, or the settings associated with the selected
-gateway type.
+The form keeps the gateway type and Gateway EUI fixed while editing. Use the
+edit page to change the active state, name, location, or the settings for the
+selected gateway type.
 
 The gateway position can also be edited while the simulation is running or paused. New radio transmissions use the updated coordinates.

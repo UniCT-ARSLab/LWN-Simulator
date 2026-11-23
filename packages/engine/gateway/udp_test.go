@@ -786,7 +786,7 @@ func TestUDPFactoryRejectsBridgeReconfigurationWhileRunning(t *testing.T) {
 func testRealGateway(port int) contracts.Gateway {
 	return contracts.Gateway{
 		ID: "6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c01", Active: true, Name: "Real Test Gateway",
-		Type: contracts.Real, MacAddress: "02:00:00:10:00:01", GatewayEUI: "A840410001000101",
+		Type: contracts.Real, GatewayEUI: "A840410001000101",
 		GatewayIPv4: gatewayStringPtr("127.0.0.1"), GatewayPort: gatewayInt32Ptr(int32(port)),
 		Latitude: gatewayFloat32Ptr(37.5), Longitude: gatewayFloat32Ptr(15.1), Altitude: gatewayFloat32Ptr(100),
 	}

@@ -112,13 +112,11 @@ func TestGatewayParametersDriveCoverageSignalHeartbeatAndSnapshot(t *testing.T) 
 
 	inside := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7203")
 	inside.Name = "Inside gateway"
-	inside.MacAddress = "02:00:00:10:02:03"
 	inside.GatewayEUI = "A840410001000203"
 	inside.KeepAlive = int32Ptr(17)
 	inside.Altitude = float32Ptr(310)
 	out := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7204")
 	out.Name = "Outside gateway"
-	out.MacAddress = "02:00:00:10:02:04"
 	out.GatewayEUI = "A840410001000204"
 	out.Latitude = float32Ptr(38.5)
 	out.Longitude = float32Ptr(16.1)
@@ -151,7 +149,7 @@ func TestGatewayParametersDriveCoverageSignalHeartbeatAndSnapshot(t *testing.T) 
 		t.Fatal("virtual gateway keepAlive did not schedule the exact heartbeat interval")
 	}
 	checkpoint := engine.Checkpoint()
-	if len(checkpoint.Gateways) != 2 || checkpoint.Gateways[0].Name != inside.Name || checkpoint.Gateways[0].MacAddress != inside.MacAddress || checkpoint.Gateways[0].GatewayEUI != inside.GatewayEUI {
+	if len(checkpoint.Gateways) != 2 || checkpoint.Gateways[0].Name != inside.Name || checkpoint.Gateways[0].GatewayEUI != inside.GatewayEUI {
 		t.Fatalf("gateway identity parameters were not preserved: %+v", checkpoint.Gateways)
 	}
 }

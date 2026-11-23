@@ -13,7 +13,6 @@ func ValidateGatewayRequest(req contracts.CreateGatewayRequest) error {
 	return validateGatewayFields(
 		req.Type,
 		req.Name,
-		req.MacAddress,
 		req.GatewayEUI,
 		req.KeepAlive,
 		req.GatewayIPv4,
@@ -28,7 +27,6 @@ func ValidateGateway(gateway contracts.Gateway) error {
 	return validateGatewayFields(
 		gateway.Type,
 		gateway.Name,
-		gateway.MacAddress,
 		gateway.GatewayEUI,
 		gateway.KeepAlive,
 		gateway.GatewayIPv4,
@@ -42,7 +40,6 @@ func ValidateGateway(gateway contracts.Gateway) error {
 func validateGatewayFields(
 	gatewayType contracts.GatewayType,
 	name string,
-	macAddress string,
 	gatewayEUI string,
 	keepAlive *int32,
 	gatewayIPv4 *string,
@@ -57,11 +54,6 @@ func validateGatewayFields(
 
 	if strings.TrimSpace(name) == "" {
 		return fmt.Errorf("name is required")
-	}
-
-	mac, err := net.ParseMAC(macAddress)
-	if err != nil || len(mac) != 6 {
-		return fmt.Errorf("macAddress must be a valid MAC address")
 	}
 
 	if len(gatewayEUI) != 16 {

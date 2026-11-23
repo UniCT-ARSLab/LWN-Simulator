@@ -735,10 +735,6 @@ components:
             validate: required
         type:
           $ref: '#/components/schemas/GatewayType'
-        macAddress:
-          type: string
-          x-oapi-codegen-extra-tags:
-            validate: required
         gatewayEUI:
           type: string
           x-oapi-codegen-extra-tags:
@@ -777,7 +773,6 @@ components:
         - active
         - name
         - type
-        - macAddress
         - gatewayEUI
         - latitude
         - longitude
@@ -801,10 +796,6 @@ components:
             validate: required
         type:
           $ref: '#/components/schemas/GatewayType'
-        macAddress:
-          type: string
-          x-oapi-codegen-extra-tags:
-            validate: required
         gatewayEUI:
           type: string
           x-oapi-codegen-extra-tags:
@@ -841,7 +832,6 @@ components:
       required:
         - name
         - type
-        - macAddress
         - gatewayEUI
         - latitude
         - longitude

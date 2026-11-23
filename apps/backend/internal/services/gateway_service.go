@@ -72,12 +72,6 @@ func (s *GatewayService) CreateGateway(req contracts.CreateGatewayRequest) (cont
 				req.GatewayEUI,
 			)
 		}
-		if gateway.MacAddress == req.MacAddress {
-			return contracts.Gateway{}, apperrors.Conflict(
-				"gateway with macAddress %q already exists",
-				req.MacAddress,
-			)
-		}
 	}
 
 	gateway := contracts.Gateway{
@@ -85,7 +79,6 @@ func (s *GatewayService) CreateGateway(req contracts.CreateGatewayRequest) (cont
 		Active:      true,
 		Name:        req.Name,
 		Type:        req.Type,
-		MacAddress:  req.MacAddress,
 		GatewayEUI:  req.GatewayEUI,
 		KeepAlive:   req.KeepAlive,
 		GatewayIPv4: req.GatewayIPv4,
@@ -136,7 +129,6 @@ func (s *GatewayService) ImportGateways(gateways []contracts.Gateway) error {
 
 	seenIDs := make(map[string]struct{}, len(gateways))
 	seenEUIs := make(map[string]struct{}, len(gateways))
-	seenMACs := make(map[string]struct{}, len(gateways))
 	for _, gateway := range gateways {
 		if _, err := uuid.Parse(gateway.ID); err != nil {
 			return apperrors.Invalid("gateway %q has an invalid id", gateway.ID)
@@ -150,12 +142,8 @@ func (s *GatewayService) ImportGateways(gateways []contracts.Gateway) error {
 		if _, exists := seenEUIs[gateway.GatewayEUI]; exists {
 			return apperrors.Conflict("duplicate gateway EUI %q", gateway.GatewayEUI)
 		}
-		if _, exists := seenMACs[gateway.MacAddress]; exists {
-			return apperrors.Conflict("duplicate gateway MAC address %q", gateway.MacAddress)
-		}
 		seenIDs[gateway.ID] = struct{}{}
 		seenEUIs[gateway.GatewayEUI] = struct{}{}
-		seenMACs[gateway.MacAddress] = struct{}{}
 	}
 
 	if err := s.repository.Save(gateways); err != nil {
@@ -214,12 +202,6 @@ func (s *GatewayService) updateGateway(
 			return contracts.UpdateGatewayResponse{}, apperrors.Conflict(
 				"gateway with gatewayEUI %q already exists",
 				gateway.GatewayEUI,
-			)
-		}
-		if existing.MacAddress == gateway.MacAddress {
-			return contracts.UpdateGatewayResponse{}, apperrors.Conflict(
-				"gateway with macAddress %q already exists",
-				gateway.MacAddress,
 			)
 		}
 	}

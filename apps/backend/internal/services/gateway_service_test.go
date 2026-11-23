@@ -76,7 +76,6 @@ func validCreateGatewayRequest() contracts.CreateGatewayRequest {
 	return contracts.CreateGatewayRequest{
 		Name:       "Virtual gateway",
 		Type:       contracts.Virtual,
-		MacAddress: "02:00:00:00:00:01",
 		GatewayEUI: "0102030405060708",
 		KeepAlive:  &keepAlive,
 		Latitude:   float32Pointer(37.5),

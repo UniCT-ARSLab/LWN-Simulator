@@ -73,7 +73,6 @@ func TestPhaseTwoDropsUplinkOutsideCoverageAndIgnoresRealGateway(t *testing.T) {
 	insideRealGateway.Type = contracts.Real
 	insideRealGateway.KeepAlive = nil
 	insideRealGateway.GatewayEUI = "A840410001000102"
-	insideRealGateway.MacAddress = "02:00:00:10:00:02"
 	insideRealGateway.GatewayIPv4 = stringPtr("127.0.0.1")
 	insideRealGateway.GatewayPort = int32Ptr(1700)
 

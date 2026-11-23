@@ -155,7 +155,6 @@ func validGateway(id string) contracts.Gateway {
 		Active:     true,
 		Name:       "Test Gateway",
 		Type:       contracts.Virtual,
-		MacAddress: "02:00:00:10:00:01",
 		GatewayEUI: "A840410001000101",
 		KeepAlive:  int32Ptr(30),
 		Latitude:   float32Ptr(37.5),

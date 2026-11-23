@@ -24,7 +24,6 @@ test("creates a virtual gateway from the hardware form", async ({ page }) => {
 
   await page.getByLabel("Name").fill("Catania Lab Gateway");
   await page.getByText("VIRTUAL", { exact: true }).click();
-  await page.getByLabel("MAC Address").fill("02:00:00:00:00:01");
   await page.getByLabel("Gateway EUI").fill("0102030405060708");
   await page.getByLabel("Keep Alive (seconds)").fill("30");
   await page.getByLabel("Latitude").fill("37.5079");
@@ -41,7 +40,6 @@ test("creates a real gateway with its network endpoint", async ({ page }) => {
 
   await page.getByLabel("Name").fill("Catania Physical Gateway");
   await selectRadioOption(page, "type-real");
-  await page.getByLabel("MAC Address").fill("02:00:00:00:00:02");
   await page.getByLabel("Gateway EUI").fill("0102030405060002");
   await page.getByLabel("Gateway IPv4").fill("192.168.1.20");
   await page.getByLabel("Gateway Port").fill("1700");

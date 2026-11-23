@@ -63,7 +63,7 @@ func TestScopedHardwareUpdates(t *testing.T) {
 	}`, 201, &createdDevice)
 	var createdGateway contracts.CreateGatewayResponse
 	check(http.MethodPost, base+"/gateway/create-gateway", `{
-		"name":"Gateway","type":"virtual","macAddress":"02:00:00:00:00:01","gatewayEUI":"A840410001001001",
+		"name":"Gateway","type":"virtual","gatewayEUI":"A840410001001001",
 		"keepAlive":30,"latitude":37.5,"longitude":15.1,"altitude":100
 	}`, 201, &createdGateway)
 

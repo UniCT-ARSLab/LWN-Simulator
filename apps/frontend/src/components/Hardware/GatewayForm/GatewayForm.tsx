@@ -6,7 +6,6 @@ import {
   latValidation,
   lngValidation,
   randomGatewayEUI,
-  randomMacAddress,
 } from "@/utils";
 import { Gateway, GatewayType } from "@lwn-simulator/contracts";
 import {
@@ -48,7 +47,6 @@ export const GatewayForm = (props: GatewayFormProps) => {
       active: gateway.active,
       name: gateway.name,
       type: gateway.type,
-      macAddress: gateway.macAddress,
       gatewayEUI: gateway.gatewayEUI,
       keepAlive: gateway.keepAlive?.toString() ?? "",
       gatewayIPv4: gateway.gatewayIPv4 ?? "",
@@ -166,42 +164,6 @@ export const GatewayForm = (props: GatewayFormProps) => {
               },
               required: true,
               disabled: !!props.gateway,
-            }),
-            textField({
-              name: "macAddress",
-              label: "MAC Address",
-              value: "",
-              placeholder: "02:00:00:00:00:01",
-              format: (raw: string) =>
-                raw
-                  .replace(/[^0-9A-Fa-f:]/g, "")
-                  .slice(0, 17)
-                  .toUpperCase(),
-              info: {
-                default: "Unique hardware network address of the gateway interface",
-              },
-              validations: [
-                {
-                  rule: /^(?:[0-9A-F]{2}:){5}[0-9A-F]{2}$/,
-                  error: "Invalid MAC Address",
-                },
-              ],
-              error: null,
-              required: true,
-              disabled: !!props.gateway,
-              toolbar: props.gateway ? undefined : (
-                <Button
-                  value={<span className="material-symbols-outlined">cached</span>}
-                  layout={ButtonLayout.Icon}
-                  type={ButtonType.Outlined}
-                  onClick={() =>
-                    formLogicRef.current?.setValue(
-                      "macAddress",
-                      randomMacAddress(),
-                    )
-                  }
-                />
-              ),
             }),
             textField({
               name: "gatewayEUI",

@@ -201,7 +201,7 @@ func validSimulationDevice(id string) contracts.Device {
 func validSimulationGateway(id string) contracts.Gateway {
 	return contracts.Gateway{
 		ID: id, Active: true, Name: "Runtime gateway", Type: contracts.Virtual,
-		MacAddress: "02:00:00:10:00:81", GatewayEUI: "A840410001000181", KeepAlive: serviceInt32Ptr(30),
+		GatewayEUI: "A840410001000181", KeepAlive: serviceInt32Ptr(30),
 		Latitude: serviceFloat32Ptr(37.5), Longitude: serviceFloat32Ptr(15.1), Altitude: serviceFloat32Ptr(100),
 	}
 }

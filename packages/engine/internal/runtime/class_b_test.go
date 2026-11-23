@@ -117,10 +117,8 @@ func TestClassBUsesNearestCoveredGateway(t *testing.T) {
 	farGateway := validGateway("00000000-0000-4000-8000-000000000013")
 	farGateway.Latitude = float32Ptr(37.505)
 	farGateway.GatewayEUI = "A840410001000113"
-	farGateway.MacAddress = "02:00:00:10:00:13"
 	nearGateway := validGateway("ffffffff-ffff-4fff-bfff-ffffffffffff")
 	nearGateway.GatewayEUI = "A840410001000114"
-	nearGateway.MacAddress = "02:00:00:10:00:14"
 
 	engine := newTestEngine(t, clock, device, farGateway, nearGateway)
 	defer stopEngine(t, engine)
@@ -205,7 +203,6 @@ func TestClassBRealGatewayUsesTimedUDPPackets(t *testing.T) {
 	gateway.Type = contracts.Real
 	gateway.KeepAlive = nil
 	gateway.GatewayEUI = "A840410001000116"
-	gateway.MacAddress = "02:00:00:10:00:16"
 	gateway.GatewayIPv4 = engineStringPtr("127.0.0.1")
 	gateway.GatewayPort = engineInt32Ptr(1700)
 

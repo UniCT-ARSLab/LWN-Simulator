@@ -10,10 +10,6 @@ properties:
   type:
     $ref: "./GatewayType.yaml"
 
-  macAddress:
-    type: string
-    x-oapi-codegen-extra-tags:
-      validate: "required"
 
   gatewayEUI:
     type: string
@@ -58,7 +54,6 @@ properties:
 required:
   - name
   - type
-  - macAddress
   - gatewayEUI
   - latitude
   - longitude

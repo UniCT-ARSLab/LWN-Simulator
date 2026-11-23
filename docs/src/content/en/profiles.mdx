@@ -161,7 +161,7 @@ the others.
 | `gatewayBridge` | `gatewayBridge` is optional. If included, supply `enabled` (boolean), `address` (bridge destination) and `port` (UDP port). Omit it for a new internal-only network. |
 | `logs` | `logs` is an array of objects with `run` and `events`. Use `[]` for a new network. If you copy exported history, preserve the hardware IDs referenced by its events. Imported runs are marked as stopped. |
 
-Keep JSON keys and values case-sensitive. Give each device and gateway a distinct UUID. Use 16 hexadecimal digits for DevEUI and Gateway EUI and six bytes for MAC addresses, with unique values within each group. For ABP devices use distinct eight-digit hexadecimal DevAddr values and 32-digit keys. For OTAA use `activation: "oota"` with `OOTAConfig`, a 16-digit `joinEUI` and a 32-digit `appKey`, and remove `ABPConfig`.
+Keep JSON keys and values case-sensitive. Give each device and gateway a distinct UUID. Use 16 hexadecimal digits for DevEUI and Gateway EUI, with unique values within each group. For ABP devices use distinct eight-digit hexadecimal DevAddr values and 32-digit keys. For OTAA use `activation: "oota"` with `OOTAConfig`, a 16-digit `joinEUI` and a 32-digit `appKey`, and remove `ABPConfig`.
 
 A `virtual` gateway requires a positive `keepAlive` in seconds. A `real` gateway requires `gatewayIPv4` and `gatewayPort` and is defined without `keepAlive`. Latitude and longitude use decimal degrees, altitude and range use meters, frequencies use Hz, and RX delays and durations use milliseconds. Use compatible regions, frequencies and data rates. For the first test, place at least one active device within its antenna range of a gateway.
 
@@ -231,7 +231,6 @@ DEVICE_TEMPLATE = {
 GATEWAY = {
     "name": "External test gateway",
     "type": "virtual",
-    "macAddress": "02:00:00:00:10:01",
     "gatewayEUI": "A840410001001001",
     "keepAlive": 30,
     "latitude": 37.5,
@@ -273,7 +272,7 @@ Path("catania-profile.json").write_text(
 Give the AI this format and example or an exported test profile. Use sample keys in anything you share. Start with this prompt.
 
 ```text
-Generate a single LWN Simulator Profile v1 JSON file from the attached example. Create three EU868 ABP sensors and one nearby virtual gateway around 37.5, 15.1. Preserve the JSON keys and configuration blocks from the example. Assign unique UUID v4 values, EUIs, ABP addresses and MAC addresses. Use test credentials, leave logs empty and omit gatewayBridge. Return only the JSON.
+Generate a single LWN Simulator Profile v1 JSON file from the attached example. Create three EU868 ABP sensors and one nearby virtual gateway around 37.5, 15.1. Preserve the JSON keys and configuration blocks from the example. Assign unique UUID v4 values, EUIs and ABP addresses. Use test credentials, leave logs empty and omit gatewayBridge. Return only the JSON.
 ```
 
 Check that the file is valid JSON, then use **Import** in the profile menu or send the document in the `archive` field through the API. If import fails, fix the field named in the error. After import, open the new profile, check the node locations and run a brief simulation to verify uplinks in the logs.

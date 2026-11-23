@@ -19,7 +19,6 @@ func TestPhaseFiveEngineTracksRealGatewayLifecycleAndPackets(t *testing.T) {
 	gateway.Type = contracts.Real
 	gateway.KeepAlive = nil
 	gateway.GatewayEUI = "A840410001000101"
-	gateway.MacAddress = "02:00:00:10:00:02"
 	gateway.GatewayIPv4 = engineStringPtr("127.0.0.1")
 	gateway.GatewayPort = engineInt32Ptr(1700)
 
@@ -87,7 +86,6 @@ func TestPhaseFiveEngineRequeuesDownlinkAfterGatewayFailure(t *testing.T) {
 	gateway.Type = contracts.Real
 	gateway.KeepAlive = nil
 	gateway.GatewayEUI = "A840410001000145"
-	gateway.MacAddress = "02:00:00:10:00:45"
 	gateway.GatewayIPv4 = engineStringPtr("127.0.0.1")
 	gateway.GatewayPort = engineInt32Ptr(1745)
 
@@ -154,7 +152,6 @@ func TestPhaseFiveRealUplinkUpdatesDeviceAndSchedulesConfirmedACK(t *testing.T) 
 	gateway.Type = contracts.Real
 	gateway.KeepAlive = nil
 	gateway.GatewayEUI = "A840410001000141"
-	gateway.MacAddress = "02:00:00:10:00:41"
 	gateway.GatewayIPv4 = engineStringPtr("127.0.0.1")
 	gateway.GatewayPort = engineInt32Ptr(1741)
 
@@ -218,7 +215,6 @@ func TestPhaseFourExternalGatewayDownlinkIsValidatedAndApplied(t *testing.T) {
 	gateway.Type = contracts.Real
 	gateway.KeepAlive = nil
 	gateway.GatewayEUI = "A840410001000144"
-	gateway.MacAddress = "02:00:00:10:00:44"
 	gateway.GatewayIPv4 = engineStringPtr("127.0.0.1")
 	gateway.GatewayPort = engineInt32Ptr(1744)
 
@@ -268,7 +264,6 @@ func TestRealGatewaysCanIngestTheSameDeviceThroughMultipleAdapters(t *testing.T)
 		gateway.Type = contracts.Real
 		gateway.KeepAlive = nil
 		gateway.GatewayEUI = "A84041000100015" + strconv.Itoa(index+1)
-		gateway.MacAddress = "02:00:00:10:00:5" + strconv.Itoa(index+1)
 		gateway.GatewayIPv4 = engineStringPtr("127.0.0.1")
 		port := int32(1751 + index)
 		gateway.GatewayPort = &port
@@ -352,7 +347,6 @@ func TestRealClassADownlinkCarriesACKFPendingAndMACCommands(t *testing.T) {
 	gateway.Type = contracts.Real
 	gateway.KeepAlive = nil
 	gateway.GatewayEUI = "A840410001000143"
-	gateway.MacAddress = "02:00:00:10:00:43"
 	gateway.GatewayIPv4 = engineStringPtr("127.0.0.1")
 	gateway.GatewayPort = engineInt32Ptr(1743)
 	engine, err := New(
@@ -424,7 +418,6 @@ func TestPhaseFiveRealOTAAJoinQueuesEncryptedJoinAccept(t *testing.T) {
 	gateway.Type = contracts.Real
 	gateway.KeepAlive = nil
 	gateway.GatewayEUI = "A840410001000142"
-	gateway.MacAddress = "02:00:00:10:00:42"
 	gateway.GatewayIPv4 = engineStringPtr("127.0.0.1")
 	gateway.GatewayPort = engineInt32Ptr(1742)
 

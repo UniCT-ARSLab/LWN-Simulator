@@ -157,7 +157,6 @@ func TestRawDownlinkTravelsThroughConnectedGateway(t *testing.T) {
 	gateway.Type = contracts.Real
 	gateway.KeepAlive = nil
 	gateway.GatewayEUI = "A840410001000173"
-	gateway.MacAddress = "02:00:00:10:00:73"
 	gateway.GatewayIPv4 = engineStringPtr("127.0.0.1")
 	gateway.GatewayPort = engineInt32Ptr(1773)
 

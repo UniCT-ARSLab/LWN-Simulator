@@ -98,7 +98,7 @@ func completeRegistryDevice(device *contracts.Device) {
 }
 
 func registryGateway(id string, active bool, gatewayType contracts.GatewayType) contracts.Gateway {
-	return contracts.Gateway{ID: id, Active: active, Name: "Gateway", Type: gatewayType, MacAddress: "02:00:00:10:" + id[len(id)-2:] + ":01", GatewayEUI: "A8404100010001" + id[len(id)-2:], KeepAlive: int32Pointer(30), Latitude: float32Pointer(37.5), Longitude: float32Pointer(15.1), Altitude: float32Pointer(100)}
+	return contracts.Gateway{ID: id, Active: active, Name: "Gateway", Type: gatewayType, GatewayEUI: "A8404100010001" + id[len(id)-2:], KeepAlive: int32Pointer(30), Latitude: float32Pointer(37.5), Longitude: float32Pointer(15.1), Altitude: float32Pointer(100)}
 }
 
 func intPointer(value int) *int             { return &value }

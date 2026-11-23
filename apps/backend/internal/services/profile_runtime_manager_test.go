@@ -2,7 +2,9 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
@@ -194,5 +196,46 @@ func TestProfileRuntimeManagerRejectsInvalidArchiveBeforeCreatingProfile(t *test
 	}
 	if len(stored) != 1 || stored[0].ID != defaultProfile.ID {
 		t.Fatalf("invalid import created a profile: %+v", stored)
+	}
+}
+
+func TestProfileArchiveIgnoresRemovedGatewayMACAddress(t *testing.T) {
+	dataDir := t.TempDir()
+	profiles := NewProfileService(repositories.NewProfileRepository(dataDir), dataDir)
+	if _, err := profiles.EnsureDefaultProfile(); err != nil {
+		t.Fatal(err)
+	}
+	manager := NewProfileRuntimeManager(dataDir, profiles, engineTypes.Options{}, nil)
+
+	var archive contracts.ProfileArchive
+	if err := json.Unmarshal([]byte(`{
+		"format":"lwn-simulator-profile","version":1,
+		"profile":{"id":"550e8400-e29b-41d4-a716-446655440001","name":"Legacy profile"},
+		"devices":[],"logs":[],
+		"gateways":[{
+			"id":"550e8400-e29b-41d4-a716-446655440002","active":true,
+			"name":"Legacy gateway","type":"virtual","gatewayEUI":"A840410001000181",
+			"macAddress":"obsolete value","keepAlive":30,"latitude":37.5,"longitude":15.1,"altitude":100
+		}]
+	}`), &archive); err != nil {
+		t.Fatal(err)
+	}
+	profile, err := manager.ImportArchive(archive)
+	if err != nil {
+		t.Fatalf("old profile failed to import: %v", err)
+	}
+	exported, err := manager.ExportArchive(profile.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(exported.Gateways) != 1 || exported.Gateways[0].GatewayEUI != "A840410001000181" {
+		t.Fatalf("the imported gateway identity was not preserved: %+v", exported.Gateways)
+	}
+	data, err := json.Marshal(exported)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), `"macAddress"`) {
+		t.Fatalf("the exported profile included the removed field: %s", data)
 	}
 }

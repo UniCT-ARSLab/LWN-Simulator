@@ -114,18 +114,6 @@ export const randomGatewayEUI = (): string => {
     .toUpperCase();
 };
 
-export const randomMacAddress = (): string => {
-  const bytes = new Uint8Array(6);
-  crypto.getRandomValues(bytes);
-
-  // Locally administered unicast MAC address.
-  bytes[0] = (bytes[0] & 0b11111100) | 0b00000010;
-
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0"))
-    .join(":")
-    .toUpperCase();
-};
-
 export const getAltitude = async (
   lat: number,
   lng: number,

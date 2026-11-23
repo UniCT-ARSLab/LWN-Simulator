@@ -41,7 +41,6 @@ func TestIntegrationMixedFleetLongRun(t *testing.T) {
 	secondGateway := validGateway("7f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c02")
 	secondGateway.Name = "Catania Lab Gateway 2"
 	secondGateway.GatewayEUI = "A840410001000102"
-	secondGateway.MacAddress = "02:00:00:10:00:02"
 
 	engine, err := New(
 		contracts.SimulationConfig{Speed: 1, Seed: int64Ptr(42)},

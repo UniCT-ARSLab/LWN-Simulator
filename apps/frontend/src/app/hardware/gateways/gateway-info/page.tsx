@@ -64,7 +64,6 @@ const getGatewaySections = (gateway: Gateway): Array<EntityDetailSection> => {
       items: [
         { label: "Name", value: gateway.name },
         { label: "Gateway ID", value: gateway.id, mono: true },
-        { label: "MAC address", value: gateway.macAddress, mono: true },
         { label: "Gateway EUI", value: gateway.gatewayEUI, mono: true },
       ],
     },

@@ -59,7 +59,6 @@ const activeGateway = {
   active: true,
   name: "Catania Lab Gateway",
   type: "virtual",
-  macAddress: "02:00:00:00:00:01",
   gatewayEUI: "0102030405060708",
   keepAlive: 30,
   latitude: 37.5079,

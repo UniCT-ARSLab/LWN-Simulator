@@ -30,7 +30,7 @@ Le backend n'exécute qu'une simulation à la fois. Si un autre profil est en co
 | `gatewayBridge` | `gatewayBridge` est facultatif. S’il est présent, renseignez `enabled` (booléen), `address` (destination du bridge) et `port` (port UDP). Omettez-le pour un nouveau réseau interne. |
 | `logs` | `logs` est un tableau d’objets avec `run` et `events`. Utilisez `[]` pour un réseau neuf. Si vous copiez un historique exporté, conservez les identifiants matériels référencés par ses événements. Les exécutions importées sont marquées comme arrêtées. |
 
-Respectez la casse des clés et valeurs JSON. Attribuez un UUID distinct à chaque appareil et gateway. Utilisez des DevEUI et Gateway EUI de 16 chiffres hexadécimaux et des adresses MAC de 6 octets, uniques dans chaque groupe. Pour ABP, attribuez un DevAddr distinct de 8 chiffres et des clés de 32 chiffres hexadécimaux. Pour OTAA, utilisez `activation: "oota"` avec `OOTAConfig`, un `joinEUI` de 16 chiffres et une `appKey` de 32, et retirez `ABPConfig`.
+Respectez la casse des clés et valeurs JSON. Attribuez un UUID distinct à chaque appareil et gateway. Utilisez des DevEUI et Gateway EUI de 16 chiffres hexadécimaux, uniques dans chaque groupe. Pour ABP, attribuez un DevAddr distinct de 8 chiffres et des clés de 32 chiffres hexadécimaux. Pour OTAA, utilisez `activation: "oota"` avec `OOTAConfig`, un `joinEUI` de 16 chiffres et une `appKey` de 32, et retirez `ABPConfig`.
 
 Un gateway `virtual` exige un `keepAlive` positif en secondes. Un gateway `real` exige `gatewayIPv4` et `gatewayPort` et se définit sans `keepAlive`. Les coordonnées utilisent des degrés décimaux, l’altitude et la portée des mètres, les fréquences des Hz et les délais et durées RX des millisecondes. Choisissez une région, des fréquences et des débits compatibles et placez au moins un appareil actif à portée d’un gateway pour le premier essai.
 
@@ -100,7 +100,6 @@ DEVICE_TEMPLATE = {
 GATEWAY = {
     "name": "External test gateway",
     "type": "virtual",
-    "macAddress": "02:00:00:00:10:01",
     "gatewayEUI": "A840410001001001",
     "keepAlive": 30,
     "latitude": 37.5,
@@ -142,7 +141,7 @@ Path("catania-profile.json").write_text(
 Fournissez à l’IA ce format et cet exemple ou un profil de test exporté. Utilisez des clés de test dans les données que vous partagez. Vous pouvez partir de cette consigne.
 
 ```text
-Génère un seul fichier JSON LWN Simulator Profile v1 à partir de l’exemple joint. Crée trois capteurs ABP EU868 et un gateway virtuel à proximité de 37.5, 15.1. Conserve les clés JSON et les blocs de configuration de l’exemple. Attribue des UUID v4, EUI, adresses ABP et MAC uniques. Utilise des clés de test, laisse logs vide et omets gatewayBridge. Retourne uniquement le JSON.
+Génère un seul fichier JSON LWN Simulator Profile v1 à partir de l’exemple joint. Crée trois capteurs ABP EU868 et un gateway virtuel à proximité de 37.5, 15.1. Conserve les clés JSON et les blocs de configuration de l’exemple. Attribue des UUID v4, des EUI et des adresses ABP uniques. Utilise des clés de test, laisse logs vide et omets gatewayBridge. Retourne uniquement le JSON.
 ```
 
 Vérifiez la syntaxe JSON, puis utilisez **Import** dans le menu des profils ou envoyez le document dans le champ `archive` via l’API. Si l’import échoue, corrigez le champ indiqué par l’erreur. Après l’import, ouvrez le nouveau profil, vérifiez les positions et exécutez une courte simulation pour contrôler les uplinks dans les journaux.

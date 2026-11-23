@@ -30,7 +30,7 @@ Das Backend führt immer nur eine Simulation aus. Während eine andere Simulatio
 | `gatewayBridge` | `gatewayBridge` ist optional. Geben Sie bei Verwendung `enabled` (Boolean), `address` (Bridge-Ziel) und `port` (UDP-Port) an. Für ein neues internes Netz kann das Feld entfallen. |
 | `logs` | `logs` ist ein Array aus Objekten mit `run` und `events`. Verwenden Sie für ein neues Netz `[]`. Behalten Sie beim Kopieren exportierter Protokolle die darin referenzierten Hardware-IDs bei. Importierte Läufe werden als gestoppt markiert. |
 
-Beachten Sie die Groß- und Kleinschreibung der JSON-Schlüssel und Werte. Geben Sie jedem Gerät und Gateway eine eigene UUID. Verwenden Sie 16 Hexadezimalstellen für DevEUI und Gateway EUI sowie 6 Byte für MAC-Adressen. Diese Werte müssen innerhalb der jeweiligen Gruppe eindeutig sein. Verwenden Sie für ABP unterschiedliche DevAddr-Werte mit 8 Hexadezimalstellen und Schlüssel mit 32 Stellen. Für OTAA verwenden Sie `activation: "oota"` und `OOTAConfig` mit 16-stelliger `joinEUI` und 32-stelligem `appKey` und entfernen `ABPConfig`.
+Beachten Sie die Groß- und Kleinschreibung der JSON-Schlüssel und Werte. Geben Sie jedem Gerät und Gateway eine eigene UUID. Verwenden Sie 16 Hexadezimalstellen für DevEUI und Gateway EUI. Diese Werte müssen innerhalb der jeweiligen Gruppe eindeutig sein. Verwenden Sie für ABP unterschiedliche DevAddr-Werte mit 8 Hexadezimalstellen und Schlüssel mit 32 Stellen. Für OTAA verwenden Sie `activation: "oota"` und `OOTAConfig` mit 16-stelliger `joinEUI` und 32-stelligem `appKey` und entfernen `ABPConfig`.
 
 Ein `virtual`-Gateway benötigt ein positives `keepAlive` in Sekunden. Ein `real`-Gateway benötigt `gatewayIPv4` und `gatewayPort` und wird ohne `keepAlive` definiert. Koordinaten verwenden Dezimalgrad, Höhe und Reichweite Meter, Frequenzen Hz und RX-Verzögerungen und -Dauern Millisekunden. Wählen Sie kompatible Regionen, Frequenzen und Datenraten und platzieren Sie für den ersten Test mindestens ein aktives Gerät in Reichweite eines Gateways.
 
@@ -100,7 +100,6 @@ DEVICE_TEMPLATE = {
 GATEWAY = {
     "name": "External test gateway",
     "type": "virtual",
-    "macAddress": "02:00:00:00:10:01",
     "gatewayEUI": "A840410001001001",
     "keepAlive": 30,
     "latitude": 37.5,
@@ -142,7 +141,7 @@ Path("catania-profile.json").write_text(
 Geben Sie der KI dieses Format und Beispiel oder ein exportiertes Testprofil. Verwenden Sie in weitergegebenen Daten Testschlüssel. Die folgende Anweisung ist ein Ausgangspunkt.
 
 ```text
-Erzeuge eine einzelne JSON-Datei im Format LWN Simulator Profile v1 anhand des beigefügten Beispiels. Erstelle drei EU868-ABP-Sensoren und ein virtuelles Gateway nahe 37.5, 15.1. Behalte die JSON-Schlüssel und Konfigurationsblöcke des Beispiels bei. Vergib eindeutige UUIDs v4, EUIs, ABP-Adressen und MAC-Adressen. Verwende Testschlüssel, lasse logs leer und lasse gatewayBridge weg. Gib nur JSON aus.
+Erzeuge eine einzelne JSON-Datei im Format LWN Simulator Profile v1 anhand des beigefügten Beispiels. Erstelle drei EU868-ABP-Sensoren und ein virtuelles Gateway nahe 37.5, 15.1. Behalte die JSON-Schlüssel und Konfigurationsblöcke des Beispiels bei. Vergib eindeutige UUIDs v4, EUIs und ABP-Adressen. Verwende Testschlüssel, lasse logs leer und lasse gatewayBridge weg. Gib nur JSON aus.
 ```
 
 Prüfen Sie die JSON-Syntax. Verwenden Sie **Import** im Profilmenü oder senden Sie das Dokument über die API im Feld `archive`. Bei einem Fehler korrigieren Sie das angegebene Feld. Öffnen Sie nach dem Import das neue Profil, prüfen Sie die Positionen und starten Sie eine kurze Simulation, um Uplinks in den Protokollen zu prüfen.
