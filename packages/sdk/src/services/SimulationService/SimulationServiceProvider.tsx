@@ -171,40 +171,43 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
 
   const connect = useCallback(() => undefined, []);
 
+  const { onControlStatus, profileID } = props;
+  const applyControlSnapshot = useCallback((next: SimulationSnapshot) => {
+    pendingSnapshotRef.current = null;
+    setError(null);
+    updateSnapshot(next);
+    onControlStatus?.(profileID, next.state.status);
+  }, [onControlStatus, profileID, updateSnapshot]);
+
   const start = useCallback(
     async (config: SimulationConfig) => {
       const next = await service.start(config);
-      pendingSnapshotRef.current = null;
       pendingEventsRef.current = [];
       updateEvents([]);
-      setError(null);
-      updateSnapshot(next);
+      applyControlSnapshot(next);
       return next;
     },
-    [service, updateEvents, updateSnapshot],
+    [applyControlSnapshot, service, updateEvents],
   );
 
   const pause = useCallback(async () => {
     const next = await service.pause();
-    setError(null);
-    updateSnapshot(next);
+    applyControlSnapshot(next);
     return next;
-  }, [service, updateSnapshot]);
+  }, [applyControlSnapshot, service]);
 
   const resume = useCallback(async () => {
     const next = await service.resume();
-    setError(null);
-    updateSnapshot(next);
+    applyControlSnapshot(next);
     return next;
-  }, [service, updateSnapshot]);
+  }, [applyControlSnapshot, service]);
 
   const stop = useCallback(async () => {
     const next = await service.stop();
-    setError(null);
-    updateSnapshot(next);
+    applyControlSnapshot(next);
     disconnect();
     return next;
-  }, [disconnect, service, updateSnapshot]);
+  }, [applyControlSnapshot, disconnect, service]);
 
   const getSnapshot = useCallback(async () => {
     const next = await service.getSnapshot();

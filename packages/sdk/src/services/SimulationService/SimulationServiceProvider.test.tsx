@@ -99,6 +99,36 @@ describe("SimulationServiceProvider", () => {
     expect(result.current.events).toEqual([event]);
   });
 
+  it("keeps the HTTP stop status when flushing an earlier realtime snapshot", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(ApiCaller.prototype, "post").mockResolvedValue({
+      ...snapshot,
+      state: { ...snapshot.state, status: "stopped" },
+    } as never);
+    const { result } = renderHook(() => useSimulationService(), { wrapper });
+
+    act(() => {
+      TestWebSocket.latest().open();
+      TestWebSocket.latest().message(JSON.stringify({
+        type: "simulation.snapshot",
+        profileID: "profile-1",
+        snapshot,
+      }));
+      TestWebSocket.latest().message(JSON.stringify({
+        type: "simulation.event",
+        profileID: "profile-1",
+        event,
+      }));
+    });
+
+    await act(async () => {
+      await result.current.stop();
+    });
+
+    expect(result.current.snapshot?.state.status).toBe("stopped");
+    expect(result.current.events).toEqual([event]);
+  });
+
   it("keeps the displayed simulation clock moving between realtime updates", async () => {
     vi.useFakeTimers();
     vi.spyOn(ApiCaller.prototype, "get").mockResolvedValue({

@@ -41,3 +41,49 @@ test("locks external bridge simulations to real time", async ({ page }) => {
   expect(request.postDataJSON()).toMatchObject({ speed: 1, gatewayBridge: { enabled: true } });
   await expect(page.getByRole("slider")).toBeDisabled();
 });
+
+test("unlocks device and gateway fields after stop without a WebSocket notification", async ({
+  page,
+}) => {
+  await page.routeWebSocket("**/api/ws", () => {});
+  await mockBackend(page, { devices: "active" });
+  await page.goto("/simulation/dashboard");
+
+  const start = page.getByRole("button", { name: "Start simulation" });
+  const stop = page.getByRole("button", { name: "Stop", exact: true });
+  await start.click();
+  await expect(stop).toBeVisible();
+
+  const openEditor = async (section: "devices" | "gateways", name: string) => {
+    await page.getByRole("link", { name: "Hardware", exact: true }).click();
+    if (section === "gateways") {
+      await page.locator('aside a[href^="/hardware/gateways"]').click();
+    }
+    await page.getByRole("cell", { name, exact: true }).click();
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
+  };
+  const nameField = page.getByLabel("Name*", { exact: true });
+
+  await openEditor("devices", "Catania Weather Station");
+  await expect(nameField).toBeDisabled();
+  await page.getByRole("link", { name: "Simulation", exact: true }).click();
+  await stop.click();
+  await expect(start).toBeEnabled();
+
+  await openEditor("devices", "Catania Weather Station");
+  await nameField.click();
+  await expect(nameField).toBeFocused();
+
+  await page.getByRole("link", { name: "Simulation", exact: true }).click();
+  await start.click();
+  await expect(stop).toBeVisible();
+  await openEditor("gateways", "Catania Physical Gateway");
+  await expect(nameField).toBeDisabled();
+  await page.getByRole("link", { name: "Simulation", exact: true }).click();
+  await stop.click();
+  await expect(start).toBeEnabled();
+
+  await openEditor("gateways", "Catania Physical Gateway");
+  await nameField.click();
+  await expect(nameField).toBeFocused();
+});

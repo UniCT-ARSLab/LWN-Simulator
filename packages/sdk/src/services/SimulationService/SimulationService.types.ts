@@ -122,4 +122,7 @@ export interface SimulationServiceProviderProps extends PropsWithChildren {
 
   /** Profile identifier used to filter realtime simulation events. */
   profileID?: string;
+
+  /** Reports the status returned by a successful simulation control request. */
+  onControlStatus?: (profileID: string | undefined, status: SimulationSnapshot["state"]["status"]) => void;
 }

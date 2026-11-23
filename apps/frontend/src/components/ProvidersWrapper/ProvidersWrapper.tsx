@@ -42,6 +42,7 @@ const ProfileScopedServices = (props: ProfileScopedServicesProps) => {
           <SimulationServiceProvider
             baseUrl={profileService.profileBaseUrl}
             profileID={profileService.activeProfileID}
+            onControlStatus={profileService.updateSimulationStatus}
           >
             {props.children}
           </SimulationServiceProvider>

@@ -44,7 +44,8 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
   const profilesRef = useRef<Array<Profile>>([]);
   const simulationActivityRef = useRef<SimulationActivity | null>(null);
   const activeProfileIDRef = useRef(activeProfileID);
-  const { subscribe } = useWebSocketService();
+  const { connectionState, subscribe } = useWebSocketService();
+  const websocketConnected = connectionState === "connected";
 
   // Memos
   const service = useMemo(
@@ -64,6 +65,25 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
       setSimulationActivity(nextActivity);
     },
     [],
+  );
+
+  const updateSimulationStatus = useCallback(
+    (profileID: string | undefined, status: SimulationActivity["status"]) => {
+      const active =
+        status !== SimulationStatus.Idle &&
+        status !== SimulationStatus.Stopped &&
+        status !== SimulationStatus.Failed;
+      const current = simulationActivityRef.current;
+      if (active) {
+        commitSimulationActivity({ active, profileID, status });
+      } else if (
+        current?.active &&
+        (!current.profileID || current.profileID === profileID)
+      ) {
+        commitSimulationActivity({ active, status });
+      }
+    },
+    [commitSimulationActivity],
   );
 
   const upsertProfile = useCallback(
@@ -126,17 +146,25 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
   }, [getProfiles]);
 
   useEffect(() => {
+    const previousActivity = simulationActivityRef.current;
+    let cancelled = false;
     void service
       .getSimulationActivity()
-      .then(commitSimulationActivity)
-        .catch(() =>
-          commitSimulationActivity({
-            active: false,
-            status: "idle" as SimulationActivity["status"],
-          }),
-        )
-      .finally(() => setSimulationActivityLoading(false));
-  }, [commitSimulationActivity, service]);
+      .then((activity) => {
+        if (!cancelled && simulationActivityRef.current === previousActivity) {
+          commitSimulationActivity(activity);
+        }
+      })
+      .catch(() => {
+        // Preserve the last confirmed activity while the backend is unavailable.
+      })
+      .finally(() => {
+        if (!cancelled) setSimulationActivityLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [commitSimulationActivity, service, websocketConnected]);
 
   const handleRealtimeMessage = useCallback(
     (rawMessage: string) => {
@@ -169,24 +197,7 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
           message.type === RealtimeWebSocketMessageType.SimulationSnapshot &&
           message.snapshot
         ) {
-          const status = message.snapshot.state.status;
-          const active =
-            status !== SimulationStatus.Idle &&
-            status !== SimulationStatus.Stopped &&
-            status !== SimulationStatus.Failed;
-          const currentActivity = simulationActivityRef.current;
-          if (active) {
-            commitSimulationActivity({
-              active: true,
-              profileID: message.profileID,
-              status,
-            });
-          } else if (
-            currentActivity?.active &&
-            currentActivity.profileID === message.profileID
-          ) {
-            commitSimulationActivity({ active: false, status });
-          }
+          updateSimulationStatus(message.profileID, message.snapshot.state.status);
         }
       } catch {
         return;
@@ -194,8 +205,8 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
     },
     [
       commitProfiles,
-      commitSimulationActivity,
       persistActiveProfile,
+      updateSimulationStatus,
       upsertProfile,
     ],
   );
@@ -310,6 +321,7 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
       importProfile,
       simulationActivity,
       simulationActivityLoading,
+      updateSimulationStatus,
     }),
     [
       profiles,
@@ -327,6 +339,7 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
       importProfile,
       simulationActivity,
       simulationActivityLoading,
+      updateSimulationStatus,
     ],
   );
 
