@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -344,5 +345,39 @@ func TestSimulationServicePersistsEffectiveExternalTransportSpeed(t *testing.T) 
 	logs, err := service.ListLogs()
 	if err != nil || len(logs.Runs) != 1 || logs.Runs[0].Summary.Speed != 1 {
 		t.Fatalf("logs did not record effective speed: %+v %v", logs, err)
+	}
+}
+
+func TestConsecutiveSimulationsIsolateBridgeAndPreserveSeed(t *testing.T) {
+	factory := gateway.NewUDPFactory(gateway.UDPOptions{LocalAddress: "127.0.0.1:0"})
+	defer factory.Close()
+	store := NewFileSimulationLogStore(t.TempDir() + "/logs.json")
+	service := NewSimulationService(simulationDeviceSource{}, simulationGatewaySource{}, types.Options{GatewayAdapterFactory: factory}, nil, store)
+	defer service.Close()
+	for _, bridge := range []*contracts.GatewayBridgeConfig{{Enabled: true, Address: "127.0.0.1", Port: 1700}, nil} {
+		seed := int64(0)
+		if _, err := service.Start(t.Context(), contracts.SimulationConfig{Speed: 1, Seed: &seed, GatewayBridge: bridge}); err != nil {
+			t.Fatal(err)
+		}
+		if factory.SupportsVirtualGateways() != (bridge != nil) {
+			t.Error("gateway transport reflects the previous run")
+		}
+		if _, err := service.Stop(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		run, err := store.GetRun(service.currentRunID())
+		if err != nil || run.Summary.Seed == nil || *run.Summary.Seed != seed {
+			t.Fatalf("archived seed = %v, err = %v", run.Summary.Seed, err)
+		}
+	}
+}
+
+func TestClosedProfilePersistenceReturnsImmediately(t *testing.T) {
+	service := NewSimulationService(simulationDeviceSource{}, simulationGatewaySource{}, types.Options{}, nil, NewFileSimulationLogStore(t.TempDir()+"/logs.json"))
+	service.Close()
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	if err := service.FlushPersistence(ctx); !errors.Is(err, os.ErrClosed) {
+		t.Fatalf("flush on deleted profile returned %v", err)
 	}
 }

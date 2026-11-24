@@ -38,7 +38,7 @@ print(profiles)
 </Tabs>
 
 
-First list the profiles and copy the required `id`. For hardware and simulation calls, use `/api/profiles/{profileID}`. The profile selected in your browser does not select a profile for your script. Routes without `/profiles/{profileID}` are compatibility aliases for the default profile.
+First list the profiles and copy the required `id`. For hardware and simulation calls, use `/api/profiles/{profileID}`. The profile selected in your browser does not select a profile for your script. Routes without `/profiles/{profileID}` are compatibility aliases for the default profile. If you delete the default profile, those aliases return HTTP 404. Use the ID of a remaining profile to continue.
 
 Examples use a POSIX shell and `curl`; `jq` is used only for JSON transformations. Replace uppercase placeholders with actual IDs. UUIDs are internal identifiers, not DevEUI or Gateway EUI. JSON property names and enum values are case-sensitive: keep `OOTAConfig`, `RX1Config`, `MType` and the activation value `oota` exactly as shown.
 

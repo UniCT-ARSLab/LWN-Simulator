@@ -87,3 +87,18 @@ test("unlocks device and gateway fields after stop without a WebSocket notificat
   await nameField.click();
   await expect(nameField).toBeFocused();
 });
+
+test("keeps the simulation stopped when the saved bridge configuration cannot be read", async ({ page }) => {
+  await mockBackend(page, { devices: "active" });
+  await page.route("**/configuration/gateway-bridge", route =>
+    route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "Bridge settings unavailable" }) }),
+  );
+  const starts: string[] = [];
+  page.on("request", request => {
+    if (request.method() === "POST" && request.url().endsWith("/simulation/start")) starts.push(request.url());
+  });
+  await page.goto("/simulation/dashboard");
+  await page.getByRole("button", { name: "Start simulation" }).click();
+  await expect(page.getByText("Bridge settings unavailable", { exact: true }).first()).toBeVisible();
+  expect(starts).toHaveLength(0);
+});

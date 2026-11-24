@@ -26,7 +26,11 @@ const defaultProfileID = "00000000-0000-4000-8000-000000000001";
 
 const readStoredProfileID = (): string => {
   if (typeof window === "undefined") return defaultProfileID;
-  return window.localStorage.getItem(activeProfileStorageKey) ?? defaultProfileID;
+  try {
+    return window.localStorage.getItem(activeProfileStorageKey) ?? defaultProfileID;
+  } catch {
+    return defaultProfileID;
+  }
 };
 
 const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
@@ -104,7 +108,11 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
     activeProfileIDRef.current = id;
     setActiveProfileID(id);
     if (typeof window !== "undefined") {
-      window.localStorage.setItem(activeProfileStorageKey, id);
+      try {
+        window.localStorage.setItem(activeProfileStorageKey, id);
+      } catch {
+        // The current session still owns its selection when storage is unavailable.
+      }
     }
   }, []);
 
@@ -116,10 +124,17 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
     [persistActiveProfile],
   );
 
-  const getProfiles = useCallback(async () => {
+  const getProfiles = useCallback(async (signal: AbortSignal) => {
+    if (signal.aborted) return;
     setLoading(true);
     try {
-      const nextProfiles = await service.getProfiles();
+      let previousProfiles: Array<Profile>;
+      let nextProfiles: Array<Profile>;
+      do {
+        previousProfiles = profilesRef.current;
+        nextProfiles = await service.getProfiles();
+        if (signal.aborted) return;
+      } while (previousProfiles !== profilesRef.current);
       commitProfiles(nextProfiles);
       const storedID = activeProfileIDRef.current;
       const nextActive = nextProfiles.some((profile) => profile.id === storedID)
@@ -130,20 +145,23 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
       if (nextActive) persistActiveProfile(nextActive);
       setError(null);
     } catch (loadError) {
+      if (signal.aborted) return;
       setError(
         loadError instanceof Error
           ? loadError
           : new Error("Failed to load profiles"),
       );
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
   }, [commitProfiles, persistActiveProfile, service]);
 
   // Effects
   useEffect(() => {
-    void Promise.resolve().then(getProfiles);
-  }, [getProfiles]);
+    const request = new AbortController();
+    void Promise.resolve().then(() => getProfiles(request.signal));
+    return () => request.abort();
+  }, [getProfiles, websocketConnected]);
 
   useEffect(() => {
     const previousActivity = simulationActivityRef.current;

@@ -116,6 +116,9 @@ func (s *GatewayService) GetGateways(req contracts.GetGatewaysRequest) (contract
 	if err != nil {
 		return contracts.GetGatewaysResponse{}, fmt.Errorf("get all gateways: %w", err)
 	}
+	if gateways == nil {
+		gateways = []contracts.Gateway{}
+	}
 	return contracts.GetGatewaysResponse{Gateways: gateways}, nil
 }
 

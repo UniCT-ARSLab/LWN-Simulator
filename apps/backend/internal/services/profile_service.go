@@ -13,6 +13,8 @@ import (
 	"lwn-simulator-backend/internal/database"
 )
 
+const maxProfileNameLength = 100
+
 var (
 	ErrCannotDeleteLastProfile = errors.New("cannot delete the last profile")
 )
@@ -26,12 +28,11 @@ type ProfileRepository interface {
 }
 
 type ProfileService struct {
-	repository     ProfileRepository
-	dataDir        string
-	realtime       RealtimePublisher
-	deleteGuard    func(string) error
-	deleteObserver func(string)
-	mu             sync.Mutex
+	repository   ProfileRepository
+	dataDir      string
+	realtime     RealtimePublisher
+	withDeletion func(string, func() error) error
+	mu           sync.Mutex
 }
 
 func NewProfileService(repository ProfileRepository, dataDir string) *ProfileService {
@@ -41,18 +42,6 @@ func NewProfileService(repository ProfileRepository, dataDir string) *ProfileSer
 func (s *ProfileService) SetRealtimePublisher(publisher RealtimePublisher) {
 	s.mu.Lock()
 	s.realtime = publisher
-	s.mu.Unlock()
-}
-
-func (s *ProfileService) SetDeleteGuard(guard func(string) error) {
-	s.mu.Lock()
-	s.deleteGuard = guard
-	s.mu.Unlock()
-}
-
-func (s *ProfileService) SetDeleteObserver(observer func(string)) {
-	s.mu.Lock()
-	s.deleteObserver = observer
 	s.mu.Unlock()
 }
 
@@ -100,6 +89,10 @@ func (s *ProfileService) List() ([]contracts.Profile, error) {
 func (s *ProfileService) Get(id string) (contracts.Profile, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.getLocked(id)
+}
+
+func (s *ProfileService) getLocked(id string) (contracts.Profile, error) {
 	profile, err := s.repository.GetByID(id)
 	if err != nil {
 		if errors.Is(err, database.ErrNotFound) {
@@ -111,6 +104,11 @@ func (s *ProfileService) Get(id string) (contracts.Profile, error) {
 }
 
 func (s *ProfileService) Create(name string) (contracts.Profile, error) {
+	return s.create(name, nil)
+}
+
+// Imported data is populated before the profile is registered or announced.
+func (s *ProfileService) create(name string, populate func(database.ProfileStorage) error) (contracts.Profile, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	name, err := normalizeProfileName(name)
@@ -121,17 +119,29 @@ func (s *ProfileService) Create(name string) (contracts.Profile, error) {
 	if err != nil {
 		return contracts.Profile{}, fmt.Errorf("load profiles: %w", err)
 	}
-	if profileNameExists(profiles, name, "") {
+	if populate != nil {
+		base := []rune(name)
+		for n := 2; profileNameExists(profiles, name, ""); n++ {
+			ending := fmt.Sprintf(" (imported %d)", n)
+			name = string(base[:min(len(base), maxProfileNameLength-len(ending))]) + ending
+		}
+	} else if profileNameExists(profiles, name, "") {
 		return contracts.Profile{}, apperrors.Conflict("profile named %q already exists", name)
 	}
 	profile := contracts.Profile{ID: uuid.NewString(), Name: name}
-	profiles = append(profiles, profile)
-	if err := s.repository.Save(profiles); err != nil {
-		return contracts.Profile{}, fmt.Errorf("save profile: %w", err)
+	storage, err := database.NewProfileStorage(s.dataDir, profile.ID)
+	if err != nil {
+		return contracts.Profile{}, err
 	}
-	if err := s.ensureStorage(profile.ID); err != nil {
-		rollbackErr := s.repository.Delete(profile)
-		return contracts.Profile{}, formatRollbackError("create profile storage", err, rollbackErr)
+	err = storage.EnsureDataFiles()
+	if err == nil && populate != nil {
+		err = populate(storage)
+	}
+	if err == nil {
+		err = s.repository.Save(append(profiles, profile))
+	}
+	if err != nil {
+		return contracts.Profile{}, formatRollbackError("create profile", err, removeProfileStorage(storage))
 	}
 	s.publishRealtime(contracts.RealtimeProfileCreatedMessage, &profile)
 	return profile, nil
@@ -174,17 +184,16 @@ func (s *ProfileService) Rename(id string, name string) (contracts.Profile, erro
 func (s *ProfileService) Delete(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.deleteGuard != nil {
-		if err := s.deleteGuard(id); err != nil {
-			return err
-		}
+	if s.withDeletion != nil {
+		return s.withDeletion(id, func() error { return s.deleteLocked(id) })
 	}
+	return s.deleteLocked(id)
+}
+
+func (s *ProfileService) deleteLocked(id string) error {
 	profiles, err := s.repository.GetAll()
 	if err != nil {
 		return fmt.Errorf("load profiles: %w", err)
-	}
-	if len(profiles) <= 1 {
-		return fmt.Errorf("%w: %w", apperrors.ErrConflict, ErrCannotDeleteLastProfile)
 	}
 	var profile contracts.Profile
 	found := false
@@ -197,6 +206,9 @@ func (s *ProfileService) Delete(id string) error {
 	}
 	if !found {
 		return apperrors.NotFound("profile %q not found", id)
+	}
+	if len(profiles) <= 1 {
+		return fmt.Errorf("%w: %w", apperrors.ErrConflict, ErrCannotDeleteLastProfile)
 	}
 	if err := s.repository.Delete(profile); err != nil {
 		return fmt.Errorf("delete profile: %w", err)
@@ -212,9 +224,6 @@ func (s *ProfileService) Delete(id string) error {
 		return fmt.Errorf("delete profile storage: %w", err)
 	}
 	s.publishRealtime(contracts.RealtimeProfileDeletedMessage, &profile)
-	if s.deleteObserver != nil {
-		s.deleteObserver(profile.ID)
-	}
 	return nil
 }
 
@@ -251,7 +260,7 @@ func normalizeProfileName(name string) (string, error) {
 	if name == "" {
 		return "", apperrors.Invalid("profile name is required")
 	}
-	if len([]rune(name)) > 100 {
+	if len([]rune(name)) > maxProfileNameLength {
 		return "", apperrors.Invalid("profile name cannot exceed 100 characters")
 	}
 	return name, nil

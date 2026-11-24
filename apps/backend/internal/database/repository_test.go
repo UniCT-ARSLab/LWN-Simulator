@@ -754,7 +754,8 @@ func TestJSONRepository_ErrorWrapping(t *testing.T) {
 		t.Fatal("expected error, got nil")
 	}
 
-	if !errors.Is(err, &json.SyntaxError{}) {
-		return
+	var syntaxError *json.SyntaxError
+	if !errors.As(err, &syntaxError) {
+		t.Fatalf("expected wrapped JSON syntax error, got %v", err)
 	}
 }

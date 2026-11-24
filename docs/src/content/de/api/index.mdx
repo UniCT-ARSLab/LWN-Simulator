@@ -38,7 +38,7 @@ print(profiles)
 </Tabs>
 
 
-Listen Sie zuerst die Profile auf und übernehmen Sie die gewünschte `id`. Hardware- und Simulationsaufrufe verwenden `/api/profiles/{profileID}`. Die Profilauswahl im Browser gilt nicht für Ihr Skript. Routen ohne `/profiles/{profileID}` sind Kompatibilitätsaliasse für das Standardprofil.
+Listen Sie zuerst die Profile auf und übernehmen Sie die gewünschte `id`. Hardware- und Simulationsaufrufe verwenden `/api/profiles/{profileID}`. Die Profilauswahl im Browser gilt nicht für Ihr Skript. Routen ohne `/profiles/{profileID}` sind Kompatibilitätsaliasse für das Standardprofil. Wenn Sie das Standardprofil löschen, geben diese Aliasse HTTP 404 zurück. Verwenden Sie dann die ID eines vorhandenen Profils.
 
 Die Beispiele verwenden eine POSIX-Shell und `curl`; `jq` wird nur zur JSON-Umwandlung benötigt. Ersetzen Sie großgeschriebene Platzhalter durch tatsächliche IDs. UUIDs sind interne IDs und unterscheiden sich von DevEUI und Gateway EUI. Beachten Sie die Groß-/Kleinschreibung, insbesondere `OOTAConfig`, `RX1Config`, `MType` und `oota`.
 

@@ -145,6 +145,9 @@ func (s *DeviceService) GetDevices(
 		return contracts.GetDevicesResponse{}, fmt.Errorf("get all devices: %w", err)
 	}
 
+	if devices == nil {
+		devices = []contracts.Device{}
+	}
 	return contracts.GetDevicesResponse{
 		Devices: devices,
 	}, nil

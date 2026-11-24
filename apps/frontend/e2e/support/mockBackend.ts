@@ -177,6 +177,11 @@ export const mockBackend = async (
 
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
+    // Keep map interactions and application layers available without external tile servers.
+    if (url.pathname === "/dark-map-theme.json" || url.pathname === "/light-map-theme.json") {
+      await route.fulfill(json({ version: 8, sources: {}, layers: [] }));
+      return;
+    }
     const isBackendRequest = url.pathname.startsWith("/api/");
     if (!isBackendRequest) {
       await route.continue();

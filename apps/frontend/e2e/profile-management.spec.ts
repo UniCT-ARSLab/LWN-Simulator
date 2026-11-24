@@ -50,3 +50,16 @@ test("manages a profile through create, rename, export, import and delete", asyn
   await page.getByRole("button", { name: "Delete profile" }).click();
   await expect(page.locator(".profile-menu-name")).toHaveText("Default profile");
 });
+
+test("waits for the available profiles before loading hardware from a stale selection", async ({ page }) => {
+  await mockBackend(page);
+  await page.addInitScript(() => localStorage.setItem("lwn-simulator.active-profile", "deleted-profile"));
+  const requestedProfiles = new Set<string>();
+  page.on("request", request => {
+    const profileID = new URL(request.url()).pathname.match(/\/api\/profiles\/([^/]+)\//)?.[1];
+    if (profileID) requestedProfiles.add(profileID);
+  });
+  await page.goto("/hardware/devices");
+  await expect.poll(() => requestedProfiles.has("profile-1")).toBe(true);
+  expect(requestedProfiles.has("deleted-profile")).toBe(false);
+});

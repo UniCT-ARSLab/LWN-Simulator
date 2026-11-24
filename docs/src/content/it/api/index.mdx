@@ -38,7 +38,7 @@ print(profiles)
 </Tabs>
 
 
-Elenca prima i profili e copia l’`id` desiderato. Per hardware e simulazione usa `/api/profiles/{profileID}`. Il profilo selezionato nel browser non seleziona quello dello script. Le rotte senza `/profiles/{profileID}` sono alias di compatibilità per il profilo predefinito.
+Elenca prima i profili e copia l’`id` desiderato. Per hardware e simulazione usa `/api/profiles/{profileID}`. Il profilo selezionato nel browser non seleziona quello dello script. Le rotte senza `/profiles/{profileID}` sono alias di compatibilità per il profilo predefinito. Se elimini il profilo predefinito, questi alias restituiscono HTTP 404. Per continuare usa l’ID di un profilo esistente.
 
 Gli esempi usano una shell POSIX e `curl`; `jq` serve solo per trasformare il JSON. Sostituisci i segnaposto in maiuscolo con gli ID effettivi. Gli UUID sono identificativi interni, diversi da DevEUI e Gateway EUI. Nomi JSON ed enumerazioni distinguono maiuscole e minuscole: conserva esattamente `OOTAConfig`, `RX1Config`, `MType` e l’attivazione `oota`.
 

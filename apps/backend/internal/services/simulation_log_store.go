@@ -158,6 +158,10 @@ func (store *FileSimulationLogStore) Create(run contracts.SimulationRun) error {
 }
 
 func (store *FileSimulationLogStore) Import(run contracts.SimulationRun, events []contracts.SimulationEvent) error {
+	// AppendBatch counts the archived events as it persists them.
+	if len(events) > 0 {
+		run.Summary.EventCount = 0
+	}
 	if err := store.Create(run); err != nil {
 		return err
 	}

@@ -45,3 +45,29 @@ it("refreshes activity on reconnect after missing a stop notification", async ()
 
   expect(result.current.simulationActivity).toEqual({ active: false, status: "idle" });
 });
+
+it("selects a surviving profile after reconnecting with browser storage blocked", async () => {
+  vi.useFakeTimers();
+  installWebSocketMock();
+  vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+    throw new DOMException("Storage is disabled", "SecurityError");
+  });
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+    throw new DOMException("Storage is disabled", "SecurityError");
+  });
+  let profiles = [{ id: "first", name: "Original" }];
+  vi.spyOn(ApiCaller.prototype, "get").mockImplementation(async (path) =>
+    (path === "/activity" ? { active: false, status: "idle" } : { profiles }) as never,
+  );
+  const { result } = renderHook(() => useProfileService(), { wrapper });
+  await act(async () => TestWebSocket.latest().open());
+  expect(result.current.activeProfile?.id).toBe("first");
+
+  act(() => TestWebSocket.latest().serverClose());
+  await act(async () => { vi.advanceTimersByTime(1000); });
+  profiles = [{ id: "second", name: "Replacement" }];
+  await act(async () => TestWebSocket.latest().open());
+  expect(result.current.profiles).toEqual(profiles);
+  expect(result.current.activeProfileID).toBe("second");
+  expect(result.current.error).toBeNull();
+});

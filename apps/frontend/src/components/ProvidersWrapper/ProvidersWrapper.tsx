@@ -24,6 +24,7 @@ interface ProfileScopedServicesProps {
 
 const ProfileScopedServices = (props: ProfileScopedServicesProps) => {
   const profileService = useProfileService();
+  if (profileService.loading && !profileService.activeProfile) return null;
 
   return (
     <ProfileConfigurationServiceProvider
@@ -54,7 +55,7 @@ const ProfileScopedServices = (props: ProfileScopedServicesProps) => {
 
 const ProvidersWrapper = (props: ProvidersWrapperProps) => {
   // States
-  const [origin, setOrigin] = useState("http://localhost:8080/api");
+  const [origin, setOrigin] = useState<string | null>(null);
 
   // Effects
   useEffect(() => {
@@ -62,6 +63,8 @@ const ProvidersWrapper = (props: ProvidersWrapperProps) => {
       `${process.env.NODE_ENV === "development" ? "http://localhost:8080" : window.location.origin}/api`,
     );
   }, []);
+  if (origin === null) return null;
+
   return (
       <ThemeServiceProvider>
         <AppInfoServiceProvider baseUrl={origin}>

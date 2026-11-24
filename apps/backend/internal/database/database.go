@@ -4,13 +4,14 @@ import (
 	"embed"
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	pathpkg "path"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 
+	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/google/uuid"
 )
 
@@ -89,25 +90,22 @@ func Initialize() (string, error) {
 		return "", fmt.Errorf("create data directory: %w", err)
 	}
 
-	entries, err := fs.ReadDir(defaults, "defaults")
-	if err != nil {
-		return "", fmt.Errorf("read embedded defaults: %w", err)
+	if err := initializeFile(dataDir, "profiles.json"); err != nil {
+		return "", err
 	}
-
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-
-		if filepath.Ext(entry.Name()) != ".json" {
-			continue
-		}
-
-		if err := initializeFile(dataDir, entry.Name()); err != nil {
+	profiles, err := NewJSONRepository[contracts.Profile](dataDir, "profiles.json").GetAll()
+	if err != nil {
+		return "", err
+	}
+	if len(profiles) > 0 && !slices.ContainsFunc(profiles, func(profile contracts.Profile) bool { return profile.ID == DefaultProfileID }) {
+		// The user deleted the default profile after migrating to named profiles.
+		return dataDir, nil
+	}
+	for _, name := range []string{"devices.json", "gateways.json"} {
+		if err := initializeFile(dataDir, name); err != nil {
 			return "", err
 		}
 	}
-
 	if err := migrateLegacyData(dataDir); err != nil {
 		return "", fmt.Errorf("migrate legacy data to default profile: %w", err)
 	}

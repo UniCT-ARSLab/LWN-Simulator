@@ -28,7 +28,6 @@ import {
   SensorMapLink,
   useSensorMap,
 } from "@/components";
-import { defaultGatewayBridgeConfig } from "@/utils/gatewayBridge";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 const formatEventType = (value: string): string =>
@@ -264,10 +263,7 @@ const SimulationDashboardPage = () => {
 
     return runControl(
       async () => {
-        const gatewayBridge =
-          await profileConfiguration.getGatewayBridge().catch(() =>
-            profileConfiguration.gatewayBridgeConfig ?? defaultGatewayBridgeConfig,
-          );
+        const gatewayBridge = await profileConfiguration.getGatewayBridge();
         await simulation.start({
           speed: gatewayBridge.enabled || gateways.some((gateway) => gateway.type === GatewayType.Real) ? 1 : speed,
           ...(seed ? { seed: Number(seed) } : {}),

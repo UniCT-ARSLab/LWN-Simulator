@@ -214,16 +214,18 @@ func (s *SimulationService) Start(
 
 	options := s.options
 	options.EventSink = s.handleEvent
-	if config.GatewayBridge != nil {
-		if configurator, ok := options.GatewayAdapterFactory.(types.GatewayBridgeConfigurator); ok {
-			if err := configurator.ConfigureGatewayBridge(*config.GatewayBridge); err != nil {
-				s.finishStarting()
-				return contracts.SimulationSnapshot{}, fmt.Errorf("configure gateway bridge: %w", err)
-			}
-		} else if options.GatewayAdapterFactory != nil {
-			s.finishStarting()
-			return contracts.SimulationSnapshot{}, fmt.Errorf("gateway adapter factory does not support gateway bridge configuration")
+	if configurator, ok := options.GatewayAdapterFactory.(types.GatewayBridgeConfigurator); ok {
+		bridge := contracts.GatewayBridgeConfig{}
+		if config.GatewayBridge != nil {
+			bridge = *config.GatewayBridge
 		}
+		if err := configurator.ConfigureGatewayBridge(bridge); err != nil {
+			s.finishStarting()
+			return contracts.SimulationSnapshot{}, fmt.Errorf("configure gateway bridge: %w", err)
+		}
+	} else if config.GatewayBridge != nil && options.GatewayAdapterFactory != nil {
+		s.finishStarting()
+		return contracts.SimulationSnapshot{}, fmt.Errorf("gateway adapter factory does not support gateway bridge configuration")
 	}
 	var persistedCheckpoint *types.EngineCheckpoint
 	if s.checkpointStore != nil {
@@ -516,7 +518,11 @@ func (s *SimulationService) handleEvent(event contracts.SimulationEvent) {
 
 	if s.checkpointStore != nil || s.logStore != nil {
 		copy := event
-		s.persistenceQueue <- simulationPersistenceCommand{runID: runID, event: &copy}
+		select {
+		case s.persistenceQueue <- simulationPersistenceCommand{runID: runID, event: &copy}:
+		case <-s.persistenceDone:
+			return
+		}
 	}
 
 	update := SimulationUpdate{Event: event, IncludeSnapshot: includeSnapshot}
@@ -664,12 +670,16 @@ func (s *SimulationService) flushPendingPersistence(ctx context.Context, forceCh
 	command := simulationPersistenceCommand{barrier: barrier, forceCheckpoint: forceCheckpoint}
 	select {
 	case s.persistenceQueue <- command:
+	case <-s.persistenceDone:
+		return os.ErrClosed
 	case <-ctx.Done():
 		return ctx.Err()
 	}
 	select {
 	case err := <-barrier:
 		return err
+	case <-s.persistenceDone:
+		return os.ErrClosed
 	case <-ctx.Done():
 		return ctx.Err()
 	}
@@ -737,7 +747,7 @@ func (s *SimulationService) runSummaryFor(runID string, state contracts.Simulati
 	if startedAt <= 0 {
 		startedAt = time.Now().UnixMilli() - state.ElapsedMilliseconds
 	}
-	return contracts.SimulationRunSummary{Id: runID, StartedAtMilliseconds: startedAt, EndedAtMilliseconds: int64Pointer(time.Now().UnixMilli()), DurationMilliseconds: state.ElapsedMilliseconds, Status: status, Speed: state.Speed, DeviceCount: int32(state.DeviceCount), GatewayCount: int32(state.GatewayCount), EventCount: int32(state.EventSequence), PacketSuccessRate: metrics.PacketSuccessRate}
+	return contracts.SimulationRunSummary{Id: runID, StartedAtMilliseconds: startedAt, EndedAtMilliseconds: int64Pointer(time.Now().UnixMilli()), DurationMilliseconds: state.ElapsedMilliseconds, Status: status, Speed: state.Speed, Seed: state.Seed, DeviceCount: int32(state.DeviceCount), GatewayCount: int32(state.GatewayCount), EventCount: int32(state.EventSequence), PacketSuccessRate: metrics.PacketSuccessRate}
 }
 
 func int64Pointer(value int64) *int64 { return &value }
