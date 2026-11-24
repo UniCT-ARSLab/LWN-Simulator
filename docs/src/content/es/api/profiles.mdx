@@ -1,0 +1,43 @@
+---
+title: "Perfiles"
+---
+
+# Perfiles
+
+Define `SERVER` y `BASE` como se indica en [Conexión y primera solicitud](/api) antes de ejecutar estos comandos.
+
+Las rutas empiezan por `/api/profile`. Cada perfil posee hardware, configuración del bridge e historial. Crear y renombrar requiere un nombre de hasta 100 caracteres. La importación siempre crea un perfil con un UUID interno nuevo, sin reemplazar perfiles existentes. No elimines el último perfil ni uno con una simulación activa.
+
+Los nombres de perfil deben ser únicos, sin distinguir mayúsculas y minúsculas.
+
+| Método | Ruta | Solicitud / resultado |
+| --- | --- | --- |
+| GET | `/api/profile/get-profiles` | Lista → `{profiles,total}`. |
+| GET | `/api/profile/get-profile/{id}` | Lectura → `{profile}`. |
+| POST | `/api/profile/create-profile` | `{"name":"External test"}` → `201 {profile}`. |
+| PUT | `/api/profile/update-profile/{id}` | `{"name":"New name"}` → `{profile}`. |
+| DELETE | `/api/profile/delete-profile/{id}` | Elimina el perfil y sus datos → `204`, sin JSON. |
+| GET | `/api/profile/export-profile/{id}` | Archivo completo JSON; `?download=1` añade cabeceras de descarga. |
+| POST | `/api/profile/import-profile` | `{"archive": ...}` → `201 {profile}`. Usa el archivo exportado completo, incluidos metadatos y registros. |
+
+
+```bash
+curl -fsS "$SERVER/api/profile/create-profile" \
+  -H 'Content-Type: application/json' -d '{"name":"External test"}'
+curl -fsS -X PUT "$SERVER/api/profile/update-profile/$PROFILE_ID" \
+  -H 'Content-Type: application/json' -d '{"name":"Sensor experiment"}'
+```
+
+
+## Exportar e importar
+
+Ejemplo de exportación e importación. El documento exportado debe estar dentro de `archive`: es JSON, no una carga multipart.
+
+```bash
+curl -fsS "$SERVER/api/profile/export-profile/$PROFILE_ID?download=1" -o profile.json
+jq '{archive: .}' profile.json > import.json
+curl -fsS "$SERVER/api/profile/import-profile" \
+  -H 'Content-Type: application/json' --data-binary @import.json
+```
+
+[Crear perfiles con scripts o IA](/profiles)

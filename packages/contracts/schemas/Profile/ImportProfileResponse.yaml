@@ -1,0 +1,7 @@
+title: ImportProfileResponse
+type: object
+properties:
+  profile:
+    $ref: "./Profile.yaml"
+required:
+  - profile

@@ -1,0 +1,166 @@
+// SensorMap
+
+.sensor-map {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 5/3;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--secondary-bg-color);
+  box-shadow: 0 0 5px #0003;
+
+  .sensor-map-status {
+    display: grid;
+    max-width: 28rem;
+    gap: 0.5rem;
+    padding: 1.5rem;
+    color: var(--primary-text-color);
+    text-align: center;
+
+    strong {
+      color: var(--primary-color);
+      font-family: var(--secondary-font);
+      font-size: 0.8rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    p {
+      margin: 0;
+      color: var(--secondary-text-color);
+      font-size: 0.8rem;
+      line-height: 1.5;
+    }
+  }
+
+  .marker {
+    text-shadow:
+      -1px -1px 0 var(--base-color),
+      1px -1px 0 var(--base-color),
+      -1px 1px 0 var(--base-color),
+      1px 1px 0 var(--base-color);
+  }
+
+  .pos-marker {
+    font-size: 2.2rem;
+  }
+}
+
+
+.sensor-map-tooltip {
+  max-width: calc(100% - 1rem);
+
+  .maplibregl-popup-content {
+    width: min(21rem, calc(100vw - 2rem));
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--secondary-bg-color);
+    color: var(--primary-text-color);
+    box-shadow: 0 0.75rem 1.5rem #0004;
+  }
+
+  .maplibregl-popup-tip {
+    border-top-color: var(--secondary-bg-color);
+  }
+}
+
+.sensor-map-tooltip-content {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 0.75rem;
+  overflow: hidden;
+}
+
+.sensor-map-tooltip-header {
+  display: grid;
+  grid-template-columns: minmax(4.25rem, auto) minmax(0, 1fr) 1.25rem;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--border-color);
+
+  .sensor-map-tooltip-kind {
+    color: var(--primary-color);
+    font-family: var(--secondary-font);
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  div {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+
+  strong {
+    display: block;
+    width: 100%;
+    overflow: hidden;
+    color: var(--primary-text-color);
+    font-size: 0.72rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  div > span {
+    color: var(--secondary-text-color);
+    font-family: var(--secondary-font);
+    font-size: 0.58rem;
+    text-transform: uppercase;
+  }
+
+  button {
+    width: 1.25rem;
+    padding: 0.1rem;
+    border: 0;
+    background: transparent;
+    color: var(--secondary-text-color);
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+}
+
+.sensor-map-tooltip-details {
+  display: grid;
+  gap: 0.35rem;
+  padding-top: 0.6rem;
+
+  span {
+    display: grid;
+    grid-template-columns: minmax(4.5rem, 0.75fr) minmax(0, 1.25fr);
+    align-items: center;
+    gap: 0.65rem;
+    min-width: 0;
+    color: var(--secondary-text-color);
+    font-family: var(--secondary-font);
+    font-size: 0.6rem;
+  }
+
+  strong {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    color: var(--primary-text-color);
+    font-weight: 500;
+    text-align: right;
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+
+  .is-active { color: var(--success-color); }
+  .is-inactive { color: var(--error-color); }
+}

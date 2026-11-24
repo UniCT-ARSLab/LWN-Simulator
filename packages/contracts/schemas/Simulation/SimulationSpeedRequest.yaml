@@ -1,0 +1,12 @@
+title: SimulationSpeedRequest
+type: object
+
+properties:
+  speed:
+    type: number
+    x-go-type: float64
+    x-oapi-codegen-extra-tags:
+      validate: "required,gt=0"
+
+required:
+  - speed

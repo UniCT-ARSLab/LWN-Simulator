@@ -1,0 +1,43 @@
+---
+title: "Profile"
+---
+
+# Profile
+
+Legen Sie vor diesen Befehlen `SERVER` und `BASE` wie unter [Verbindung und erste Anfrage](/api) beschrieben fest.
+
+Alle folgenden Pfade beginnen mit `/api/profile`. Ein Profil besitzt Hardware, Bridge-Konfiguration und Simulationsverlauf. Namen dürfen höchstens 100 Zeichen enthalten. Jeder Import erzeugt ein neues Profil mit neuer interner UUID und ersetzt kein vorhandenes Profil. Das letzte Profil und Profile mit aktiver Simulation dürfen nicht gelöscht werden.
+
+Profilnamen müssen unabhängig von Groß- und Kleinschreibung eindeutig sein.
+
+| Methode | Pfad | Anfrage / Ergebnis |
+| --- | --- | --- |
+| GET | `/api/profile/get-profiles` | Liste → `{profiles,total}`. |
+| GET | `/api/profile/get-profile/{id}` | Lesen → `{profile}`. |
+| POST | `/api/profile/create-profile` | `{"name":"External test"}` → `201 {profile}`. |
+| PUT | `/api/profile/update-profile/{id}` | `{"name":"New name"}` → `{profile}`. |
+| DELETE | `/api/profile/delete-profile/{id}` | Profil und Daten löschen → `204`, ohne JSON. |
+| GET | `/api/profile/export-profile/{id}` | Vollständiges JSON-Archiv; `?download=1` ergänzt Download-Header. |
+| POST | `/api/profile/import-profile` | `{"archive": ...}` → `201 {profile}`. Das vollständige exportierte Archiv einschließlich Metadaten und Protokollen verwenden. |
+
+
+```bash
+curl -fsS "$SERVER/api/profile/create-profile" \
+  -H 'Content-Type: application/json' -d '{"name":"External test"}'
+curl -fsS -X PUT "$SERVER/api/profile/update-profile/$PROFILE_ID" \
+  -H 'Content-Type: application/json' -d '{"name":"Sensor experiment"}'
+```
+
+
+## Export und Import
+
+Export- und Importbeispiel. Das exportierte Dokument wird in `archive` eingeschlossen: JSON, kein Multipart-Dateiupload.
+
+```bash
+curl -fsS "$SERVER/api/profile/export-profile/$PROFILE_ID?download=1" -o profile.json
+jq '{archive: .}' profile.json > import.json
+curl -fsS "$SERVER/api/profile/import-profile" \
+  -H 'Content-Type: application/json' --data-binary @import.json
+```
+
+[Profile per Skript oder KI erstellen](/profiles)

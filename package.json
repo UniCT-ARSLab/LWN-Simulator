@@ -1,0 +1,39 @@
+{
+  "name": "lwn-simulator",
+  "version": "2.0.0",
+  "private": true,
+  "main": "index.js",
+  "license": "MIT",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "generate": "yarn workspace @lwn-simulator/contracts build",
+    "build:packages": "yarn generate && yarn workspace @lwn-simulator/sdk build && yarn workspace @lwn-simulator/ui-components build",
+    "dev": "yarn build:packages && concurrently \"yarn workspace @lwn-simulator/frontend dev\" \"cd apps/backend && LWN_ENV=development go run cmd/server/main.go\"",
+    "dev:frontend": "yarn build:packages && yarn workspace @lwn-simulator/frontend dev",
+    "dev:backend": "yarn generate && cd apps/backend && LWN_ENV=development go run cmd/server/main.go",
+    "typecheck": "yarn build:packages && yarn workspace @lwn-simulator/frontend exec tsc --noEmit -p tsconfig.json && yarn workspace @lwn-simulator/ui-components exec tsc --noEmit -p tsconfig.json && yarn workspace @lwn-simulator/sdk exec tsc --noEmit -p tsconfig.json && yarn workspace @lwn-simulator/desktop compile",
+    "lint": "yarn workspace @lwn-simulator/frontend lint:ts && yarn workspace @lwn-simulator/frontend lint:css && yarn workspace @lwn-simulator/ui-components lint:ts && yarn workspace @lwn-simulator/ui-components lint:css && yarn workspace @lwn-simulator/sdk lint && yarn workspace @lwn-simulator/desktop lint && yarn workspace @lwn-simulator/desktop-launcher lint && yarn workspace @lwn-simulator/desktop-launcher lint:css && yarn --cwd docs lint",
+    "test": "cd apps/backend && go test ./... && cd ../../packages/engine && go test ./...",
+    "test:frontend": "yarn workspace @lwn-simulator/frontend test",
+    "test:frontend:coverage": "yarn workspace @lwn-simulator/frontend test:coverage",
+    "test:sdk": "yarn workspace @lwn-simulator/sdk test",
+    "test:sdk:coverage": "yarn workspace @lwn-simulator/sdk test:coverage",
+    "test:ui-components": "yarn workspace @lwn-simulator/ui-components test",
+    "test:ui-components:coverage": "yarn workspace @lwn-simulator/ui-components test:coverage",
+    "test:e2e": "yarn workspace @lwn-simulator/frontend test:e2e",
+    "test:engine": "cd packages/engine && go test ./...",
+    "test:race": "cd apps/backend && go test -race ./... && cd ../../packages/engine && go test -race ./...",
+    "check": "yarn generate && yarn typecheck && yarn lint && yarn test",
+    "build:desktop": "./scripts/build-desktop.sh",
+    "build:server": "./scripts/build-server.sh",
+    "build": "./scripts/build-all.sh",
+    "dev:electron": "yarn build:packages && yarn workspace @lwn-simulator/frontend build && cd apps/backend && go build -o ../desktop/assets/lwn-server cmd/server/main.go && cd ../.. && yarn workspace @lwn-simulator/desktop-launcher build && yarn workspace @lwn-simulator/desktop start"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.3"
+  },
+  "packageManager": "yarn@4.18.0"
+}

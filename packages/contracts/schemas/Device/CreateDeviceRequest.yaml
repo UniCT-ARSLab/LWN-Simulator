@@ -1,0 +1,61 @@
+title: CreateDeviceRequest
+type: object
+
+properties:
+  devEUI:
+    type: string
+    x-oapi-codegen-extra-tags:
+      validate: "required,len=16"
+
+  name:
+    type: string
+
+  activation:
+    $ref: "./DeviceProps/DeviceActivation.yaml"
+
+  radioProtocol:
+    $ref: "./DeviceProps/RadioProtocol.yaml"
+    description: Protocol used when the device transmits. Defaults to lorawan.
+
+  radioReceiveMode:
+    $ref: "./DeviceProps/RadioReceiveMode.yaml"
+    description: Protocol accepted while the device listens. Defaults to lorawan.
+
+  class:
+    $ref: "./DeviceProps/DeviceClass.yaml"
+
+  locationConfig:
+    $ref: "./DeviceProps/LocationConfig.yaml"
+
+  ABPConfig:
+    $ref: "./DeviceProps/ABPConfig.yaml"
+
+  OOTAConfig:
+    $ref: "./DeviceProps/OOTAConfig.yaml"
+
+  RX1Config:
+    $ref: "./DeviceProps/RX1Config.yaml"
+
+  RX2Config:
+    $ref: "./DeviceProps/RX2Config.yaml"
+
+  advancedConfig:
+    $ref: "./DeviceProps/AdvancedConfig.yaml"
+
+  frameConfig:
+    $ref: "./DeviceProps/FrameConfig.yaml"
+
+  payloadConfig:
+    $ref: "./DeviceProps/PayloadConfig.yaml"
+
+required:
+  - devEUI
+  - name
+  - activation
+  - class
+  - locationConfig
+  - RX1Config
+  - RX2Config
+  - advancedConfig
+  - frameConfig
+  - payloadConfig

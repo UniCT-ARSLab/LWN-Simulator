@@ -1,0 +1,9 @@
+title: CreateDeviceResponse
+type: object
+
+properties:
+  device:
+    $ref: "./Device.yaml"
+
+required:
+  - device

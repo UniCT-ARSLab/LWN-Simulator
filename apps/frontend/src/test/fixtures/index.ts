@@ -1,0 +1,5 @@
+export const testProfileID = "00000000-0000-4000-8000-000000000001";
+
+export const testDeviceID = "10000000-0000-4000-8000-000000000001";
+
+export const testGatewayID = "20000000-0000-4000-8000-000000000001";

@@ -1,0 +1,12 @@
+// Layout
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr));
+}
+
+:root {
+  --radius-md: 0.5rem;
+  --radius-sm: 0.25rem;
+  --gap: 1rem;
+}

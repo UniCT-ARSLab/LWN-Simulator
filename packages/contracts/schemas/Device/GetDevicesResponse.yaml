@@ -1,0 +1,11 @@
+title: GetDeviceResponse
+type: object
+
+properties:
+  devices:
+    type: array
+    items:
+      $ref: "./Device.yaml"
+
+required:
+  - devices

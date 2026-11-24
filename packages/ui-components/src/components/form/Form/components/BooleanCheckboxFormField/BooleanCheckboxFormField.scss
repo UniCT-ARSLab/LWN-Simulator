@@ -1,0 +1,61 @@
+// BooleanCheckboxFormField
+@use "../../../../../styles/breakpoints" as *;
+
+.boolean-checkbox-form-field {
+  gap: var(--gap);
+
+  &.disabled {
+    pointer-events: none;
+    filter: saturate(0);
+    opacity: 0.55;
+  }
+
+  .box {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    gap: calc(var(--gap) / 2);
+    transition: all 0.2s ease-in-out;
+    cursor: pointer;
+
+    input {
+      display: none;
+    }
+
+    .checkbox-icon {
+      color: var(--secondary-text-color);
+    }
+
+    span {
+      display: flex;
+      align-items: center;
+      gap: calc(var(--gap) / 2);
+      text-transform: capitalize;
+
+      *:not([class^="material-symbols"], [class*=" material-symbols"]) {
+        font-family: var(--secondary-font);
+      }
+    }
+
+    &:has(input:checked) {
+      border-color: var(--primary-color);
+      background: color-mix(in srgb, var(--primary-bg-color) 90%, #fff);
+
+      span {
+        color: var(--primary-color);
+      }
+    }
+
+    @include hover {
+      &:not(:has(input:checked)) {
+        background: color-mix(
+          in srgb,
+          var(--tertiary-bg-color) 80%,
+          transparent
+        );
+      }
+    }
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "name": "docs",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "postbuild": "pagefind --site .next/server/app --output-path out/_pagefind",
+    "start": "next start",
+    "lint": "eslint ."
+  },
+  "author": {
+    "name": "Giuseppe Compagnone",
+    "email": "compagnonegiuseppe04@gmail.com"
+  },
+  "dependencies": {
+    "@tailwindcss/postcss": "^4.0.0",
+    "next": "15.1.5",
+    "nextra": "4.5.1",
+    "nextra-theme-docs": "4.5.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwindcss": "^4.0.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "15.1.5",
+    "pagefind": "^1.5.2",
+    "typescript": "^5"
+  }
+}

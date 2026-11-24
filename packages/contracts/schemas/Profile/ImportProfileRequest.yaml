@@ -1,0 +1,7 @@
+title: ImportProfileRequest
+type: object
+properties:
+  archive:
+    $ref: "./ProfileArchive.yaml"
+required:
+  - archive

@@ -1,0 +1,22 @@
+title: SimulationTelemetry
+type: object
+required:
+  - elapsedMilliseconds
+  - sequence
+  - metrics
+  - connectedGateways
+properties:
+  elapsedMilliseconds:
+    type: integer
+    format: int64
+    minimum: 0
+  sequence:
+    type: integer
+    format: int64
+    minimum: 0
+  metrics:
+    $ref: "./SimulationMetrics.yaml"
+  connectedGateways:
+    type: integer
+    format: int64
+    minimum: 0

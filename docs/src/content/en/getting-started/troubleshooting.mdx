@@ -1,0 +1,110 @@
+---
+title: Troubleshooting
+---
+
+import { Callout, Steps, Tabs } from "nextra/components";
+
+# Troubleshooting
+
+Use this page to diagnose the most common problems before changing a network
+configuration.
+
+## The application does not open
+
+<Steps>
+### Check the connection mode
+
+In the Desktop Edition, confirm whether you selected **Local Server** or
+**Remote Server**. Local Mode starts its own server; Remote Mode expects a
+server that is already reachable.
+
+### Check the server address
+
+Open the address printed by the Server Edition in a browser on the same
+machine. If the server uses another port, include it in the address.
+
+### Check the firewall
+
+For remote access, allow the server port through the host firewall and make
+sure the client can reach the server’s network address.
+</Steps>
+
+<Callout type="warning" emoji="⚠️">
+  A remote desktop connection and a browser connection use the same simulator
+  state. Do not start a second server instance just because another client is
+  already connected.
+</Callout>
+
+## A simulation cannot start
+
+Check that:
+
+- at least one device or gateway is active;
+- the current profile is the one you intend to run;
+- no simulation is already active in another profile or browser tab;
+- the seed, speed, and hardware fields pass validation;
+- an enabled Gateway Bridge uses a valid address and UDP port.
+
+Only one simulation can run on a server at a time. If another profile owns the
+active run, the dashboard shows which profile is blocking the start action.
+
+## Packet success is low or zero
+
+Start with the geometry, then check the radio and protocol settings:
+
+1. Confirm that the device is inside the antenna range of at least one active
+   gateway.
+2. Confirm that the device and gateway are in the intended locations and that
+   the selected regional plan is correct.
+3. Check the event stream for **No gateway**, **collision**, **low SNR**, or
+   other packet-loss events.
+4. For OTAA devices, verify that a join request and join accept occur before
+   expecting application uplinks.
+5. For confirmed traffic, inspect RX1/RX2 and retry events before judging the
+   final result.
+
+<Callout type="info" emoji="📡">
+  A device being active only means that it is eligible to transmit. It does
+  not guarantee delivery: coverage, collisions, airtime, radio quality, and
+  session state still affect the result.
+</Callout>
+
+## A real gateway stays disconnected
+
+<Tabs items={["Bridge", "Gateway record", "Traffic"]}>
+  <Tabs.Tab>
+    For Virtual gateways forwarding traffic to an external bridge, enable the
+    bridge in **Hardware → Gateway Bridge** and save the external service’s
+    destination address and UDP port. Make sure that service is listening there.
+  </Tabs.Tab>
+  <Tabs.Tab>
+    In **Hardware → Gateways**, use type **Real**, configure the gateway’s
+    reachable IPv4 address and port, and make sure its Gateway EUI matches the
+    identifier announced by the packet forwarder.
+  </Tabs.Tab>
+  <Tabs.Tab>
+    A Real gateway’s packet forwarder sends traffic to the backend’s UDP listener
+    (port 1700 by default), not to the external bridge destination. Virtual
+    gateways send traffic in the opposite direction, to the external bridge.
+    Start the simulation and check heartbeats and packet ingress in
+    **Connectivity** and **Engine activity**. See the
+    [connection examples](../hardware/gateway-bridge) for both directions.
+  </Tabs.Tab>
+</Tabs>
+
+## Live updates are delayed
+
+The dashboard, Logs, and hardware views share updates through the live server
+connection. If the header reports **Reconnecting**, keep the page open while
+the connection is restored. The current state is fetched again automatically.
+
+For a log stream, automatic scrolling is intentionally suspended when you are
+reading older entries. Return near the end of the list to follow new events
+again.
+
+## A profile import or export fails
+
+Use a file exported by the simulator with the `.lwn-profile.json` extension.
+Import always creates a new profile and never replaces the current one. If the
+file is large because it contains long simulation histories, wait for the
+loading indicator to finish before repeating the action.

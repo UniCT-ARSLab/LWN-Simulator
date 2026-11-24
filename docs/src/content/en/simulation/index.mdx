@@ -1,0 +1,139 @@
+---
+title: Simulation
+---
+
+import { Callout, Steps } from "nextra/components";
+
+# Simulation
+
+The Simulation area is the operational workspace for running a LoRaWAN
+network. It combines the simulation controls, live health indicators, a map of
+the network, protocol commands, runtime sessions, and the event stream in one
+screen.
+
+The dashboard uses the hardware and bridge settings of the profile selected in
+the application header. Switching profiles changes the network shown by the
+dashboard and its associated simulation history.
+
+## Before you start
+
+A simulation can start with a single active device or gateway in [Hardware](/hardware). A gateway-only run lets you check connectivity without generating device traffic. For an over-the-air scenario, place active devices within range of an active gateway.
+
+If you are testing real gateways, configure the [Gateway Bridge](../hardware/gateway-bridge)
+and the real gateway records before starting the simulation. The bridge
+endpoint is the UDP transport boundary used by the simulator; each real gateway
+record still needs its own Gateway EUI, address, and port.
+
+Only one simulation can be active on a simulator server at a time. This rule
+applies across all profiles, so stop or finish the current run before starting
+a run from another profile.
+
+<Callout type="info" emoji="🧪">
+  Use a seed when you want to compare two runs. Keep the profile hardware,
+  speed, and seed unchanged so that differences in the results are meaningful.
+</Callout>
+
+## Start a simulation
+
+<Steps>
+### Open the dashboard
+
+Open **Simulation** from the main navigation.
+
+### Set the run parameters
+
+Set the **Speed** multiplier. `1.0x` follows normal simulated time; higher
+values are useful for testing long scenarios quickly. Optionally enter a
+numeric **Seed** to make a scenario repeatable.
+
+### Start the run
+
+Click **Start simulation**. The seed becomes unavailable after the run starts,
+while the speed remains adjustable.
+</Steps>
+
+The seed becomes unavailable after the run starts. This prevents the active
+scenario from changing unexpectedly. The speed can be changed while the run
+is active.
+
+> **Tip:** A seed makes the random parts of a scenario repeatable. Use the
+> same hardware configuration, seed, and speed when comparing two runs.
+
+## Control the run
+
+- **Pause** freezes simulated time while keeping the current state available.
+- **Resume** continues a paused run.
+- **Stop** ends the run and disconnects the live session.
+- The status indicator shows whether the simulation is idle, running, paused,
+  stopped, or failed.
+- The connection indicator shows whether the dashboard can receive live
+  updates. If it is reconnecting, the dashboard restores the latest state when
+  the connection returns.
+
+The speed control accepts values from `0.1x` to `10.0x`. Changing it affects
+the simulation clock, not the configured uplink intervals or device settings.
+
+## Understand the dashboard
+
+### Packet success rate
+
+Shows the percentage of uplinks that reached at least one eligible gateway.
+The card also shows the number of successful uplinks and a short trend line.
+The value becomes meaningful after traffic has started.
+
+### Simulation uptime
+
+Shows elapsed simulated time and the current clock multiplier. It is not the
+amount of wall-clock time since the page was opened.
+
+### Radio health
+
+Shows the average SNR and RSSI reported by the radio model. These values help
+identify weak links, excessive distance, and conditions likely to cause packet
+loss.
+
+### Network runtime
+
+Shows the number of active devices and active gateways in the current
+configuration. Inactive hardware is excluded from runtime traffic.
+
+### Propagation map
+
+The map displays device and gateway markers, together with temporary links for
+recent communication events. Links are removed when they become stale or when
+a new simulation starts. A link is drawn only when the device is within its
+configured antenna range of the gateway.
+
+Click a device to see its essential information and its white dashed antenna
+coverage circle. Click a gateway to see its type, status, Gateway EUI, and MAC
+address. Clicking elsewhere closes an open tooltip.
+
+### Engine activity
+
+The real-time event stream records protocol, radio, scheduler, and gateway
+activity. Event names are formatted for readability, for example
+`confirmed-data-up` appears as “Confirmed data up”. The empty state remains at
+the bottom of the card until the first event is available.
+
+### Runtime panels
+
+**Live sessions** shows each device’s join state and uplink frame counter.
+**Connectivity** shows each gateway’s connection state and packet counters in
+the form `in / out`.
+
+Real gateways can appear as reconnecting or disconnected when no external
+packet-forwarder is sending UDP traffic. This is different from a virtual
+gateway, which is managed entirely by the simulator.
+
+## Review a simulation after it runs
+
+Open [Logs](/logs) from the main navigation to review every simulation run
+known to the current simulator instance. The list is ordered with the most
+recent run first and shows the run status, duration, event count, device count,
+gateway count, and packet success rate.
+
+Select a run to open its detailed history. You can inspect the complete event
+stream, search the devices and gateways involved in the run, and select an
+object to see only the events associated with it. A running or paused run is
+updated automatically, so its history can be monitored without leaving the
+detail page or manually refreshing the browser.

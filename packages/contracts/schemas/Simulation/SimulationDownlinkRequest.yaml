@@ -1,0 +1,48 @@
+title: SimulationDownlinkRequest
+type: object
+
+properties:
+  id:
+    type: string
+    x-go-name: ID
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,uuid4"
+  deviceID:
+    type: string
+    x-go-name: DeviceID
+    x-oapi-codegen-extra-tags:
+      validate: "required,uuid4"
+  payload:
+    type: string
+    format: byte
+  fPort:
+    type: integer
+    minimum: 1
+    maximum: 223
+    x-go-name: FPort
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,min=1,max=223"
+  dataRate:
+    type: integer
+    minimum: 0
+    maximum: 15
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,min=0,max=15"
+  confirmed:
+    type: boolean
+  fPending:
+    type: boolean
+    x-go-name: FPending
+  ack:
+    type: boolean
+    x-go-name: ACK
+  macCommands:
+    type: array
+    maxItems: 15
+    items:
+      $ref: "./SimulationMACCommand.yaml"
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,max=15,dive"
+
+required:
+  - deviceID

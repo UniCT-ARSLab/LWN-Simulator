@@ -1,169 +1,114 @@
-# LWN Simulator
+# <img src=".github/readme-assets/logo.png" width="36" height="36" align="absmiddle" alt=""> LWN Simulator
 
-![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/UniCT-ARSLab/LWN-Simulator/go_build.yml)
-[![GitHub license](https://img.shields.io/github/license/UniCT-ARSLab/LWN-Simulator)](https://github.com/UniCT-ARSLab/LWN-Simulator/blob/main/LICENSE.txt)
-[![made-with-Go](https://img.shields.io/badge/Made%20with-Go-1f425f.svg)](https://golang.org)
-[![GitHub go.mod Go version of a Go module](https://img.shields.io/github/go-mod/go-version/UniCT-ARSLab/LWN-Simulator.svg)](https://github.com/UniCT-ARSLab/LWN-Simulator)
-[![GitHub release](https://img.shields.io/github/release/UniCT-ARSLab/LWN-Simulator.svg)](https://github.com/UniCT-ARSLab/LWN-Simulator/releases/)
+[![PR checks](https://github.com/Giuseppe-Compagnone/LWN-Simulator/actions/workflows/ci.yml/badge.svg?event=pull_request)](https://github.com/Giuseppe-Compagnone/LWN-Simulator/actions/workflows/ci.yml)
+[![Documentation](https://github.com/Giuseppe-Compagnone/LWN-Simulator/actions/workflows/deploy-docs.yml/badge.svg)](https://github.com/Giuseppe-Compagnone/LWN-Simulator/actions/workflows/deploy-docs.yml)
+[![Latest release](https://img.shields.io/github/v/release/Giuseppe-Compagnone/LWN-Simulator?display_name=tag&sort=semver)](https://github.com/Giuseppe-Compagnone/LWN-Simulator/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE.txt)
+[![Made with Go](https://img.shields.io/badge/Made%20with-Go-00ADD8?logo=go&logoColor=white)](https://go.dev/)
+[![Made with TypeScript](https://img.shields.io/badge/Made%20with-TypeScript-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Go 1.26.5](https://img.shields.io/badge/Go-1.26.5-00ADD8?logo=go&logoColor=white)](https://go.dev/dl/)
+[![Node.js 24](https://img.shields.io/badge/Node.js-24.x-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Yarn 4.18.0](https://img.shields.io/badge/Yarn-4.18.0-2C8EBB?logo=yarn&logoColor=white)](https://yarnpkg.com/)
 
-A LoRaWAN nodes' simulator to simulate a LoRaWAN Network.
+LWN Simulator is a LoRaWAN network simulator for building, running and
+inspecting realistic device and gateway scenarios. It can be used as a
+standalone desktop application or as a web application connected to a local or
+remote backend.
 
-## Table of Contents
+The simulator supports virtual networks, real gateway transports, ChirpStack
+integration, repeatable simulations, profile-based configurations, persistent
+logs and live updates through WebSocket connections.
 
-* [General Info](#general-info)
-* [Requirements](#requirements)
-* [Installation](#installation)
+![LWN Simulator homepage screenshot](.github/readme-assets/homepage.png)
 
-## General Info
+## Documentation
 
-LWN Simulator is a LoRaWAN nodes' simulator equipped with web interface. It allows to comunicate with a real
-infrastructure LoRaWAN or ad-hoc infrastructure, such as [Chirpstack](https://www.chirpstack.io/).
+The user documentation explains installation, configuration, hardware setup,
+simulation controls, profiles, logs and ChirpStack integration:
 
-![dashboard](./.github/dashboard.png)
+<https://giuseppe-compagnone.github.io/LWN-Simulator/docs>
 
-The project consists of three main components: devices, forwarder and gateways.
+The documentation is available in English, Italian, Spanish, French and
+German. Start with the [Getting Started guide](https://giuseppe-compagnone.github.io/LWN-Simulator/docs/en/getting-started/installation).
 
-### The device
+## Repository structure
 
-* Based [specification LoRaWAN v1.0.3](https://lora-alliance.org/resource_hub/lorawan-specification-v1-0-3/);
-* Supports
-  all [LoRaWAN Regional Parameters v1.0.3](https://lora-alliance.org/resource_hub/lorawan-regional-parameters-v1-0-3reva/).
-* Implements class A,C and partially even the B class;
-* Implements ADR Algorithm;
-* Sends periodically a frame that including some configurable payload;
-* Supports MAC Command;
-* Implements FPending procedure;
-* It is possibile to interact with it in real-time;
+The repository is a Yarn workspace containing the application layers and the
+shared packages used by them.
 
-### The forwarder
+### Applications
 
-It receives the frames from devices, creates a RXPK object including them within and forwards to gateways.
+- [Backend](./apps/backend/README.md): Go API, simulation orchestration,
+  persistence and real-time communication.
+- [Frontend](./apps/frontend/README.md): Next.js web interface for managing
+  networks and simulations.
+- [Desktop](./apps/desktop/README.md): Electron shell that packages the
+  frontend and can manage a local backend.
+- [Launcher](./apps/launcher/README.md): connection screen used by the
+  desktop application to select a local or remote backend.
 
-### The gateway
+### Shared packages
 
-There are two types of gateway:
-
-* A virtual gateway that communicates with a real gateway bridge (if it exists);
-* A real gateway to which datagrams UDP are forwarded.
+- [Contracts](./packages/contracts/README.md): OpenAPI schemas and generated
+  TypeScript/Go models shared across the stack.
+- [Engine](./packages/engine/README.md): deterministic Go simulation engine
+  implementing the network, protocol and radio behavior.
+- [SDK](./packages/sdk/README.md): TypeScript API client and React providers
+  used by the frontend and launcher.
+- [UI components](./packages/ui-components/README.md): reusable controls,
+  layouts and Storybook scenarios.
 
 ## Requirements
 
-* If you don't have a real infrastructure, you can
-  download [ChirpStack open-source LoRaWAN® Network Server](https://www.chirpstack.io/project/), or a similar software,
-  to prove it;
+- Node.js 24;
+- Corepack with Yarn 4 enabled;
+- Go 1.26 or newer for the backend and engine;
+- Docker is optional and useful when running ChirpStack locally.
 
-> [!TIP]
-> A ChirpStack instance can be easily started using Docker. You can find the
-> instructions [here](https://www.chirpstack.io/docs/getting-started/docker.html).
-
-## Installation
-
-### From binary file
-
-You can download from releases section the pre-compiled binary file.
-
-[Releases Page](https://github.com/UniCT-ARSLab/LWN-Simulator/releases)
-
-### From source code
-
-#### Requirements
-
-The simulator is written in Go, so you must have installed Go on your machine.
-
-* You must install [Go](https://golang.org/). Version >= 1.21
-
-> [!NOTE]
-> Windows users should install [GnuMake for Windows](https://www.gnu.org/software/make/) to use the makefile.
-> If you use winget, you can install it with the following command:
-> ```bash
-> winget install GnuWin32.Make
-> ```
-
-#### Build Steps
-
-Firstly, you must clone this repository:
+## Run from source
 
 ```bash
-git clone https://github.com/UniCT-ARSLab/LWN-Simulator.git
+corepack enable
+yarn install
+yarn generate
+yarn dev
 ```
 
-After the download, you must enter in main directory:
+The development command starts the frontend and backend together. The web
+interface is normally available at <http://localhost:3000> and the backend at
+<http://localhost:8080>.
+
+To launch the Electron application with its local backend:
 
 ```bash
-cd LWN-Simulator
+yarn dev:electron
 ```
 
-You must install all dependencies to build the simulator:
+## Useful checks
 
 ```bash
-make install-dep
+yarn generate       # regenerate shared API models
+yarn typecheck      # type-check applications and packages
+yarn lint           # run TypeScript, CSS and documentation linting
+yarn test           # run backend and engine tests
+yarn check          # run the complete validation pipeline
+yarn build          # build distribution artifacts
 ```
 
-Now you can launch the build of the simulator:
+## GitHub Actions
 
-```bash
-make build
-```
+CI checks run when a pull request is opened, reopened or updated. GitHub Pages
+publishes the documentation and Storybook on pushes to `main` or when the
+deploy workflow is run manually.
 
-The binary file will be created in the `bin` directory.
+To publish a distribution, set the same new version in
+`package.json` and `apps/desktop/package.json`. Once the release workflow is
+available on the default branch, open it in **Actions** under
+**Publish desktop and server release**, select **Run workflow**, and choose the
+branch or tag to build. The workflow publishes all Linux, macOS and Windows
+downloads in one GitHub Release named `v<version>`. It publishes only after all
+platform builds pass and includes a `SHA256SUMS` file for the downloads.
 
-#### Run the simulator
+## License
 
-To run the simulator, you can:
-
-- Run from the built binary file:
-
-```bash
-./bin/lwnsimulator // for Linux
-./bin/lwnsimulator.exe // for Windows
-
-make run-release // if you use makefile
-```
-
-- Run from the source code:
-
-```bash
-make run
-```
-
-### Configuration file
-
-The simulator depends on a configuration file (`config.json`) which specifies some configurations for the simulator:
-
-```json
-{
-  "address": "0.0.0.0",
-  "port": 8000,
-  "metricsPort": 8001,
-  "configDirname": "lwnsimulator",
-  "autoStart": false,
-  "verbose": false
-}
-```
-
-- `address`: the address where the simulator will listen for incoming connections;
-- `port`: the port where the simulator will listen for incoming connections;
-- `metricsPort`: the port where the simulator will listen for incoming connections for metrics (Prometheus);
-- `configDirname`: the directory where the simulator will store the configuration files;
-- `autoStart`: if true, the simulator will start automatically the simulation;
-- `verbose`: if true, the simulator will print more logs.
-
-## Tutorials
-
-More coming soon...
-
-### Arabic (thanks to [IdealBit](https://www.youtube.com/@IdealBit365))
-
-[How to Install on Linux or WLS](https://www.youtube.com/watch?v=TEZcyVdanYE)
-
-[How to Install on Windows](https://www.youtube.com/watch?v=BbemBm3Lzvo)
-
-[How to use LWN Simulator with ChirpStack](https://www.youtube.com/watch?v=OpQkb00gfjs)
-
-## Publications and Citations
-
-- [LWN Simulator-A LoRaWAN Network Simulator](https://ieeexplore.ieee.org/document/10477816)
-- [Lightweight Root Key Management Scheme in Smart Grid IoT Network based on Blockchain Technology](https://www.researchsquare.com/article/rs-3330383/v1)
-- [Optimizing LoRa for Edge Computing with TinyML Pipeline for Channel Hopping](https://arxiv.org/abs/2412.01609)
-- [Compute Continuum in Bioengineering: Enhanced Motion Capture and Real-Time Data Processing on Cloud-Edge Infrastructures](https://tesidottorato.depositolegale.it/handle/20.500.14242/188170)
-- [ChirpPark: A Smart and Sustainable Parking System Protocol for Smart Cities and Multi-Agent Vehicles](https://ieeexplore.ieee.org/abstract/document/10697994)
+LWN Simulator is distributed under the MIT license. See [LICENSE.txt](./LICENSE.txt).

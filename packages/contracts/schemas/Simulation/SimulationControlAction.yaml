@@ -1,0 +1,14 @@
+title: SimulationControlAction
+type: string
+
+enum:
+  - start
+  - pause
+  - resume
+  - stop
+
+x-enum-varnames:
+  - SimulationStartAction
+  - SimulationPauseAction
+  - SimulationResumeAction
+  - SimulationStopAction

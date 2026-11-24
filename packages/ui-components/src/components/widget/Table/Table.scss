@@ -1,0 +1,252 @@
+// Table
+
+@use "./components/components";
+@use "../../../styles/breakpoints" as *;
+
+.table {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-direction: column;
+  width: 100%;
+  max-height: 100%;
+
+  .table-filters {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    width: 100%;
+    padding: 1rem;
+    border: 1px solid var(--border-color);
+    border-bottom: 0;
+    background: var(--secondary-bg-color);
+  }
+
+  .table-filter-fields {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    flex: 1;
+  }
+
+  .table-filter {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 12rem;
+    color: var(--secondary-text-color);
+    font-family: var(--secondary-font);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+  }
+
+  .table-filter input,
+  .table-filter select {
+    min-height: 2.4rem;
+    padding: 0.45rem 0.65rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--primary-bg-color);
+    color: var(--primary-text-color);
+    font: inherit;
+    text-transform: none;
+  }
+
+  .table-filter-clear {
+    min-height: 2.4rem;
+    padding: 0.45rem 0.7rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--primary-text-color);
+    cursor: pointer;
+  }
+
+  .table-filters {
+    align-items: flex-end;
+    flex-direction: row;
+  }
+
+  .table-filters > .form {
+    display: flex;
+    flex: 1;
+    flex-flow: row wrap;
+    align-items: flex-end;
+    justify-content: flex-start;
+    gap: 0.75rem;
+    width: auto;
+  }
+
+  .table-filters .form-field-wrapper {
+    display: flex;
+    flex: 1 1 12rem;
+    align-self: stretch;
+    justify-content: flex-end;
+    min-width: 12rem;
+    margin: 0;
+  }
+
+  .table-filters .form-field-header {
+    min-height: 1.1rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .table-filters .field-wrapper {
+    align-items: flex-end;
+  }
+
+  .table-filters .form-field-wrapper .form-field,
+  .table-filters .form-field-wrapper .selected-box {
+    min-height: 2.4rem;
+    height: 2.4rem;
+    box-sizing: border-box;
+  }
+
+  .table-filters .form-field-wrapper:focus-within,
+  .table-filters .form-field-wrapper:has(.select-form-field.open) {
+    padding-left: 0;
+  }
+
+  .table-filters .select-form-field .selected-box {
+    align-items: center;
+    line-height: 1.2;
+  }
+
+  .table-filters .form-button,
+  .table-filters .table-filter-submit {
+    display: none;
+  }
+
+  .table-filters .table-filter-clear {
+    flex: 0 0 auto;
+    margin-bottom: 0;
+  }
+
+  .loading-wrapper {
+    position: absolute;
+    inset: 0;
+    top: 4rem;
+    bottom: 4rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 0;
+    background: color-mix(in srgb, var(--tertiary-bg-color) 80%, transparent);
+    backdrop-filter: blur(0);
+    transition: all 0.3s ease-in-out;
+
+    &.visible {
+      backdrop-filter: blur(4px);
+      height: unset;
+    }
+  }
+
+  table {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    width: 100%;
+    min-height: 0;
+    max-height: calc(100% - 4rem);
+
+    .table-header {
+      width: 100%;
+
+      tr {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 4rem;
+        background: var(--tertiary-bg-color);
+        border-bottom: 1px solid var(--border-color);
+
+        .table-label {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          gap: var(--gap);
+          font-family: var(--secondary-font);
+          text-transform: uppercase;
+          padding: 1rem;
+
+          span {
+            transition: all 0.2s ease-in-out;
+          }
+
+          @include hover {
+            span {
+              scale: 1.1;
+            }
+          }
+        }
+      }
+    }
+
+    .table-rows {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      flex-direction: column;
+      width: 100%;
+      background: var(--secondary-bg-color);
+      overflow-x: auto;
+      transition: all 0.2s ease-in-out;
+
+      .table-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        min-height: 75px;
+        max-height: 75px;
+        transition: all 0.2s ease-in-out;
+
+        &.clickable {
+          cursor: pointer;
+
+          @include hover {
+            background: color-mix(
+              in srgb,
+              var(--primary-color) 25%,
+              var(--primary-bg-color)
+            );
+          }
+        }
+
+        &:nth-child(even) {
+          background: color-mix(in srgb, var(--border-color) 15%, transparent);
+        }
+
+        .table-row-item {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          padding: 1rem;
+        }
+      }
+
+      .empty {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: calc(75px * 5);
+        color: var(--secondary-text-color);
+        font-size: 6rem;
+        opacity: 0.3;
+      }
+    }
+  }
+
+  .table-footer {
+    width: 100%;
+    min-height: 4rem;
+    max-height: 4rem;
+    background: var(--tertiary-bg-color);
+    border-top: 1px solid var(--border-color);
+  }
+}

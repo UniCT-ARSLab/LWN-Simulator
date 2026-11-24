@@ -1,0 +1,14 @@
+title: SimulationRadioLossReason
+type: string
+
+enum:
+  - no-gateway
+  - collision
+  - low-snr
+  - random-loss
+
+x-enum-varnames:
+  - NoGateway
+  - Collision
+  - LowSNR
+  - RandomLoss

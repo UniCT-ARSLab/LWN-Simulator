@@ -1,0 +1,119 @@
+---
+title: Configuration
+---
+
+import { Callout, Steps } from "nextra/components";
+
+# Configuration
+
+This page describes the available startup options and default behaviors of
+LoRaWAN Simulator.
+
+## Server Edition
+
+The Server Edition starts the simulation server and makes the web interface available through a browser.
+
+By default, the server listens on port:
+
+`8080`
+
+### Custom port
+
+A different port can be specified when starting the server using the `-p` or `--port` option.
+
+Example:
+
+```bash
+./lwn-server --port 9000
+```
+
+or:
+
+```bash
+./lwn-server -p 9000
+```
+
+The application will then be accessible at:
+
+`http://localhost:9000`
+
+### Available options
+
+To display the available startup options, use:
+
+```bash
+./lwn-server -h
+```
+
+or:
+
+```bash
+./lwn-server --help
+```
+
+This command shows the list of supported flags and their descriptions.
+
+---
+
+## Desktop Edition
+
+The Desktop Edition automatically starts a local server when running in local mode.
+
+The default starting port is:
+
+`8080`
+
+Automatic port selection
+
+If the default port is already in use, the application automatically searches for the next available port.
+
+The search continues incrementally:
+
+```
+8080
+8081
+8082
+8083
+...
+```
+
+The first available port is selected automatically and used for the local server.
+
+This behavior allows multiple instances or other applications using common ports to coexist without requiring manual configuration.
+
+## Display preference
+
+Use the theme button in the application header to switch between the light and
+dark themes. The selected theme is saved for the next visit and applies to the
+map and the rest of the workspace.
+
+## Data and restart behavior
+
+Profiles, hardware, bridge settings, and completed simulation history are kept
+by the server so they can be reviewed after a restart. The active simulation
+can also be restored when the server has enough persisted state to resume it.
+
+<Callout type="info" emoji="💾">
+  Export important profiles before moving the application to another machine.
+  An export is the portable way to carry the network configuration and its
+  available simulation history with you.
+</Callout>
+
+## Connect a desktop client to a server
+
+<Steps>
+### Start the server
+
+Start the Server Edition and note the address printed by the server, including
+the port if it is not the default `8080`.
+
+### Open the desktop client
+
+Choose **Remote Server** in the Desktop Edition launcher.
+
+### Enter the server address
+
+Enter an `http://` or `https://` address and connect. The client checks that it
+is talking to a compatible LoRaWAN Simulator server before opening the main
+workspace.
+</Steps>

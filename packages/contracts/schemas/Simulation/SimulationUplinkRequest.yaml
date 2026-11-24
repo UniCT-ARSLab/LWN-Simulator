@@ -1,0 +1,12 @@
+title: SimulationUplinkRequest
+type: object
+
+properties:
+  deviceID:
+    type: string
+    x-go-name: DeviceID
+    x-oapi-codegen-extra-tags:
+      validate: "required,uuid4"
+
+required:
+  - deviceID

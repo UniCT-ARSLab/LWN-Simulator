@@ -1,0 +1,67 @@
+title: RuntimeGateway
+type: object
+
+properties:
+  id:
+    type: string
+    x-go-name: ID
+    x-oapi-codegen-extra-tags:
+      validate: "required,len=36"
+  name:
+    type: string
+    x-oapi-codegen-extra-tags:
+      validate: "required"
+  active:
+    type: boolean
+  status:
+    $ref: "./RuntimeStatus.yaml"
+  gatewayType:
+    $ref: "../Gateway/GatewayType.yaml"
+    x-go-name: GatewayType
+  gatewayEUI:
+    type: string
+    x-go-name: GatewayEUI
+  gatewayState:
+    $ref: "./GatewayConnectionState.yaml"
+    x-go-name: GatewayState
+  lastHeartbeatMilliseconds:
+    type: integer
+    format: int64
+    x-go-name: LastHeartbeatMilliseconds
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  connectionAttempts:
+    type: integer
+    format: int64
+    x-go-name: ConnectionAttempts
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  lastNetworkError:
+    type: string
+    x-go-name: LastNetworkError
+  ingressPackets:
+    type: integer
+    format: int64
+    x-go-name: IngressPackets
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  egressPackets:
+    type: integer
+    format: int64
+    x-go-name: EgressPackets
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+
+required:
+  - id
+  - name
+  - active
+  - status
+  - gatewayType
+  - gatewayEUI
+  - gatewayState
+  - lastHeartbeatMilliseconds
+  - connectionAttempts
+  - lastNetworkError
+  - ingressPackets
+  - egressPackets

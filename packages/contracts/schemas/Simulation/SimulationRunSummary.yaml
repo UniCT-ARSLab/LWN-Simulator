@@ -1,0 +1,66 @@
+title: SimulationRunSummary
+type: object
+properties:
+  telemetry:
+    $ref: "./SimulationTelemetry.yaml"
+  id:
+    type: string
+    x-oapi-codegen-extra-tags:
+      validate: "required,len=36"
+  startedAtMilliseconds:
+    type: integer
+    format: int64
+    x-oapi-codegen-extra-tags:
+      validate: "required,min=0"
+  endedAtMilliseconds:
+    type: integer
+    format: int64
+    nullable: true
+  durationMilliseconds:
+    type: integer
+    format: int64
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  status:
+    $ref: "./SimulationRunStatus.yaml"
+  speed:
+    type: number
+    format: double
+    x-go-type: float64
+    x-oapi-codegen-extra-tags:
+      validate: "required,gt=0"
+  seed:
+    type: integer
+    format: int64
+    nullable: true
+  deviceCount:
+    type: integer
+    format: int32
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  gatewayCount:
+    type: integer
+    format: int32
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  eventCount:
+    type: integer
+    format: int32
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  packetSuccessRate:
+    type: number
+    format: double
+    x-go-type: float64
+    x-oapi-codegen-extra-tags:
+      validate: "min=0,max=1"
+required:
+  - id
+  - startedAtMilliseconds
+  - durationMilliseconds
+  - status
+  - speed
+  - deviceCount
+  - gatewayCount
+  - eventCount
+  - packetSuccessRate

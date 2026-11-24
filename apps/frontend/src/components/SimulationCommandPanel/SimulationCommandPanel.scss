@@ -1,0 +1,193 @@
+.simulation-command-panel {
+  width: min(100%, 90rem);
+  min-width: 0;
+  margin: 0 auto;
+  border: 1px solid var(--border-color);
+  background: var(--dashboard-surface);
+}
+
+.simulation-command-panel__header,
+.simulation-command-panel__footer {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.simulation-command-panel__header {
+  p {
+    margin: 0.35rem 0 0;
+    color: var(--secondary-text-color);
+    font-size: 0.78rem;
+  }
+}
+
+.simulation-command-panel__availability {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: 999px;
+  background: var(--dashboard-muted);
+  color: var(--secondary-text-color);
+  font: 0.64rem var(--secondary-font);
+  text-transform: uppercase;
+
+  > span {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: var(--secondary-text-color);
+  }
+
+  &.is-ready > span {
+    background: var(--success-color);
+    box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--success-color) 18%, transparent);
+  }
+}
+
+.simulation-command-panel__modes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.35rem;
+  margin: 1.1rem 0;
+  padding: 0.3rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--primary-bg-color);
+
+  button {
+    min-width: 0;
+    padding: 0.6rem 0.75rem;
+    border: 0;
+    border-radius: calc(var(--radius-sm) - 0.1rem);
+    background: transparent;
+    color: var(--secondary-text-color);
+    font: 0.68rem var(--secondary-font);
+    text-transform: uppercase;
+    cursor: pointer;
+
+    &.is-selected {
+      background: color-mix(in srgb, var(--primary-color) 14%, var(--dashboard-muted));
+      color: var(--primary-color);
+    }
+  }
+}
+
+.simulation-command-panel__body {
+  display: grid;
+  grid-template-columns: minmax(15rem, 0.8fr) minmax(0, 2fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.simulation-command-panel__body > .form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  grid-column: 1 / -1;
+}
+
+.simulation-command-panel__body.is-uplink > .form {
+  grid-column: 1;
+  grid-template-columns: 1fr;
+}
+
+.simulation-command-panel__body.is-uplink {
+  grid-template-columns: minmax(min(100%, 32rem), 1fr) minmax(0, 2fr);
+
+  > .form .select-form-field .selected-box {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.simulation-command-panel__body > .form .form-button {
+  grid-column: 1 / -1;
+  justify-self: end;
+}
+
+.simulation-command-panel__explanation {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-height: 4.7rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--primary-bg-color);
+
+  > span {
+    color: var(--primary-color);
+    font-size: 1.5rem;
+  }
+
+  strong,
+  p {
+    display: block;
+    margin: 0;
+  }
+
+  strong {
+    font-size: 0.82rem;
+  }
+
+  p {
+    margin-top: 0.25rem;
+    color: var(--secondary-text-color);
+    font-size: 0.72rem;
+  }
+}
+
+.simulation-command-panel__footer {
+  align-items: center;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+
+  > div {
+    min-width: 0;
+    overflow: hidden;
+    font: 0.66rem var(--secondary-font);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .is-error {
+    color: var(--error-color);
+  }
+
+  .is-success {
+    color: var(--success-color);
+  }
+}
+
+@media (width <= 58rem) {
+  .simulation-command-panel__body {
+    grid-template-columns: 1fr;
+  }
+
+  .simulation-command-panel__body > .form,
+  .simulation-command-panel__body.is-uplink > .form {
+    grid-column: 1;
+  }
+}
+
+@media (width <= 38rem) {
+  .simulation-command-panel__header,
+  .simulation-command-panel__footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .simulation-command-panel__availability {
+    align-self: flex-start;
+  }
+
+  .simulation-command-panel__modes,
+  .simulation-command-panel__body > .form {
+    grid-template-columns: 1fr;
+  }
+}

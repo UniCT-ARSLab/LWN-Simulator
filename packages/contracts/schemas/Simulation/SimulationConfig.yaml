@@ -1,0 +1,19 @@
+title: SimulationConfig
+type: object
+
+properties:
+  speed:
+    type: number
+    x-go-type: float64
+    x-oapi-codegen-extra-tags:
+      validate: "required,gt=0"
+  seed:
+    type: integer
+    format: int64
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty"
+  gatewayBridge:
+    $ref: "./GatewayBridgeConfig.yaml"
+
+required:
+  - speed

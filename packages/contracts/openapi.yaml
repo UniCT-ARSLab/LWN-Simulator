@@ -1,0 +1,189 @@
+openapi: 3.0.3
+
+info:
+  title: LWN Simulator API
+  version: 1.0.0
+  description: API contract for LWN Simulator
+
+paths: {}
+
+components:
+  schemas:
+    UpdatePositionRequest:
+      $ref: "./schemas/Hardware/UpdatePositionRequest.yaml"
+    UpdateActiveRequest:
+      $ref: "./schemas/Hardware/UpdateActiveRequest.yaml"
+    UpdateDevicePayloadRequest:
+      $ref: "./schemas/Device/UpdateDevicePayloadRequest.yaml"
+    Profile:
+      $ref: "./schemas/Profile/Profile.yaml"
+    CreateProfileRequest:
+      $ref: "./schemas/Profile/CreateProfileRequest.yaml"
+    CreateProfileResponse:
+      $ref: "./schemas/Profile/CreateProfileResponse.yaml"
+    GetProfileResponse:
+      $ref: "./schemas/Profile/GetProfileResponse.yaml"
+    GetProfilesResponse:
+      $ref: "./schemas/Profile/GetProfilesResponse.yaml"
+    UpdateProfileRequest:
+      $ref: "./schemas/Profile/UpdateProfileRequest.yaml"
+    UpdateProfileResponse:
+      $ref: "./schemas/Profile/UpdateProfileResponse.yaml"
+    ProfileLog:
+      $ref: "./schemas/Profile/ProfileLog.yaml"
+    ProfileArchive:
+      $ref: "./schemas/Profile/ProfileArchive.yaml"
+    ImportProfileRequest:
+      $ref: "./schemas/Profile/ImportProfileRequest.yaml"
+    ImportProfileResponse:
+      $ref: "./schemas/Profile/ImportProfileResponse.yaml"
+    RealtimeWebSocketMessageType:
+      $ref: "./schemas/Realtime/RealtimeWebSocketMessageType.yaml"
+    RealtimeWebSocketMessage:
+      $ref: "./schemas/Realtime/RealtimeWebSocketMessage.yaml"
+    AppInfoResponse:
+      $ref: "./schemas/AppInfoResponse.yaml"
+    StatusResponse:
+      $ref: "./schemas/StatusResponse.yaml"
+    DeviceClass:
+      $ref: "./schemas/Device/DeviceProps/DeviceClass.yaml"
+    DeviceActivation:
+      $ref: "./schemas/Device/DeviceProps/DeviceActivation.yaml"
+    RadioProtocol:
+      $ref: "./schemas/Device/DeviceProps/RadioProtocol.yaml"
+    RadioReceiveMode:
+      $ref: "./schemas/Device/DeviceProps/RadioReceiveMode.yaml"
+    OOTAConfig:
+      $ref: "./schemas/Device/DeviceProps/OOTAConfig.yaml"
+    ABPConfig:
+      $ref: "./schemas/Device/DeviceProps/ABPConfig.yaml"
+    DeviceRegion:
+      $ref: "./schemas/Device/DeviceProps/DeviceRegion.yaml"
+    LocationConfig:
+      $ref: "./schemas/Device/DeviceProps/LocationConfig.yaml"
+    FrameConfig:
+      $ref: "./schemas/Device/DeviceProps/FrameConfig.yaml"
+    OversizedPayloadBehavior:
+      $ref: "./schemas/Device/DeviceProps/OversizedPayloadBehavior.yaml"
+    DeviceMType:
+      $ref: "./schemas/Device/DeviceProps/DeviceMType.yaml"
+    PayloadConfig:
+      $ref: "./schemas/Device/DeviceProps/PayloadConfig.yaml"
+    AdvancedConfig:
+      $ref: "./schemas/Device/DeviceProps/AdvancedConfig.yaml"
+    Device:
+      $ref: "./schemas/Device/Device.yaml"
+    CreateDeviceRequest:
+      $ref: "./schemas/Device/CreateDeviceRequest.yaml"
+    CreateDeviceResponse:
+      $ref: "./schemas/Device/CreateDeviceResponse.yaml"
+    GetDeviceRequest:
+      $ref: "./schemas/Device/GetDeviceRequest.yaml"
+    GetDeviceResponse:
+      $ref: "./schemas/Device/GetDeviceResponse.yaml"
+    GetDevicesRequest:
+      $ref: "./schemas/Device/GetDevicesRequest.yaml"
+    GetDevicesResponse:
+      $ref: "./schemas/Device/GetDevicesResponse.yaml"
+    UpdateDeviceRequest:
+      $ref: "./schemas/Device/UpdateDeviceRequest.yaml"
+    UpdateDeviceResponse:
+      $ref: "./schemas/Device/UpdateDeviceResponse.yaml"
+    DeleteDeviceRequest:
+      $ref: "./schemas/Device/DeleteDeviceRequest.yaml"
+    DeleteDeviceResponse:
+      $ref: "./schemas/Device/DeleteDeviceResponse.yaml"
+    Gateway:
+      $ref: "./schemas/Gateway/Gateway.yaml"
+    GatewayType:
+      $ref: "./schemas/Gateway/GatewayType.yaml"
+    CreateGatewayRequest:
+      $ref: "./schemas/Gateway/CreateGatewayRequest.yaml"
+    CreateGatewayResponse:
+      $ref: "./schemas/Gateway/CreateGatewayResponse.yaml"
+    GetGatewayRequest:
+      $ref: "./schemas/Gateway/GetGatewayRequest.yaml"
+    GetGatewayResponse:
+      $ref: "./schemas/Gateway/GetGatewayResponse.yaml"
+    GetGatewaysRequest:
+      $ref: "./schemas/Gateway/GetGatewaysRequest.yaml"
+    GetGatewaysResponse:
+      $ref: "./schemas/Gateway/GetGatewaysResponse.yaml"
+    UpdateGatewayRequest:
+      $ref: "./schemas/Gateway/UpdateGatewayRequest.yaml"
+    UpdateGatewayResponse:
+      $ref: "./schemas/Gateway/UpdateGatewayResponse.yaml"
+    DeleteGatewayRequest:
+      $ref: "./schemas/Gateway/DeleteGatewayRequest.yaml"
+    DeleteGatewayResponse:
+      $ref: "./schemas/Gateway/DeleteGatewayResponse.yaml"
+    SimulationConfig:
+      $ref: "./schemas/Simulation/SimulationConfig.yaml"
+    GatewayBridgeConfig:
+      $ref: "./schemas/Simulation/GatewayBridgeConfig.yaml"
+    SimulationSpeedRequest:
+      $ref: "./schemas/Simulation/SimulationSpeedRequest.yaml"
+    SimulationStatus:
+      $ref: "./schemas/Simulation/SimulationStatus.yaml"
+    SimulationActivity:
+      $ref: "./schemas/Simulation/SimulationActivity.yaml"
+    SimulationEventType:
+      $ref: "./schemas/Simulation/SimulationEventType.yaml"
+    RuntimeStatus:
+      $ref: "./schemas/Simulation/RuntimeStatus.yaml"
+    RuntimeDevice:
+      $ref: "./schemas/Simulation/RuntimeDevice.yaml"
+    RuntimeGateway:
+      $ref: "./schemas/Simulation/RuntimeGateway.yaml"
+    SimulationState:
+      $ref: "./schemas/Simulation/SimulationState.yaml"
+    SimulationEvent:
+      $ref: "./schemas/Simulation/SimulationEvent.yaml"
+    SimulationSnapshot:
+      $ref: "./schemas/Simulation/SimulationSnapshot.yaml"
+    SimulationMetrics:
+      $ref: "./schemas/Simulation/SimulationMetrics.yaml"
+    SimulationRxWindow:
+      $ref: "./schemas/Simulation/SimulationRxWindow.yaml"
+    SimulationRadioLossReason:
+      $ref: "./schemas/Simulation/SimulationRadioLossReason.yaml"
+    RadioFrame:
+      $ref: "./schemas/Simulation/RadioFrame.yaml"
+    GatewayConnectionState:
+      $ref: "./schemas/Simulation/GatewayConnectionState.yaml"
+    SimulationControlAction:
+      $ref: "./schemas/Simulation/SimulationControlAction.yaml"
+    SimulationControlRequest:
+      $ref: "./schemas/Simulation/SimulationControlRequest.yaml"
+    SimulationWebSocketMessageType:
+      $ref: "./schemas/Simulation/SimulationWebSocketMessageType.yaml"
+    SimulationWebSocketMessage:
+      $ref: "./schemas/Simulation/SimulationWebSocketMessage.yaml"
+    SimulationMACCommandType:
+      $ref: "./schemas/Simulation/SimulationMACCommandType.yaml"
+    SimulationMACCommand:
+      $ref: "./schemas/Simulation/SimulationMACCommand.yaml"
+    SimulationUplinkRequest:
+      $ref: "./schemas/Simulation/SimulationUplinkRequest.yaml"
+    SimulationDownlinkRequest:
+      $ref: "./schemas/Simulation/SimulationDownlinkRequest.yaml"
+    SimulationMACCommandRequest:
+      $ref: "./schemas/Simulation/SimulationMACCommandRequest.yaml"
+    SimulationActionResponse:
+      $ref: "./schemas/Simulation/SimulationActionResponse.yaml"
+    SimulationEventsResponse:
+      $ref: "./schemas/Simulation/SimulationEventsResponse.yaml"
+    SimulationRunStatus:
+      $ref: "./schemas/Simulation/SimulationRunStatus.yaml"
+    SimulationLogObjectKind:
+      $ref: "./schemas/Simulation/SimulationLogObjectKind.yaml"
+    SimulationLogObject:
+      $ref: "./schemas/Simulation/SimulationLogObject.yaml"
+    SimulationTelemetry:
+      $ref: "./schemas/Simulation/SimulationTelemetry.yaml"
+    SimulationRunSummary:
+      $ref: "./schemas/Simulation/SimulationRunSummary.yaml"
+    SimulationRun:
+      $ref: "./schemas/Simulation/SimulationRun.yaml"
+    SimulationRunsResponse:
+      $ref: "./schemas/Simulation/SimulationRunsResponse.yaml"

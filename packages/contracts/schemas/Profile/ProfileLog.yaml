@@ -1,0 +1,12 @@
+title: ProfileLog
+type: object
+properties:
+  run:
+    $ref: "../Simulation/SimulationRun.yaml"
+  events:
+    type: array
+    items:
+      $ref: "../Simulation/SimulationEvent.yaml"
+required:
+  - run
+  - events

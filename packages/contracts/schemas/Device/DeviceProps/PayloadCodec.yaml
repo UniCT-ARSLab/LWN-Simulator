@@ -1,0 +1,15 @@
+title: PayloadCodec
+description: Optional JavaScript payload codec configuration for a device.
+type: object
+
+properties:
+  enabled:
+    type: boolean
+    description: Whether the payload codec is enabled for this device.
+  script:
+    type: string
+    description: JavaScript payload codec source code.
+
+required:
+  - enabled
+  - script

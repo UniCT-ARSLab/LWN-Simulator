@@ -1,0 +1,108 @@
+// ToggleSwitch
+
+@use "../../../styles/breakpoints" as *;
+
+.toggle-switch {
+  $width: 50px;
+  $height: 28px;
+  $trigger: 20px;
+  $trigger-color: var(--secondary-color);
+
+  position: relative;
+  width: $width;
+  height: $height;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--secondary-bg-color);
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 0 5px #0003;
+  cursor: pointer;
+
+  @include hover {
+    &.boolean {
+      border: 1px solid
+        color-mix(in srgb, var(--primary-color) 50%, transparent);
+    }
+
+    &.choose {
+      border: 1px solid
+        color-mix(in srgb, var(--secondary-color) 50%, transparent);
+    }
+  }
+
+  .trigger {
+    position: absolute;
+    top: 50%;
+    left: calc(((#{$height} - #{$trigger}) / 2) - 1px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    width: $trigger;
+    aspect-ratio: 1/1;
+    border-radius: var(--radius-md);
+    background: $trigger-color;
+    transform: translateY(-50%);
+    transition: all 0.2s ease-in-out;
+    color: var(--secondary-bg-color);
+    font-size: $trigger;
+
+    * {
+      color: var(--secondary-bg-color);
+      font-size: $trigger;
+    }
+  }
+
+  .false-icon,
+  .true-icon {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: $trigger;
+    aspect-ratio: 1/1;
+    overflow: hidden;
+    color: var(--tertiary-bg-color);
+    font-size: $trigger;
+    z-index: 10;
+
+    * {
+      color: var(--secondary-bg-color);
+      font-size: $trigger;
+    }
+  }
+
+  .false-icon {
+    left: calc(((#{$height} - #{$trigger}) / 2) - 1px);
+  }
+
+  .true-icon {
+    left: calc(
+      #{$width} - #{$trigger} - ((#{$height} - #{$trigger}) / 2) - 1px
+    );
+  }
+
+  &.active {
+    .trigger {
+      left: calc(
+        #{$width} - #{$trigger} - ((#{$height} - #{$trigger}) / 2) - 1px
+      );
+    }
+
+    &.boolean {
+      border: none;
+      background: var(--primary-color);
+
+      .trigger {
+        background: #fff;
+        color: var(--primary-color);
+
+        * {
+          color: var(--primary-color);
+        }
+      }
+    }
+  }
+}

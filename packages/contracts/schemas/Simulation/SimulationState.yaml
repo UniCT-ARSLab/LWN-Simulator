@@ -1,0 +1,42 @@
+title: SimulationState
+type: object
+
+properties:
+  status:
+    $ref: "./SimulationStatus.yaml"
+  speed:
+    type: number
+    x-go-type: float64
+    x-oapi-codegen-extra-tags:
+      validate: "required,gt=0"
+  seed:
+    type: integer
+    format: int64
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty"
+  elapsedMilliseconds:
+    type: integer
+    format: int64
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  eventSequence:
+    type: integer
+    format: int64
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  deviceCount:
+    type: integer
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  gatewayCount:
+    type: integer
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+
+required:
+  - status
+  - speed
+  - elapsedMilliseconds
+  - eventSequence
+  - deviceCount
+  - gatewayCount

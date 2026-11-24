@@ -1,0 +1,10 @@
+title: DeviceClass
+type: string
+
+enum:
+  - fragment
+  - truncate
+
+x-enum-varnames:
+  - Fragment
+  - Truncate

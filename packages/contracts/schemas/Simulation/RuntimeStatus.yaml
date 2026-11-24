@@ -1,0 +1,14 @@
+title: RuntimeStatus
+type: string
+
+enum:
+  - registered
+  - active
+  - paused
+  - stopped
+
+x-enum-varnames:
+  - Registered
+  - Active
+  - Paused
+  - Stopped

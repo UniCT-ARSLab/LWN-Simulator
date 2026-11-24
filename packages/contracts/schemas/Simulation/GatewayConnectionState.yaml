@@ -1,0 +1,16 @@
+title: GatewayConnectionState
+type: string
+
+enum:
+  - connecting
+  - connected
+  - disconnected
+  - reconnecting
+  - error
+
+x-enum-varnames:
+  - Connecting
+  - Connected
+  - Disconnected
+  - Reconnecting
+  - Error

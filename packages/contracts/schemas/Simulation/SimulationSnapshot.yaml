@@ -1,0 +1,22 @@
+title: SimulationSnapshot
+type: object
+
+properties:
+  state:
+    $ref: "./SimulationState.yaml"
+  devices:
+    type: array
+    items:
+      $ref: "./RuntimeDevice.yaml"
+  gateways:
+    type: array
+    items:
+      $ref: "./RuntimeGateway.yaml"
+  metrics:
+    $ref: "./SimulationMetrics.yaml"
+
+required:
+  - state
+  - devices
+  - gateways
+  - metrics

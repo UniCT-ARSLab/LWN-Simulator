@@ -1,0 +1,80 @@
+title: RadioFrame
+type: object
+description: Common radio-level representation shared by LoRaWAN and raw LoRa frames.
+
+properties:
+  protocol:
+    $ref: "../Device/DeviceProps/RadioProtocol.yaml"
+  payload:
+    type: string
+    format: byte
+    description: Radio payload encoded as Base64 for transport in JSON.
+  frequency:
+    type: integer
+    format: int64
+    description: Radio frequency in hertz.
+    x-go-name: Frequency
+    x-oapi-codegen-extra-tags:
+      validate: "required,min=1"
+  bandwidth:
+    type: integer
+    format: int64
+    description: LoRa bandwidth in hertz.
+    x-go-name: Bandwidth
+    x-oapi-codegen-extra-tags:
+      validate: "required,min=1"
+  spreadingFactor:
+    type: integer
+    format: int32
+    description: LoRa spreading factor.
+    x-go-name: SpreadingFactor
+    x-oapi-codegen-extra-tags:
+      validate: "required,min=5,max=12"
+  codingRate:
+    type: string
+    description: LoRa coding rate, for example 4/5.
+    x-go-name: CodingRate
+    x-oapi-codegen-extra-tags:
+      validate: "required"
+  transmissionPower:
+    type: integer
+    format: int32
+    description: Transmission power in dBm.
+    x-go-name: TransmissionPower
+  senderID:
+    type: string
+    description: Internal identifier of the transmitting device or gateway.
+    x-go-name: SenderID
+    x-oapi-codegen-extra-tags:
+      validate: "required"
+  gatewayID:
+    type: string
+    description: Gateway that received or transmitted the frame, when known.
+    x-go-name: GatewayID
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty"
+  timestampMilliseconds:
+    type: integer
+    format: int64
+    description: Simulation timestamp associated with the frame.
+    x-go-name: TimestampMilliseconds
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  airtimeMilliseconds:
+    type: integer
+    format: int64
+    description: Calculated airtime of the frame.
+    x-go-name: AirtimeMilliseconds
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,min=0"
+
+required:
+  - protocol
+  - payload
+  - frequency
+  - bandwidth
+  - spreadingFactor
+  - codingRate
+  - transmissionPower
+  - senderID
+  - timestampMilliseconds

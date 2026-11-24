@@ -1,0 +1,12 @@
+title: SimulationRun
+type: object
+properties:
+  summary:
+    $ref: "./SimulationRunSummary.yaml"
+  objects:
+    type: array
+    items:
+      $ref: "./SimulationLogObject.yaml"
+required:
+  - summary
+  - objects

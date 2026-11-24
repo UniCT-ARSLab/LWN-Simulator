@@ -1,0 +1,19 @@
+title: SimulationControlRequest
+type: object
+
+properties:
+  action:
+    $ref: "./SimulationControlAction.yaml"
+  speed:
+    type: number
+    x-go-type: float64
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,gt=0"
+  seed:
+    type: integer
+    format: int64
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty"
+
+required:
+  - action

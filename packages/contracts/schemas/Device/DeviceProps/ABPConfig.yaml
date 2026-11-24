@@ -1,0 +1,21 @@
+title: ABPConfig
+type: object
+
+properties:
+  devAddr:
+    type: string
+    x-oapi-codegen-extra-tags:
+      validate: "required,len=8"
+  nwkSKey:
+    type: string
+    x-oapi-codegen-extra-tags:
+      validate: "required,len=32"
+  appSKey:
+    type: string
+    x-oapi-codegen-extra-tags:
+      validate: "required,len=32"
+
+required:
+  - devAddr
+  - nwkSKey
+  - appSKey

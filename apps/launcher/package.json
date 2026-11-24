@@ -1,0 +1,35 @@
+{
+  "name": "@lwn-simulator/desktop-launcher",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "ELECTRON_BUILD=true next build",
+    "start": "next start",
+    "lint": "eslint",
+    "lint:css": "stylelint \"src/**/*.scss\""
+  },
+  "dependencies": {
+    "@lwn-simulator/sdk": "workspace:*",
+    "@lwn-simulator/ui-components": "workspace:*",
+    "classnames": "^2.5.1",
+    "material-symbols": "^0.45.10",
+    "next": "16.2.12",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-toastify": "^11.1.0",
+    "sass": "^1.102.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.12",
+    "stylelint": "^17.14.1",
+    "stylelint-config-standard-scss": "^17.0.0",
+    "stylelint-order": "^8.1.1",
+    "stylelint-scss": "^7.2.0",
+    "typescript": "^5"
+  }
+}

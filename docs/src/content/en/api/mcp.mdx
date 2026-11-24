@@ -1,0 +1,40 @@
+---
+title: Connect an MCP client
+---
+
+# Connect an MCP client
+
+Use the local Model Context Protocol (MCP) server to inspect simulations from an AI client. It connects to the same running backend used by the dashboard, so both see the same profiles, runs and metrics.
+
+Start the simulator with a local backend. Find the absolute path to the standalone `lwn-server` executable (`lwn-server.exe` on Windows) or the backend executable bundled with the desktop app. Register it as a **stdio** server in your MCP client. The exact settings location depends on the client.
+
+```json
+{
+  "mcpServers": {
+    "lwn-simulator": {
+      "command": "/absolute/path/to/lwn-server",
+      "args": ["-mcp", "-port", "8080"]
+    }
+  }
+}
+```
+
+Use the backend port you see in the app. The default is `8080`. The MCP process connects to `127.0.0.1` on that port. Keep the backend running while using the MCP client.
+
+## Inspect a simulation
+
+1. Call `list_profiles` to find the profile ID. Pass that ID as `profileID` in profile-specific calls.
+
+2. Use `list_devices` and `list_gateways` to inspect the network. Call `get_simulation_activity` to see which profile has a running or paused simulation, then use `get_simulation_status` for its clock and metrics.
+
+3. Call `list_simulation_runs` for saved runs. Use `list_simulation_events` with `runID` for a saved run or omit it for the current run. To continue reading, pass the returned `nextAfterSequence` as `afterSequence`. For the other list tools, pass `nextOffset` as `offset` when present.
+
+The inventory and event results expose metadata such as identifiers and radio measurements. Device keys, codecs and payload bytes stay out of MCP results.
+
+## Allow simulation controls
+
+The default configuration is read-only. Add `"-mcp-write"` to `args` to enable `start_simulation`, `control_simulation` (pause, resume or stop), `queue_uplink` and `queue_downlink`. All tool operations use the selected profile ID. Close and reconnect the MCP client after changing its configuration.
+
+Start uses the saved Gateway Bridge settings. Use speed `1` with external gateway transport. One simulation can be active across all profiles. For a downlink, supply UTF-8 text or set `base64Encoded` for standard Base64. Use `fPort` for LoRaWAN and omit it for LoRa raw. A queue response means the simulator accepted the request. Check the run events for its outcome.
+
+To grant an AI client control over a live simulation, review the profile and action in the client before approving a write.

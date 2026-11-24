@@ -1,0 +1,2438 @@
+openapi: 3.0.3
+info:
+  title: LWN Simulator API
+  version: 1.0.0
+  description: API contract for LWN Simulator
+paths: {}
+components:
+  schemas:
+    UpdatePositionRequest:
+      title: UpdatePositionRequest
+      type: object
+      description: Replace the geographic position without changing the radio region.
+      properties:
+        latitude:
+          type: number
+          x-go-type: '*float32'
+          x-oapi-codegen-extra-tags:
+            validate: required,min=-90,max=90
+        longitude:
+          type: number
+          x-go-type: '*float32'
+          x-oapi-codegen-extra-tags:
+            validate: required,min=-180,max=180
+        altitude:
+          type: number
+          description: Altitude in meters.
+          x-go-type: '*float32'
+          x-oapi-codegen-extra-tags:
+            validate: required
+      required:
+        - latitude
+        - longitude
+        - altitude
+    UpdateActiveRequest:
+      title: UpdateActiveRequest
+      type: object
+      properties:
+        active:
+          type: boolean
+          x-go-type: '*bool'
+          x-oapi-codegen-extra-tags:
+            validate: required
+      required:
+        - active
+    UpdateDevicePayloadRequest:
+      title: UpdateDevicePayloadRequest
+      type: object
+      properties:
+        payload:
+          type: string
+          description: Application payload. An empty string clears the payload.
+          x-go-type: '*string'
+          x-oapi-codegen-extra-tags:
+            validate: required
+        base64Encoded:
+          type: boolean
+          description: Whether the payload is Base64. Omit to keep the current setting.
+      required:
+        - payload
+    Profile:
+      title: Profile
+      type: object
+      properties:
+        id:
+          type: string
+          x-go-name: ID
+          x-oapi-codegen-extra-tags:
+            validate: required,len=36,uuid4
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          x-oapi-codegen-extra-tags:
+            validate: required,min=1,max=100
+      required:
+        - id
+        - name
+    CreateProfileRequest:
+      title: CreateProfileRequest
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+      required:
+        - name
+    CreateProfileResponse:
+      title: CreateProfileResponse
+      type: object
+      properties:
+        profile:
+          $ref: '#/components/schemas/Profile'
+      required:
+        - profile
+    GetProfileResponse:
+      title: GetProfileResponse
+      type: object
+      properties:
+        profile:
+          $ref: '#/components/schemas/Profile'
+      required:
+        - profile
+    GetProfilesResponse:
+      title: GetProfilesResponse
+      type: object
+      properties:
+        profiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/Profile'
+        total:
+          type: integer
+          format: int32
+          minimum: 0
+      required:
+        - profiles
+        - total
+    UpdateProfileRequest:
+      title: UpdateProfileRequest
+      type: object
+      properties:
+        id:
+          type: string
+          x-go-name: ID
+          x-go-json-ignore: true
+          x-oapi-codegen-extra-tags:
+            validate: required,len=36,uuid4
+            uri: id
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+      required:
+        - id
+        - name
+    UpdateProfileResponse:
+      title: UpdateProfileResponse
+      type: object
+      properties:
+        profile:
+          $ref: '#/components/schemas/Profile'
+      required:
+        - profile
+    ProfileLog:
+      title: ProfileLog
+      type: object
+      properties:
+        run:
+          $ref: '#/components/schemas/SimulationRun'
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/SimulationEvent'
+      required:
+        - run
+        - events
+    ProfileArchive:
+      title: ProfileArchive
+      type: object
+      properties:
+        format:
+          type: string
+          minLength: 1
+        version:
+          type: integer
+          format: int32
+          minimum: 1
+        profile:
+          $ref: '#/components/schemas/Profile'
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/Device'
+        gateways:
+          type: array
+          items:
+            $ref: '#/components/schemas/Gateway'
+        gatewayBridge:
+          $ref: '#/components/schemas/GatewayBridgeConfig'
+        logs:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProfileLog'
+      required:
+        - format
+        - version
+        - profile
+        - devices
+        - gateways
+        - logs
+    ImportProfileRequest:
+      title: ImportProfileRequest
+      type: object
+      properties:
+        archive:
+          $ref: '#/components/schemas/ProfileArchive'
+      required:
+        - archive
+    ImportProfileResponse:
+      title: ImportProfileResponse
+      type: object
+      properties:
+        profile:
+          $ref: '#/components/schemas/Profile'
+      required:
+        - profile
+    RealtimeWebSocketMessageType:
+      title: RealtimeWebSocketMessageType
+      type: string
+      enum:
+        - profile.created
+        - profile.updated
+        - profile.deleted
+        - profile.gateway-bridge.updated
+        - device.created
+        - device.updated
+        - device.deleted
+        - gateway.created
+        - gateway.updated
+        - gateway.deleted
+        - simulation.snapshot
+        - simulation.event
+        - simulation.run.created
+        - simulation.run.updated
+        - error
+      x-enum-varnames:
+        - RealtimeProfileCreatedMessage
+        - RealtimeProfileUpdatedMessage
+        - RealtimeProfileDeletedMessage
+        - RealtimeProfileGatewayBridgeUpdatedMessage
+        - RealtimeDeviceCreatedMessage
+        - RealtimeDeviceUpdatedMessage
+        - RealtimeDeviceDeletedMessage
+        - RealtimeGatewayCreatedMessage
+        - RealtimeGatewayUpdatedMessage
+        - RealtimeGatewayDeletedMessage
+        - RealtimeSimulationSnapshotMessage
+        - RealtimeSimulationEventMessage
+        - RealtimeSimulationRunCreatedMessage
+        - RealtimeSimulationRunUpdatedMessage
+        - RealtimeErrorMessage
+    RealtimeWebSocketMessage:
+      title: RealtimeWebSocketMessage
+      type: object
+      properties:
+        type:
+          $ref: '#/components/schemas/RealtimeWebSocketMessageType'
+        profileID:
+          type: string
+          x-go-name: ProfileID
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,len=36,uuid4
+        timestampMilliseconds:
+          type: integer
+          format: int64
+          x-go-name: TimestampMilliseconds
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        resourceID:
+          type: string
+          x-go-name: ResourceID
+          x-oapi-codegen-extra-tags:
+            validate: omitempty
+        runID:
+          type: string
+          x-go-name: RunID
+          x-oapi-codegen-extra-tags:
+            validate: omitempty
+        device:
+          $ref: '#/components/schemas/Device'
+        gateway:
+          $ref: '#/components/schemas/Gateway'
+        profile:
+          $ref: '#/components/schemas/Profile'
+        gatewayBridge:
+          $ref: '#/components/schemas/GatewayBridgeConfig'
+        snapshot:
+          $ref: '#/components/schemas/SimulationSnapshot'
+        event:
+          $ref: '#/components/schemas/SimulationEvent'
+        runSummary:
+          $ref: '#/components/schemas/SimulationRunSummary'
+        error:
+          type: string
+          x-go-name: Error
+          x-oapi-codegen-extra-tags:
+            validate: omitempty
+      required:
+        - type
+        - timestampMilliseconds
+    AppInfoResponse:
+      title: AppInfoResponse
+      type: object
+      properties:
+        app:
+          type: string
+        version:
+          type: string
+      required:
+        - app
+        - version
+    StatusResponse:
+      title: StatusResponse
+      type: object
+      properties:
+        port:
+          type: string
+      required:
+        - port
+    DeviceClass:
+      title: DeviceClass
+      type: string
+      enum:
+        - class-a
+        - class-b
+        - class-c
+      x-enum-varnames:
+        - ClassA
+        - ClassB
+        - ClassC
+    DeviceActivation:
+      title: DeviceClass
+      type: string
+      enum:
+        - oota
+        - abp
+      x-enum-varnames:
+        - OOTA
+        - ABP
+    RadioProtocol:
+      title: RadioProtocol
+      type: string
+      description: Protocol carried by a device radio transmission.
+      enum:
+        - lorawan
+        - raw-lora
+      x-enum-varnames:
+        - LoRaWAN
+        - RawLoRa
+    RadioReceiveMode:
+      title: RadioReceiveMode
+      type: string
+      description: Protocols accepted by a device when it listens for radio frames.
+      enum:
+        - lorawan
+        - raw-lora
+        - auto
+      x-enum-varnames:
+        - ReceiveLoRaWAN
+        - ReceiveRawLoRa
+        - ReceiveAuto
+    OOTAConfig:
+      title: OOTAConfig
+      type: object
+      properties:
+        joinEUI:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: required,len=16
+        appKey:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: required,len=32
+      required:
+        - joinEUI
+        - appKey
+    ABPConfig:
+      title: ABPConfig
+      type: object
+      properties:
+        devAddr:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: required,len=8
+        nwkSKey:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: required,len=32
+        appSKey:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: required,len=32
+      required:
+        - devAddr
+        - nwkSKey
+        - appSKey
+    DeviceRegion:
+      title: DeviceClass
+      type: string
+      enum:
+        - EU868
+        - US915
+        - CN779
+        - EU433
+        - AU915
+        - CN470
+        - AS923
+        - KR920
+        - IN865
+        - RU864
+      x-enum-varnames:
+        - EU868
+        - US915
+        - CN779
+        - EU433
+        - AU915
+        - CN470
+        - AS923
+        - KR920
+        - IN865
+        - RU864
+    LocationConfig:
+      title: LocationConfig
+      type: object
+      properties:
+        latitude:
+          type: number
+          x-go-type: '*float32'
+          x-oapi-codegen-extra-tags:
+            validate: required,min=-90,max=90
+        longitude:
+          type: number
+          x-go-type: '*float32'
+          x-oapi-codegen-extra-tags:
+            validate: required,min=-180,max=180
+        altitude:
+          type: number
+          x-go-type: '*float32'
+          x-oapi-codegen-extra-tags:
+            validate: required
+        region:
+          $ref: '#/components/schemas/DeviceRegion'
+      required:
+        - latitude
+        - longitude
+        - altitude
+        - region
+    FrameConfig:
+      title: FrameConfig
+      type: object
+      properties:
+        fPort:
+          type: integer
+          x-oapi-codegen-extra-tags:
+            validate: required,min=1,max=223
+        retransmission:
+          type: integer
+          x-go-type: '*int'
+          x-oapi-codegen-extra-tags:
+            validate: required,min=0
+        FCntUp:
+          type: integer
+          x-go-type: '*int'
+          x-oapi-codegen-extra-tags:
+            validate: required,min=0
+        FCntDown:
+          type: integer
+          x-go-type: '*int'
+          x-oapi-codegen-extra-tags:
+            validate: required,min=0
+        disableFrameCounterValidation:
+          type: boolean
+      required:
+        - fPort
+        - retransmission
+        - disableFrameCounterValidation
+    OversizedPayloadBehavior:
+      title: DeviceClass
+      type: string
+      enum:
+        - fragment
+        - truncate
+      x-enum-varnames:
+        - Fragment
+        - Truncate
+    DeviceMType:
+      title: DeviceClass
+      type: string
+      enum:
+        - confirmed-data-up
+        - unconfirmed-data-up
+      x-enum-varnames:
+        - ConfirmedDataUp
+        - UnconfirmedDataUp
+    PayloadConfig:
+      title: PayloadConfig
+      type: object
+      properties:
+        uplinkInterval:
+          type: number
+          exclusiveMinimum: 0
+          description: Interval between automatically scheduled uplinks, in seconds.
+          x-oapi-codegen-extra-tags:
+            validate: required,gt=0
+        oversizedPayloadBehavior:
+          $ref: '#/components/schemas/OversizedPayloadBehavior'
+        MType:
+          $ref: '#/components/schemas/DeviceMType'
+        payload:
+          type: string
+        base64Encoded:
+          type: boolean
+        payloadCodec:
+          $ref: '#/components/schemas/PayloadCodec'
+      required:
+        - uplinkInterval
+        - oversizedPayloadBehavior
+        - MType
+        - payload
+        - base64Encoded
+    AdvancedConfig:
+      title: AdvancedConfig
+      type: object
+      properties:
+        antennaRange:
+          type: number
+          x-oapi-codegen-extra-tags:
+            validate: required,gt=0
+        ADREnabled:
+          type: boolean
+        uplinkDataRate:
+          type: integer
+          description: Initial uplink data rate. The valid range depends on the selected region (up to DR6 for AU915); when omitted, the engine uses the regional default.
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=0,max=6
+      required:
+        - antennaRange
+        - ADREnabled
+    Device:
+      title: Device
+      type: object
+      properties:
+        id:
+          type: string
+          x-go-name: ID
+          x-oapi-codegen-extra-tags:
+            validate: required,len=36
+        active:
+          type: boolean
+        name:
+          type: string
+        devEUI:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: required,len=16
+        class:
+          $ref: '#/components/schemas/DeviceClass'
+        RX1Config:
+          $ref: '#/components/schemas/RX1Config'
+        RX2Config:
+          $ref: '#/components/schemas/RX2Config'
+        activation:
+          $ref: '#/components/schemas/DeviceActivation'
+        radioProtocol:
+          $ref: '#/components/schemas/RadioProtocol'
+          description: Protocol used when the device transmits a radio frame. Omitted values default to lorawan.
+        radioReceiveMode:
+          $ref: '#/components/schemas/RadioReceiveMode'
+          description: Protocol accepted while the device listens. Omitted values default to lorawan.
+        OOTAConfig:
+          $ref: '#/components/schemas/OOTAConfig'
+        ABPConfig:
+          $ref: '#/components/schemas/ABPConfig'
+        locationConfig:
+          $ref: '#/components/schemas/LocationConfig'
+        frameConfig:
+          $ref: '#/components/schemas/FrameConfig'
+        payloadConfig:
+          $ref: '#/components/schemas/PayloadConfig'
+        advancedConfig:
+          $ref: '#/components/schemas/AdvancedConfig'
+      required:
+        - id
+        - active
+        - name
+        - devEUI
+        - class
+        - RX1Config
+        - RX2Config
+        - activation
+        - locationConfig
+        - frameConfig
+        - payloadConfig
+        - advancedConfig
+    CreateDeviceRequest:
+      title: CreateDeviceRequest
+      type: object
+      properties:
+        devEUI:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: required,len=16
+        name:
+          type: string
+        activation:
+          $ref: '#/components/schemas/DeviceActivation'
+        radioProtocol:
+          $ref: '#/components/schemas/RadioProtocol'
+          description: Protocol used when the device transmits. Defaults to lorawan.
+        radioReceiveMode:
+          $ref: '#/components/schemas/RadioReceiveMode'
+          description: Protocol accepted while the device listens. Defaults to lorawan.
+        class:
+          $ref: '#/components/schemas/DeviceClass'
+        locationConfig:
+          $ref: '#/components/schemas/LocationConfig'
+        ABPConfig:
+          $ref: '#/components/schemas/ABPConfig'
+        OOTAConfig:
+          $ref: '#/components/schemas/OOTAConfig'
+        RX1Config:
+          $ref: '#/components/schemas/RX1Config'
+        RX2Config:
+          $ref: '#/components/schemas/RX2Config'
+        advancedConfig:
+          $ref: '#/components/schemas/AdvancedConfig'
+        frameConfig:
+          $ref: '#/components/schemas/FrameConfig'
+        payloadConfig:
+          $ref: '#/components/schemas/PayloadConfig'
+      required:
+        - devEUI
+        - name
+        - activation
+        - class
+        - locationConfig
+        - RX1Config
+        - RX2Config
+        - advancedConfig
+        - frameConfig
+        - payloadConfig
+    CreateDeviceResponse:
+      title: CreateDeviceResponse
+      type: object
+      properties:
+        device:
+          $ref: '#/components/schemas/Device'
+      required:
+        - device
+    GetDeviceRequest:
+      title: GetDeviceRequest
+      type: object
+      properties:
+        id:
+          type: string
+          x-go-name: ID
+          x-go-json-ignore: true
+          x-oapi-codegen-extra-tags:
+            validate: required,len=36
+            uri: id
+      required:
+        - id
+    GetDeviceResponse:
+      title: GetDeviceResponse
+      type: object
+      properties:
+        device:
+          $ref: '#/components/schemas/Device'
+      required:
+        - device
+    GetDevicesRequest:
+      title: GetDevicesRequest
+      type: object
+      x-go-type: struct{}
+      additionalProperties: false
+      properties: {}
+    GetDevicesResponse:
+      title: GetDeviceResponse
+      type: object
+      properties:
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/Device'
+      required:
+        - devices
+    UpdateDeviceRequest:
+      title: UpdateDeviceRequest
+      type: object
+      properties:
+        id:
+          type: string
+          x-go-name: ID
+          x-go-json-ignore: true
+          x-oapi-codegen-extra-tags:
+            validate: required,len=36
+            uri: id
+        device:
+          $ref: '#/components/schemas/Device'
+      required:
+        - id
+        - device
+    UpdateDeviceResponse:
+      title: UpdateDeviceResponse
+      type: object
+      properties:
+        device:
+          $ref: '#/components/schemas/Device'
+      required:
+        - device
+    DeleteDeviceRequest:
+      title: GetDeviceRequest
+      type: object
+      properties:
+        id:
+          type: string
+          x-go-name: ID
+          x-go-json-ignore: true
+          x-oapi-codegen-extra-tags:
+            validate: required,len=36
+            uri: id
+      required:
+        - id
+    DeleteDeviceResponse:
+      title: GetDevicesResponse
+      type: object
+      x-go-type: struct{}
+      additionalProperties: false
+      properties: {}
+    Gateway:
+      title: Gateway
+      type: object
+      properties:
+        id:
+          type: string
+          x-go-name: ID
+          x-oapi-codegen-extra-tags:
+            validate: required,len=36
+        active:
+          type: boolean
+        name:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: required
+        type:
+          $ref: '#/components/schemas/GatewayType'
+        gatewayEUI:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: required,len=16
+        keepAlive:
+          type: integer
+          format: int32
+          minimum: 1
+          description: Interval between virtual gateway keepalive messages, in seconds.
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,gt=0
+        gatewayIPv4:
+          type: string
+        gatewayPort:
+          type: integer
+          format: int32
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=1,max=65535
+        latitude:
+          type: number
+          x-go-type: '*float32'
+          x-oapi-codegen-extra-tags:
+            validate: required,min=-90,max=90
+        longitude:
+          type: number
+          x-go-type: '*float32'
+          x-oapi-codegen-extra-tags:
+            validate: required,min=-180,max=180
+        altitude:
+          type: number
+          x-go-type: '*float32'
+          x-oapi-codegen-extra-tags:
+            validate: required
+      required:
+        - id
+        - active
+        - name
+        - type
+        - gatewayEUI
+        - latitude
+        - longitude
+        - altitude
+    GatewayType:
+      title: GatewayType
+      type: string
+      enum:
+        - virtual
+        - real
+      x-enum-varnames:
+        - Virtual
+        - Real
+    CreateGatewayRequest:
+      title: CreateGatewayRequest
+      type: object
+      properties:
+        name:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: required
+        type:
+          $ref: '#/components/schemas/GatewayType'
+        gatewayEUI:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: required,len=16
+        keepAlive:
+          type: integer
+          format: int32
+          minimum: 1
+          description: Interval between virtual gateway keepalive messages, in seconds.
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,gt=0
+        gatewayIPv4:
+          type: string
+        gatewayPort:
+          type: integer
+          format: int32
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=1,max=65535
+        latitude:
+          type: number
+          x-go-type: '*float32'
+          x-oapi-codegen-extra-tags:
+            validate: required,min=-90,max=90
+        longitude:
+          type: number
+          x-go-type: '*float32'
+          x-oapi-codegen-extra-tags:
+            validate: required,min=-180,max=180
+        altitude:
+          type: number
+          x-go-type: '*float32'
+          x-oapi-codegen-extra-tags:
+            validate: required
+      required:
+        - name
+        - type
+        - gatewayEUI
+        - latitude
+        - longitude
+        - altitude
+    CreateGatewayResponse:
+      title: CreateGatewayResponse
+      type: object
+      properties:
+        gateway:
+          $ref: '#/components/schemas/Gateway'
+      required:
+        - gateway
+    GetGatewayRequest:
+      title: GetGatewayRequest
+      type: object
+      properties:
+        id:
+          type: string
+          x-go-name: ID
+          x-go-json-ignore: true
+          x-oapi-codegen-extra-tags:
+            validate: required,len=36
+            uri: id
+      required:
+        - id
+    GetGatewayResponse:
+      title: GetGatewayResponse
+      type: object
+      properties:
+        gateway:
+          $ref: '#/components/schemas/Gateway'
+      required:
+        - gateway
+    GetGatewaysRequest:
+      title: GetGatewaysRequest
+      type: object
+      x-go-type: struct{}
+      additionalProperties: false
+      properties: {}
+    GetGatewaysResponse:
+      title: GetGatewaysResponse
+      type: object
+      properties:
+        gateways:
+          type: array
+          items:
+            $ref: '#/components/schemas/Gateway'
+      required:
+        - gateways
+    UpdateGatewayRequest:
+      title: UpdateGatewayRequest
+      type: object
+      properties:
+        id:
+          type: string
+          x-go-name: ID
+          x-go-json-ignore: true
+          x-oapi-codegen-extra-tags:
+            validate: required,len=36
+            uri: id
+        gateway:
+          $ref: '#/components/schemas/Gateway'
+      required:
+        - id
+        - gateway
+    UpdateGatewayResponse:
+      title: UpdateGatewayResponse
+      type: object
+      properties:
+        gateway:
+          $ref: '#/components/schemas/Gateway'
+      required:
+        - gateway
+    DeleteGatewayRequest:
+      title: DeleteGatewayRequest
+      type: object
+      properties:
+        id:
+          type: string
+          x-go-name: ID
+          x-go-json-ignore: true
+          x-oapi-codegen-extra-tags:
+            validate: required,len=36
+            uri: id
+      required:
+        - id
+    DeleteGatewayResponse:
+      title: DeleteGatewayResponse
+      type: object
+      x-go-type: struct{}
+      additionalProperties: false
+      properties: {}
+    SimulationConfig:
+      title: SimulationConfig
+      type: object
+      properties:
+        speed:
+          type: number
+          x-go-type: float64
+          x-oapi-codegen-extra-tags:
+            validate: required,gt=0
+        seed:
+          type: integer
+          format: int64
+          x-oapi-codegen-extra-tags:
+            validate: omitempty
+        gatewayBridge:
+          $ref: '#/components/schemas/GatewayBridgeConfig'
+      required:
+        - speed
+    GatewayBridgeConfig:
+      title: GatewayBridgeConfig
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        address:
+          type: string
+        port:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 65535
+          x-oapi-codegen-extra-tags:
+            validate: gt=0,lte=65535
+      required:
+        - enabled
+        - address
+        - port
+    SimulationSpeedRequest:
+      title: SimulationSpeedRequest
+      type: object
+      properties:
+        speed:
+          type: number
+          x-go-type: float64
+          x-oapi-codegen-extra-tags:
+            validate: required,gt=0
+      required:
+        - speed
+    SimulationStatus:
+      title: SimulationStatus
+      type: string
+      enum:
+        - idle
+        - starting
+        - running
+        - pausing
+        - paused
+        - resuming
+        - stopping
+        - stopped
+        - recovering
+        - failed
+      x-enum-varnames:
+        - Idle
+        - Starting
+        - Running
+        - Pausing
+        - Paused
+        - Resuming
+        - Stopping
+        - Stopped
+        - Recovering
+        - Failed
+    SimulationActivity:
+      title: SimulationActivity
+      type: object
+      properties:
+        active:
+          type: boolean
+        profileID:
+          type: string
+          x-go-name: ProfileID
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,len=36,uuid4
+        status:
+          $ref: '#/components/schemas/SimulationStatus'
+      required:
+        - active
+        - status
+    SimulationEventType:
+      title: SimulationEventType
+      type: string
+      enum:
+        - simulation-started
+        - simulation-paused
+        - simulation-resumed
+        - simulation-stopped
+        - simulation-recovered
+        - simulation-failed
+        - device-registered
+        - device-removed
+        - gateway-registered
+        - gateway-removed
+        - scheduler-event-scheduled
+        - scheduler-event-cancelled
+        - device-uplink-scheduled
+        - device-uplink-transmitted
+        - gateway-packet-received
+        - packet-dropped
+        - metrics-updated
+        - device-join-request-scheduled
+        - device-join-request-transmitted
+        - join-request-received
+        - join-accept-received
+        - rx1-window-opened
+        - rx2-window-opened
+        - uplink-ack-received
+        - uplink-retry-scheduled
+        - frame-counter-rejected
+        - radio-transmission-started
+        - radio-transmission-completed
+        - radio-collision-detected
+        - radio-packet-lost
+        - gateway-connecting
+        - gateway-connected
+        - gateway-disconnected
+        - gateway-reconnecting
+        - gateway-heartbeat
+        - gateway-packet-ingress
+        - gateway-packet-egress
+        - gateway-network-error
+        - gateway-beacon-scheduled
+        - gateway-beacon-transmitted
+        - device-beacon-synchronized
+        - device-beacon-missed
+        - class-b-ping-slot-scheduled
+        - class-b-ping-slot-opened
+        - class-b-downlink-scheduled
+        - class-b-downlink-transmitted
+        - device-downlink-scheduled
+        - device-downlink-transmitted
+        - device-downlink-dropped
+      x-enum-varnames:
+        - SimulationStarted
+        - SimulationPaused
+        - SimulationResumed
+        - SimulationStopped
+        - SimulationRecovered
+        - SimulationFailed
+        - DeviceRegistered
+        - DeviceRemoved
+        - GatewayRegistered
+        - GatewayRemoved
+        - SchedulerEventScheduled
+        - SchedulerEventCancelled
+        - DeviceUplinkScheduled
+        - DeviceUplinkTransmitted
+        - GatewayPacketReceived
+        - PacketDropped
+        - MetricsUpdated
+        - DeviceJoinRequestScheduled
+        - DeviceJoinRequestTransmitted
+        - JoinRequestReceived
+        - JoinAcceptReceived
+        - RX1WindowOpened
+        - RX2WindowOpened
+        - UplinkACKReceived
+        - UplinkRetryScheduled
+        - FrameCounterRejected
+        - RadioTransmissionStarted
+        - RadioTransmissionCompleted
+        - RadioCollisionDetected
+        - RadioPacketLost
+        - GatewayConnecting
+        - GatewayConnected
+        - GatewayDisconnected
+        - GatewayReconnecting
+        - GatewayHeartbeat
+        - GatewayPacketIngress
+        - GatewayPacketEgress
+        - GatewayNetworkError
+        - GatewayBeaconScheduled
+        - GatewayBeaconTransmitted
+        - DeviceBeaconSynchronized
+        - DeviceBeaconMissed
+        - ClassBPingSlotScheduled
+        - ClassBPingSlotOpened
+        - ClassBDownlinkScheduled
+        - ClassBDownlinkTransmitted
+        - DeviceDownlinkScheduled
+        - DeviceDownlinkTransmitted
+        - DeviceDownlinkDropped
+    RuntimeStatus:
+      title: RuntimeStatus
+      type: string
+      enum:
+        - registered
+        - active
+        - paused
+        - stopped
+      x-enum-varnames:
+        - Registered
+        - Active
+        - Paused
+        - Stopped
+    RuntimeDevice:
+      title: RuntimeDevice
+      type: object
+      properties:
+        id:
+          type: string
+          x-go-name: ID
+          x-oapi-codegen-extra-tags:
+            validate: required,len=36
+        name:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: required
+        active:
+          type: boolean
+        status:
+          $ref: '#/components/schemas/RuntimeStatus'
+        joined:
+          type: boolean
+        frameCounterUp:
+          type: integer
+          format: int64
+          x-go-name: FrameCounterUp
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        frameCounterDown:
+          type: integer
+          format: int64
+          x-go-name: FrameCounterDown
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        pendingConfirmedUplink:
+          type: boolean
+          x-go-name: PendingConfirmedUplink
+        lastRSSI:
+          type: number
+          format: double
+          x-go-type: float64
+          x-go-name: LastRSSI
+        lastSNR:
+          type: number
+          format: double
+          x-go-type: float64
+          x-go-name: LastSNR
+        lastAirtimeMilliseconds:
+          type: integer
+          format: int64
+          x-go-name: LastAirtimeMilliseconds
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        lastChannelFrequency:
+          type: integer
+          format: int64
+          x-go-name: LastChannelFrequency
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        currentDataRate:
+          type: integer
+          x-go-name: CurrentDataRate
+          x-oapi-codegen-extra-tags:
+            validate: min=0,max=15
+        currentSpreadingFactor:
+          type: integer
+          x-go-name: CurrentSpreadingFactor
+          x-oapi-codegen-extra-tags:
+            validate: min=7,max=12
+        lastPayloadSize:
+          type: integer
+          x-go-name: LastPayloadSize
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        lastFPort:
+          type: integer
+          x-go-name: LastFPort
+          x-oapi-codegen-extra-tags:
+            validate: min=1,max=223
+        classBSynchronized:
+          type: boolean
+          x-go-name: ClassBSynchronized
+        lastBeaconTimestampMilliseconds:
+          type: integer
+          format: int64
+          x-go-name: LastBeaconTimestampMilliseconds
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        nextPingSlotTimestampMilliseconds:
+          type: integer
+          format: int64
+          x-go-name: NextPingSlotTimestampMilliseconds
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        classBMissedBeacons:
+          type: integer
+          format: int64
+          x-go-name: ClassBMissedBeacons
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+      required:
+        - id
+        - name
+        - active
+        - status
+        - joined
+        - frameCounterUp
+        - frameCounterDown
+        - pendingConfirmedUplink
+        - lastRSSI
+        - lastSNR
+        - lastAirtimeMilliseconds
+        - lastChannelFrequency
+        - currentDataRate
+        - currentSpreadingFactor
+        - lastPayloadSize
+        - lastFPort
+        - classBSynchronized
+        - lastBeaconTimestampMilliseconds
+        - nextPingSlotTimestampMilliseconds
+        - classBMissedBeacons
+    RuntimeGateway:
+      title: RuntimeGateway
+      type: object
+      properties:
+        id:
+          type: string
+          x-go-name: ID
+          x-oapi-codegen-extra-tags:
+            validate: required,len=36
+        name:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: required
+        active:
+          type: boolean
+        status:
+          $ref: '#/components/schemas/RuntimeStatus'
+        gatewayType:
+          $ref: '#/components/schemas/GatewayType'
+          x-go-name: GatewayType
+        gatewayEUI:
+          type: string
+          x-go-name: GatewayEUI
+        gatewayState:
+          $ref: '#/components/schemas/GatewayConnectionState'
+          x-go-name: GatewayState
+        lastHeartbeatMilliseconds:
+          type: integer
+          format: int64
+          x-go-name: LastHeartbeatMilliseconds
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        connectionAttempts:
+          type: integer
+          format: int64
+          x-go-name: ConnectionAttempts
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        lastNetworkError:
+          type: string
+          x-go-name: LastNetworkError
+        ingressPackets:
+          type: integer
+          format: int64
+          x-go-name: IngressPackets
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        egressPackets:
+          type: integer
+          format: int64
+          x-go-name: EgressPackets
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+      required:
+        - id
+        - name
+        - active
+        - status
+        - gatewayType
+        - gatewayEUI
+        - gatewayState
+        - lastHeartbeatMilliseconds
+        - connectionAttempts
+        - lastNetworkError
+        - ingressPackets
+        - egressPackets
+    SimulationState:
+      title: SimulationState
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/SimulationStatus'
+        speed:
+          type: number
+          x-go-type: float64
+          x-oapi-codegen-extra-tags:
+            validate: required,gt=0
+        seed:
+          type: integer
+          format: int64
+          x-oapi-codegen-extra-tags:
+            validate: omitempty
+        elapsedMilliseconds:
+          type: integer
+          format: int64
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        eventSequence:
+          type: integer
+          format: int64
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        deviceCount:
+          type: integer
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        gatewayCount:
+          type: integer
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+      required:
+        - status
+        - speed
+        - elapsedMilliseconds
+        - eventSequence
+        - deviceCount
+        - gatewayCount
+    SimulationEvent:
+      title: SimulationEvent
+      type: object
+      properties:
+        radioProtocol:
+          $ref: '#/components/schemas/RadioProtocol'
+        telemetry:
+          $ref: '#/components/schemas/SimulationTelemetry'
+        uplinkOutcome:
+          type: string
+          x-enum-varnames:
+            - UplinkStarted
+            - UplinkSucceeded
+            - UplinkDropped
+            - UplinkAccepted
+          enum:
+            - started
+            - succeeded
+            - dropped
+            - accepted
+        id:
+          type: string
+          x-go-name: ID
+          x-oapi-codegen-extra-tags:
+            validate: required,len=36
+        sequence:
+          type: integer
+          format: int64
+          x-oapi-codegen-extra-tags:
+            validate: required,min=1
+        type:
+          $ref: '#/components/schemas/SimulationEventType'
+        timestampMilliseconds:
+          type: integer
+          format: int64
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        message:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: required
+        deviceID:
+          type: string
+          x-go-name: DeviceID
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,len=36
+        gatewayID:
+          type: string
+          x-go-name: GatewayID
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,len=36
+        scheduledEventID:
+          type: string
+          x-go-name: ScheduledEventID
+          x-oapi-codegen-extra-tags:
+            validate: omitempty
+        packetID:
+          type: string
+          x-go-name: PacketID
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,len=36
+        frameCounter:
+          type: integer
+          format: int64
+          x-go-name: FrameCounter
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=0
+        retryAttempt:
+          type: integer
+          format: int32
+          x-go-name: RetryAttempt
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=1
+        confirmed:
+          type: boolean
+          x-go-name: Confirmed
+        rxWindow:
+          $ref: '#/components/schemas/SimulationRxWindow'
+        channelFrequency:
+          type: integer
+          format: int64
+          x-go-name: ChannelFrequency
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=1
+        bandwidth:
+          type: integer
+          format: int64
+          x-go-name: Bandwidth
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=1
+        spreadingFactor:
+          type: integer
+          format: int32
+          x-go-name: SpreadingFactor
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=7,max=12
+        airtimeMilliseconds:
+          type: integer
+          format: int64
+          x-go-name: AirtimeMilliseconds
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=1
+        rssi:
+          type: number
+          format: double
+          x-go-type: float64
+          x-go-name: RSSI
+        snr:
+          type: number
+          format: double
+          x-go-type: float64
+          x-go-name: SNR
+        collision:
+          type: boolean
+          x-go-name: Collision
+        radioLossReason:
+          $ref: '#/components/schemas/SimulationRadioLossReason'
+        gatewayState:
+          $ref: '#/components/schemas/GatewayConnectionState'
+        payloadSize:
+          type: integer
+          format: int64
+          x-go-name: PayloadSize
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=0
+        fPort:
+          type: integer
+          x-go-name: FPort
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=1,max=223
+        dataRate:
+          type: integer
+          x-go-name: DataRate
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=0,max=15
+        error:
+          type: string
+          x-go-name: Error
+        decodedPayload:
+          type: object
+          additionalProperties: true
+          x-go-name: DecodedPayload
+        radioFrame:
+          $ref: '#/components/schemas/RadioFrame'
+          description: Radio-level frame associated with this event, when available.
+      required:
+        - id
+        - sequence
+        - type
+        - timestampMilliseconds
+        - message
+    SimulationSnapshot:
+      title: SimulationSnapshot
+      type: object
+      properties:
+        state:
+          $ref: '#/components/schemas/SimulationState'
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuntimeDevice'
+        gateways:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuntimeGateway'
+        metrics:
+          $ref: '#/components/schemas/SimulationMetrics'
+      required:
+        - state
+        - devices
+        - gateways
+        - metrics
+    SimulationMetrics:
+      title: SimulationMetrics
+      type: object
+      properties:
+        totalUplinks:
+          type: integer
+          format: int64
+          x-go-name: TotalUplinks
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        successfulUplinks:
+          type: integer
+          format: int64
+          x-go-name: SuccessfulUplinks
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        droppedUplinks:
+          type: integer
+          format: int64
+          x-go-name: DroppedUplinks
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        totalPacketsReceived:
+          type: integer
+          format: int64
+          x-go-name: TotalPacketsReceived
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        packetSuccessRate:
+          type: number
+          format: double
+          x-go-type: float64
+          x-go-name: PacketSuccessRate
+          x-oapi-codegen-extra-tags:
+            validate: min=0,max=1
+        activeDevices:
+          type: integer
+          format: int64
+          x-go-name: ActiveDevices
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        activeGateways:
+          type: integer
+          format: int64
+          x-go-name: ActiveGateways
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        joinRequests:
+          type: integer
+          format: int64
+          x-go-name: JoinRequests
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        joinAccepts:
+          type: integer
+          format: int64
+          x-go-name: JoinAccepts
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        acknowledgedUplinks:
+          type: integer
+          format: int64
+          x-go-name: AcknowledgedUplinks
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        retransmissions:
+          type: integer
+          format: int64
+          x-go-name: Retransmissions
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        frameCounterErrors:
+          type: integer
+          format: int64
+          x-go-name: FrameCounterErrors
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        totalTransmissions:
+          type: integer
+          format: int64
+          x-go-name: TotalTransmissions
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        collisions:
+          type: integer
+          format: int64
+          x-go-name: Collisions
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        radioPacketLosses:
+          type: integer
+          format: int64
+          x-go-name: RadioPacketLosses
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        lowSnrLosses:
+          type: integer
+          format: int64
+          x-go-name: LowSNRLosses
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        averageRSSI:
+          type: number
+          format: double
+          x-go-type: float64
+          x-go-name: AverageRSSI
+        averageSNR:
+          type: number
+          format: double
+          x-go-type: float64
+          x-go-name: AverageSNR
+        averageAirtimeMilliseconds:
+          type: number
+          format: double
+          x-go-type: float64
+          x-go-name: AverageAirtimeMilliseconds
+        gatewayConnections:
+          type: integer
+          format: int64
+          x-go-name: GatewayConnections
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        gatewayHeartbeats:
+          type: integer
+          format: int64
+          x-go-name: GatewayHeartbeats
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        gatewayIngressPackets:
+          type: integer
+          format: int64
+          x-go-name: GatewayIngressPackets
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        gatewayEgressPackets:
+          type: integer
+          format: int64
+          x-go-name: GatewayEgressPackets
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        gatewayNetworkErrors:
+          type: integer
+          format: int64
+          x-go-name: GatewayNetworkErrors
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        gatewayTimeouts:
+          type: integer
+          format: int64
+          x-go-name: GatewayTimeouts
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        gatewayReconnects:
+          type: integer
+          format: int64
+          x-go-name: GatewayReconnects
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        classBBeacons:
+          type: integer
+          format: int64
+          x-go-name: ClassBBeacons
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        classBSynchronizations:
+          type: integer
+          format: int64
+          x-go-name: ClassBSynchronizations
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        classBMissedBeacons:
+          type: integer
+          format: int64
+          x-go-name: ClassBMissedBeacons
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        classBPingSlots:
+          type: integer
+          format: int64
+          x-go-name: ClassBPingSlots
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        classBDownlinks:
+          type: integer
+          format: int64
+          x-go-name: ClassBDownlinks
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+      required:
+        - totalUplinks
+        - successfulUplinks
+        - droppedUplinks
+        - totalPacketsReceived
+        - packetSuccessRate
+        - activeDevices
+        - activeGateways
+        - joinRequests
+        - joinAccepts
+        - acknowledgedUplinks
+        - retransmissions
+        - frameCounterErrors
+        - totalTransmissions
+        - collisions
+        - radioPacketLosses
+        - lowSnrLosses
+        - averageRSSI
+        - averageSNR
+        - averageAirtimeMilliseconds
+        - gatewayConnections
+        - gatewayHeartbeats
+        - gatewayIngressPackets
+        - gatewayEgressPackets
+        - gatewayNetworkErrors
+        - gatewayTimeouts
+        - gatewayReconnects
+        - classBBeacons
+        - classBSynchronizations
+        - classBMissedBeacons
+        - classBPingSlots
+        - classBDownlinks
+    SimulationRxWindow:
+      title: SimulationRxWindow
+      type: string
+      enum:
+        - rx1
+        - rx2
+      x-enum-varnames:
+        - RX1
+        - RX2
+    SimulationRadioLossReason:
+      title: SimulationRadioLossReason
+      type: string
+      enum:
+        - no-gateway
+        - collision
+        - low-snr
+        - random-loss
+      x-enum-varnames:
+        - NoGateway
+        - Collision
+        - LowSNR
+        - RandomLoss
+    RadioFrame:
+      title: RadioFrame
+      type: object
+      description: Common radio-level representation shared by LoRaWAN and raw LoRa frames.
+      properties:
+        protocol:
+          $ref: '#/components/schemas/RadioProtocol'
+        payload:
+          type: string
+          format: byte
+          description: Radio payload encoded as Base64 for transport in JSON.
+        frequency:
+          type: integer
+          format: int64
+          description: Radio frequency in hertz.
+          x-go-name: Frequency
+          x-oapi-codegen-extra-tags:
+            validate: required,min=1
+        bandwidth:
+          type: integer
+          format: int64
+          description: LoRa bandwidth in hertz.
+          x-go-name: Bandwidth
+          x-oapi-codegen-extra-tags:
+            validate: required,min=1
+        spreadingFactor:
+          type: integer
+          format: int32
+          description: LoRa spreading factor.
+          x-go-name: SpreadingFactor
+          x-oapi-codegen-extra-tags:
+            validate: required,min=5,max=12
+        codingRate:
+          type: string
+          description: LoRa coding rate, for example 4/5.
+          x-go-name: CodingRate
+          x-oapi-codegen-extra-tags:
+            validate: required
+        transmissionPower:
+          type: integer
+          format: int32
+          description: Transmission power in dBm.
+          x-go-name: TransmissionPower
+        senderID:
+          type: string
+          description: Internal identifier of the transmitting device or gateway.
+          x-go-name: SenderID
+          x-oapi-codegen-extra-tags:
+            validate: required
+        gatewayID:
+          type: string
+          description: Gateway that received or transmitted the frame, when known.
+          x-go-name: GatewayID
+          x-oapi-codegen-extra-tags:
+            validate: omitempty
+        timestampMilliseconds:
+          type: integer
+          format: int64
+          description: Simulation timestamp associated with the frame.
+          x-go-name: TimestampMilliseconds
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        airtimeMilliseconds:
+          type: integer
+          format: int64
+          description: Calculated airtime of the frame.
+          x-go-name: AirtimeMilliseconds
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=0
+      required:
+        - protocol
+        - payload
+        - frequency
+        - bandwidth
+        - spreadingFactor
+        - codingRate
+        - transmissionPower
+        - senderID
+        - timestampMilliseconds
+    GatewayConnectionState:
+      title: GatewayConnectionState
+      type: string
+      enum:
+        - connecting
+        - connected
+        - disconnected
+        - reconnecting
+        - error
+      x-enum-varnames:
+        - Connecting
+        - Connected
+        - Disconnected
+        - Reconnecting
+        - Error
+    SimulationControlAction:
+      title: SimulationControlAction
+      type: string
+      enum:
+        - start
+        - pause
+        - resume
+        - stop
+      x-enum-varnames:
+        - SimulationStartAction
+        - SimulationPauseAction
+        - SimulationResumeAction
+        - SimulationStopAction
+    SimulationControlRequest:
+      title: SimulationControlRequest
+      type: object
+      properties:
+        action:
+          $ref: '#/components/schemas/SimulationControlAction'
+        speed:
+          type: number
+          x-go-type: float64
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,gt=0
+        seed:
+          type: integer
+          format: int64
+          x-oapi-codegen-extra-tags:
+            validate: omitempty
+      required:
+        - action
+    SimulationWebSocketMessageType:
+      title: SimulationWebSocketMessageType
+      type: string
+      enum:
+        - snapshot
+        - event
+        - error
+      x-enum-varnames:
+        - SimulationSnapshotMessage
+        - SimulationEventMessage
+        - SimulationErrorMessage
+    SimulationWebSocketMessage:
+      title: SimulationWebSocketMessage
+      type: object
+      properties:
+        profileID:
+          type: string
+          x-go-name: ProfileID
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,len=36,uuid4
+        type:
+          $ref: '#/components/schemas/SimulationWebSocketMessageType'
+        timestampMilliseconds:
+          type: integer
+          format: int64
+          x-go-name: TimestampMilliseconds
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        snapshot:
+          $ref: '#/components/schemas/SimulationSnapshot'
+        event:
+          $ref: '#/components/schemas/SimulationEvent'
+        error:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: omitempty
+      required:
+        - type
+        - timestampMilliseconds
+    SimulationMACCommandType:
+      title: SimulationMACCommandType
+      type: string
+      enum:
+        - link-check-ans
+        - link-adr-req
+        - duty-cycle-req
+        - rx-param-setup-req
+        - dev-status-req
+        - new-channel-req
+        - rx-timing-setup-req
+        - tx-param-setup-req
+        - dl-channel-req
+        - device-time-ans
+        - ping-slot-info-ans
+        - ping-slot-channel-req
+        - beacon-freq-req
+      x-enum-varnames:
+        - LinkCheckAns
+        - LinkADRReq
+        - DutyCycleReq
+        - RXParamSetupReq
+        - DevStatusReq
+        - NewChannelReq
+        - RXTimingSetupReq
+        - TXParamSetupReq
+        - DLChannelReq
+        - DeviceTimeAns
+        - PingSlotInfoAns
+        - PingSlotChannelReq
+        - BeaconFreqReq
+    SimulationMACCommand:
+      title: SimulationMACCommand
+      type: object
+      properties:
+        type:
+          $ref: '#/components/schemas/SimulationMACCommandType'
+        dataRate:
+          type: integer
+          minimum: 0
+          maximum: 15
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=0,max=15
+        txPower:
+          type: integer
+          minimum: 0
+          maximum: 15
+          x-go-name: TxPower
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=0,max=15
+        nbTrans:
+          type: integer
+          minimum: 1
+          maximum: 15
+          x-go-name: NbTrans
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=1,max=15
+        channelMask:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 65535
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=0,max=65535
+        channelMaskControl:
+          type: integer
+          minimum: 0
+          maximum: 7
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=0,max=7
+        maxDutyCycleExponent:
+          type: integer
+          minimum: 0
+          maximum: 15
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=0,max=15
+        rx1DataRateOffset:
+          type: integer
+          minimum: 0
+          maximum: 7
+          x-go-name: RX1DataRateOffset
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=0,max=7
+        frequency:
+          type: integer
+          format: int64
+          minimum: 1
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=1
+        channelIndex:
+          type: integer
+          minimum: 0
+          maximum: 255
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=0,max=255
+        minimumDataRate:
+          type: integer
+          minimum: 0
+          maximum: 15
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=0,max=15
+        maximumDataRate:
+          type: integer
+          minimum: 0
+          maximum: 15
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=0,max=15
+        delaySeconds:
+          type: integer
+          minimum: 1
+          maximum: 15
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=1,max=15
+        uplinkDwellTime:
+          type: boolean
+        downlinkDwellTime:
+          type: boolean
+        maximumEIRP:
+          type: integer
+          minimum: 0
+          maximum: 15
+          x-go-name: MaximumEIRP
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=0,max=15
+        margin:
+          type: integer
+          minimum: 0
+          maximum: 254
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=0,max=254
+        gatewayCount:
+          type: integer
+          minimum: 0
+          maximum: 255
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=0,max=255
+        batteryLevel:
+          type: integer
+          minimum: 0
+          maximum: 255
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=0,max=255
+        pingSlotPeriodicity:
+          type: integer
+          minimum: 0
+          maximum: 7
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=0,max=7
+        deviceTimeMilliseconds:
+          type: integer
+          format: int64
+          minimum: 0
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=0
+      required:
+        - type
+    SimulationUplinkRequest:
+      title: SimulationUplinkRequest
+      type: object
+      properties:
+        deviceID:
+          type: string
+          x-go-name: DeviceID
+          x-oapi-codegen-extra-tags:
+            validate: required,uuid4
+      required:
+        - deviceID
+    SimulationDownlinkRequest:
+      title: SimulationDownlinkRequest
+      type: object
+      properties:
+        id:
+          type: string
+          x-go-name: ID
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,uuid4
+        deviceID:
+          type: string
+          x-go-name: DeviceID
+          x-oapi-codegen-extra-tags:
+            validate: required,uuid4
+        payload:
+          type: string
+          format: byte
+        fPort:
+          type: integer
+          minimum: 1
+          maximum: 223
+          x-go-name: FPort
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=1,max=223
+        dataRate:
+          type: integer
+          minimum: 0
+          maximum: 15
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=0,max=15
+        confirmed:
+          type: boolean
+        fPending:
+          type: boolean
+          x-go-name: FPending
+        ack:
+          type: boolean
+          x-go-name: ACK
+        macCommands:
+          type: array
+          maxItems: 15
+          items:
+            $ref: '#/components/schemas/SimulationMACCommand'
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,max=15,dive
+      required:
+        - deviceID
+    SimulationMACCommandRequest:
+      title: SimulationMACCommandRequest
+      type: object
+      properties:
+        deviceID:
+          type: string
+          x-go-name: DeviceID
+          x-oapi-codegen-extra-tags:
+            validate: required,uuid4
+        command:
+          $ref: '#/components/schemas/SimulationMACCommand'
+      required:
+        - deviceID
+        - command
+    SimulationActionResponse:
+      title: SimulationActionResponse
+      type: object
+      properties:
+        id:
+          type: string
+          x-go-name: ID
+          x-oapi-codegen-extra-tags:
+            validate: required,uuid4
+      required:
+        - id
+    SimulationEventsResponse:
+      title: SimulationEventsResponse
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/SimulationEvent'
+        lastSequence:
+          type: integer
+          format: int64
+          minimum: 0
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+      required:
+        - events
+        - lastSequence
+    SimulationRunStatus:
+      title: SimulationRunStatus
+      type: string
+      enum:
+        - running
+        - paused
+        - stopped
+        - failed
+    SimulationLogObjectKind:
+      title: SimulationLogObjectKind
+      type: string
+      enum:
+        - device
+        - gateway
+    SimulationLogObject:
+      title: SimulationLogObject
+      type: object
+      properties:
+        gatewayType:
+          $ref: '#/components/schemas/GatewayType'
+        id:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: required,len=36
+        name:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: required
+        kind:
+          $ref: '#/components/schemas/SimulationLogObjectKind'
+        identifier:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: required
+      required:
+        - id
+        - name
+        - kind
+        - identifier
+    SimulationTelemetry:
+      title: SimulationTelemetry
+      type: object
+      required:
+        - elapsedMilliseconds
+        - sequence
+        - metrics
+        - connectedGateways
+      properties:
+        elapsedMilliseconds:
+          type: integer
+          format: int64
+          minimum: 0
+        sequence:
+          type: integer
+          format: int64
+          minimum: 0
+        metrics:
+          $ref: '#/components/schemas/SimulationMetrics'
+        connectedGateways:
+          type: integer
+          format: int64
+          minimum: 0
+    SimulationRunSummary:
+      title: SimulationRunSummary
+      type: object
+      properties:
+        telemetry:
+          $ref: '#/components/schemas/SimulationTelemetry'
+        id:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: required,len=36
+        startedAtMilliseconds:
+          type: integer
+          format: int64
+          x-oapi-codegen-extra-tags:
+            validate: required,min=0
+        endedAtMilliseconds:
+          type: integer
+          format: int64
+          nullable: true
+        durationMilliseconds:
+          type: integer
+          format: int64
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        status:
+          $ref: '#/components/schemas/SimulationRunStatus'
+        speed:
+          type: number
+          format: double
+          x-go-type: float64
+          x-oapi-codegen-extra-tags:
+            validate: required,gt=0
+        seed:
+          type: integer
+          format: int64
+          nullable: true
+        deviceCount:
+          type: integer
+          format: int32
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        gatewayCount:
+          type: integer
+          format: int32
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        eventCount:
+          type: integer
+          format: int32
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        packetSuccessRate:
+          type: number
+          format: double
+          x-go-type: float64
+          x-oapi-codegen-extra-tags:
+            validate: min=0,max=1
+      required:
+        - id
+        - startedAtMilliseconds
+        - durationMilliseconds
+        - status
+        - speed
+        - deviceCount
+        - gatewayCount
+        - eventCount
+        - packetSuccessRate
+    SimulationRun:
+      title: SimulationRun
+      type: object
+      properties:
+        summary:
+          $ref: '#/components/schemas/SimulationRunSummary'
+        objects:
+          type: array
+          items:
+            $ref: '#/components/schemas/SimulationLogObject'
+      required:
+        - summary
+        - objects
+    SimulationRunsResponse:
+      title: SimulationRunsResponse
+      type: object
+      properties:
+        runs:
+          type: array
+          items:
+            $ref: '#/components/schemas/SimulationRun'
+        total:
+          type: integer
+          format: int32
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+      required:
+        - runs
+        - total
+    RX1Config:
+      title: RX1Config
+      type: object
+      properties:
+        delay:
+          type: integer
+          minimum: 1
+          description: Delay before the RX1 receive window opens, in milliseconds.
+          x-go-type: '*int'
+          x-oapi-codegen-extra-tags:
+            validate: required,gt=0
+        duration:
+          type: integer
+          minimum: 1
+          description: Duration of the RX1 receive window, in milliseconds.
+          x-go-type: '*int'
+          x-oapi-codegen-extra-tags:
+            validate: required,gt=0
+        dataRateOffset:
+          type: integer
+          minimum: 0
+          maximum: 5
+          description: Regional RX1 data-rate offset applied to the uplink data rate.
+          x-go-type: '*int'
+          x-oapi-codegen-extra-tags:
+            validate: required,min=0,max=5
+      required:
+        - delay
+        - duration
+        - dataRateOffset
+    RX2Config:
+      title: RX2Config
+      type: object
+      properties:
+        delay:
+          type: integer
+          minimum: 1
+          description: Delay before the RX2 receive window opens, in milliseconds.
+          x-go-type: '*int'
+          x-oapi-codegen-extra-tags:
+            validate: required,gt=0
+        duration:
+          type: integer
+          minimum: 1
+          description: Duration of the RX2 receive window, in milliseconds.
+          x-go-type: '*int'
+          x-oapi-codegen-extra-tags:
+            validate: required,gt=0
+        channelFrequency:
+          type: integer
+          format: int64
+          minimum: 1
+          description: RX2 channel center frequency, in hertz.
+          x-oapi-codegen-extra-tags:
+            validate: required,gt=0
+        dataRate:
+          type: integer
+          minimum: 0
+          maximum: 15
+          description: Regional data-rate index used by RX2.
+          x-go-type: '*int'
+          x-oapi-codegen-extra-tags:
+            validate: required,min=0,max=15
+        ACKTimeout:
+          type: integer
+          minimum: 1000
+          maximum: 3000
+          description: Time to wait for an acknowledgement before retrying, in milliseconds.
+          x-oapi-codegen-extra-tags:
+            validate: required,min=1000,max=3000
+      required:
+        - delay
+        - duration
+        - channelFrequency
+        - dataRate
+        - ACKTimeout
+    PayloadCodec:
+      title: PayloadCodec
+      description: Optional JavaScript payload codec configuration for a device.
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: Whether the payload codec is enabled for this device.
+        script:
+          type: string
+          description: JavaScript payload codec source code.
+      required:
+        - enabled
+        - script

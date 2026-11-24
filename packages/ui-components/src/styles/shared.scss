@@ -1,0 +1,47 @@
+// Shared
+@use "./fonts" as *;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: var(--primary-font);
+  color: var(--primary-text-color);
+}
+
+a {
+  text-decoration: none;
+}
+
+img {
+  max-height: 100%;
+  max-width: 100%;
+}
+
+body,
+html {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+body {
+  min-height: 100vh;
+  background: var(--primary-bg-color);
+}
+
+body * {
+  font-size: font-size(md);
+}
+
+.custom-toast.Toastify__toast.Toastify__toast-theme--dark {
+  --toastify-color-dark: var(--tertiary-bg-color);
+  --toastify-text-color-dark: var(--primary-text-color);
+
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-color);
+  font-family: var(--secondary-font);
+
+  * {
+    font-family: var(--secondary-font);
+  }
+}

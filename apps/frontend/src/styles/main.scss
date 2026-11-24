@@ -1,0 +1,17 @@
+@use "../components/components";
+@use "../app/page";
+@use "../app/simulation-dashboard";
+
+body {
+  padding-top: 4rem;
+  min-height: 100vh;
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  width: 100%;
+  min-height: calc(100vh - 4rem - 2.5rem);
+  padding: 1.5rem;
+}

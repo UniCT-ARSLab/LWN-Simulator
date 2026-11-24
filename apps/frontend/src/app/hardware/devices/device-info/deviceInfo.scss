@@ -1,0 +1,14 @@
+.device-page,
+.gateway-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.entity-details-loading {
+  display: flex;
+  min-height: 100%;
+  align-items: center;
+  justify-content: center;
+}

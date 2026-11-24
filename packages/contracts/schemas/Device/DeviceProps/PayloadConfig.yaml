@@ -1,0 +1,27 @@
+title: PayloadConfig
+type: object
+
+properties:
+  uplinkInterval:
+    type: number
+    exclusiveMinimum: 0
+    description: Interval between automatically scheduled uplinks, in seconds.
+    x-oapi-codegen-extra-tags:
+      validate: "required,gt=0"
+  oversizedPayloadBehavior:
+    $ref: "./OversizedPayloadBehavior.yaml"
+  MType:
+    $ref: "./DeviceMType.yaml"
+  payload:
+    type: string
+  base64Encoded:
+    type: boolean
+  payloadCodec:
+    $ref: "./PayloadCodec.yaml"
+
+required:
+  - uplinkInterval
+  - oversizedPayloadBehavior
+  - MType
+  - payload
+  - base64Encoded

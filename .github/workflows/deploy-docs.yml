@@ -1,52 +1,91 @@
-name: Deploy Nextra docs to GitHub Pages
+name: Deploy docs + Storybook to GitHub Pages
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-
-    defaults:
-      run:
-        working-directory: docs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pages: read
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
         with:
-          node-version: 20
-          cache: yarn
-          cache-dependency-path: docs/yarn.lock
+          fetch-depth: 0
+          persist-credentials: false
 
-      - name: Enable Corepack
-        run: corepack enable
+      - uses: ./.github/actions/setup-toolchain
 
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
 
-      - name: Build docs
-        run: yarn build
+      - name: Install workspace dependencies
+        run: yarn install --immutable
+
+      - name: Install docs dependencies
+        working-directory: docs
+        run: yarn install --immutable
+
+      - name: Build docs and search index
+        working-directory: docs
         env:
-          GITHUB_ACTIONS: true
+          NEXT_PUBLIC_GITHUB_PAGES: "true"
+        run: |
+          yarn build
+          yarn postbuild
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Build Storybook
+        run: yarn workspace @lwn-simulator/ui-components build-storybook
+
+      - name: Assemble and verify site
+        shell: bash
+        run: |
+          mkdir -p pages/{docs,storybook}
+          cp -R docs/out/. pages/docs/
+          cp -R packages/ui-components/storybook-static/. pages/storybook/
+          cat > pages/index.html <<'HTML'
+          <!DOCTYPE html>
+          <html lang="en">
+            <meta charset="utf-8">
+            <meta http-equiv="refresh" content="0; url=./docs/">
+            <title>LWN Simulator documentation</title>
+            <a href="./docs/">Open the LWN Simulator documentation</a>
+          </html>
+          HTML
+
+          test -s pages/docs/index.html
+          for locale in en it es fr de; do
+            test -s "pages/docs/$locale.html"
+          done
+          test -s pages/docs/_pagefind/pagefind.js
+          test -s pages/storybook/index.html
+          test -s pages/storybook/iframe.html
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
         with:
-          path: docs/out
+          path: pages
 
   deploy:
     needs: build
-    runs-on: ubuntu-latest
-
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

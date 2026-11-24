@@ -1,0 +1,6 @@
+title: GetDevicesRequest
+type: object
+x-go-type: "struct{}"
+additionalProperties: false
+
+properties: {}

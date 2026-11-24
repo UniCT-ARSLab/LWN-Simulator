@@ -1,0 +1,125 @@
+---
+title: Geräte
+---
+
+import { Callout } from "nextra/components";
+
+# Geräte
+
+Ein Gerät ist ein LoRa- oder LoRaWAN-Knoten im Netzwerk.
+
+Konfigurieren Sie Name, DevEUI, OTAA-Zugangsdaten (AppEUI/JoinEUI und AppKey) oder ABP-Sitzung (DevAddr, NwkSKey und AppSKey), Aktivierung, Klasse A/B/C, Uplink-Intervall, Payload, FPort, Position und Reichweite.
+
+Data Rate, Sendeleistung, Frequenz, Kanal, bestätigte Uplinks, ADR, Frame Counter und Retransmissions beeinflussen Protokoll und Funkergebnis. Verwenden Sie pro Gerät eine eindeutige DevEUI und füllen Sie ABP-Sitzungswerte vollständig aus.
+
+## LoRaWAN und Raw LoRa
+
+**Radio Protocol** bestimmt, was das Gerät sendet:
+
+| Wert | Verhalten |
+| --- | --- |
+| **LoRaWAN** | Verwendet LoRaWAN-Frames und die konfigurierte OTAA- oder ABP-Sitzung. OTAA-Geräte müssen vor dem Senden von Anwendungsdaten einen Join abschließen. |
+| **Raw LoRa** | Sendet die Payload-Bytes direkt, ohne LoRaWAN-Header, Verschlüsselung, MIC oder OTAA-Join. |
+
+**Radio Receive Mode** bestimmt unabhängig davon, was das Gerät empfangen kann:
+
+| Wert | Verhalten |
+| --- | --- |
+| **LoRaWAN** | Akzeptiert LoRaWAN-Daten mit den üblichen Sitzungsprüfungen. |
+| **Raw LoRa** | Akzeptiert Raw-Daten, ohne deren Bytes als LoRaWAN zu interpretieren. |
+| **Auto** | Erkennt strukturell gültige LoRaWAN-Frames und verarbeitet sie als LoRaWAN; andere Payloads werden als Raw-Frames behandelt. |
+
+Wählen Sie für ein reines Raw-Szenario in beiden Feldern **Raw LoRa**.
+Verwenden Sie **Auto**, um beide Protokolle zu akzeptieren. Eine Änderung des
+Sendeprotokolls ändert den Empfangsmodus nicht automatisch.
+
+Das gemeinsame Formular verlangt weiterhin Identität, Zugangsdaten zur
+Aktivierung, Klasse und die übrigen Konfigurationsgruppen. Diese Zugangsdaten
+fügen Raw-Übertragungen weder LoRaWAN-Sicherheit noch einen Join hinzu.
+Geben Sie den Payload als Text ein oder aktivieren Sie **Base64 Encoded**, um
+exakte Binärbytes anzugeben. Position, Antennenreichweite, regionale
+Funkeinstellungen, Kollisionen und Verluste wirken sich auch auf Raw-Daten
+aus. Ein inaktives Gerät sendet und empfängt keine Raw-Daten.
+
+<Callout type="info" emoji="📻">
+  Raw LoRa bietet keine LoRaWAN-Anwendungsports, MAC-Befehle oder
+  LoRaWAN-Nachrichtenbestätigungen. Der unten beschriebene Codec decodiert
+  LoRaWAN-Anwendungs-Uplinks; Raw-Bytes erscheinen in Ereignissen und
+  Protokollen als Hexadezimaldaten.
+</Callout>
+
+## Payload-Codec
+
+Aktivieren Sie **Payload Codec**, wenn der Anwendungspayload zusätzlich als
+strukturierte Daten angezeigt werden soll. Fügen Sie im mehrzeiligen Editor
+eine JavaScript-Funktion namens `decodeUplink` ein:
+
+```js
+function decodeUplink(input) {
+  return {
+    data: {
+      temperature: input.bytes[0],
+      humidity: input.bytes[1],
+    },
+  };
+}
+```
+
+Die Funktion erhält:
+
+| Eigenschaft | Bedeutung |
+| --- | --- |
+| `input.bytes` | Entschlüsselter Anwendungspayload als Array von Bytewerten. |
+| `input.fPort` | Für den Uplink konfigurierter Anwendungsport. |
+
+Geben Sie ein Objekt mit einer Eigenschaft `data` zurück, die die im
+Ereignisstrom anzuzeigenden Werte enthält. Beim Speichern prüft der Simulator
+die JavaScript-Syntax und das Vorhandensein von `decodeUplink`. Während eines
+Laufs wird die Funktion mit einem kurzen Zeitlimit ausgeführt; ein Codec-Fehler
+wird am Ereignis gemeldet, ohne die Simulation zu unterbrechen.
+
+Bei erfolgreicher Decodierung zeigen der Ereignisstrom und das
+Simulationsprotokoll das Ergebnis neben dem ursprünglichen Ereignis als
+**Decoded**-Daten an. Der Codec wird nur auf Anwendungs-Uplinks und nach der
+Entschlüsselung des LoRaWAN-Payloads angewendet.
+
+<Callout type="warning" emoji="⚠️">
+  Behandeln Sie Codec-Skripte als Konfigurationscode. Halten Sie sie kurz,
+  deterministisch und frei von externen Abhängigkeiten. Der Simulator gewährt
+  einem Codec keinen Zugriff auf Anwendung, Dateisystem oder Netzwerkdienste.
+</Callout>
+
+## Payload während einer Simulation ändern
+
+Während die Simulation dieses Profils läuft oder pausiert ist, können Sie unter **Edit Device** die Felder **Active**, **Payload** und **Base64 Encoded** ändern. Die übrigen Felder sind deaktiviert. Verwenden Sie Active für einen simulierten Ausfall und Payload für neue Temperatur-, Feuchtigkeits- oder andere Anwendungsdaten. Aktivieren Sie Base64 Encoded für genaue Binärbytes.
+
+Die Änderung gilt für die nächste neue Anwendungsnachricht. Wiederholungen und restliche Fragmente einer bereits begonnenen Nachricht behalten ihre ursprünglichen Bytes. LoRaWAN-Sitzung, Schlüssel und Zähler bleiben erhalten. Das Deaktivieren eines Geräts verwirft dessen ausstehenden Datenverkehr.
+
+Ein Terminal oder externes Skript kann `PUT /api/profiles/{profileID}/device/update-device/{deviceID}` verwenden. Senden Sie das vollständige Gerät unter `device` und ändern Sie ausschließlich `active`, `payloadConfig.payload` und `payloadConfig.base64Encoded`, `locationConfig.latitude`, `locationConfig.longitude`, `locationConfig.altitude`. Andere Konfigurationsänderungen weist der Server während einer laufenden oder pausierten Simulation zurück. Nach dem Stoppen können Sie das Gerät wieder normal bearbeiten.
+
+Dieses Python-3-Beispiel liest die aktuelle Konfiguration und aktualisiert den Payload. Ersetzen Sie `PROFILE_UUID` und `DEVICE_UUID` durch Ihre Profil- und Geräte-IDs. Wiederholen Sie den Aufruf mit anderen Werten, um veränderliche Messwerte darzustellen. Der JavaScript-Codec decodiert empfangene Daten; dieses Skript liefert die zu sendenden Daten.
+
+```python
+import json
+from urllib.request import Request, urlopen
+
+BASE = "http://127.0.0.1:8080/api/profiles/PROFILE_UUID"
+DEVICE_ID = "DEVICE_UUID"
+
+with urlopen(f"{BASE}/device/get-device/{DEVICE_ID}") as response:
+    device = json.load(response)["device"]
+
+device["payloadConfig"]["payload"] = json.dumps({
+    "temperature": 23.5,
+    "humidity": 48
+})
+device["payloadConfig"]["base64Encoded"] = False
+request = Request(
+    f"{BASE}/device/update-device/{DEVICE_ID}",
+    data=json.dumps({"device": device}).encode("utf-8"),
+    headers={"Content-Type": "application/json"},
+    method="PUT",
+)
+with urlopen(request) as response:
+    print(response.read().decode("utf-8"))
+```

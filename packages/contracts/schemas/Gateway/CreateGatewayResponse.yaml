@@ -1,0 +1,9 @@
+title: CreateGatewayResponse
+type: object
+
+properties:
+  gateway:
+    $ref: "./Gateway.yaml"
+
+required:
+  - gateway
