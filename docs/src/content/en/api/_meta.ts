@@ -3,7 +3,8 @@ const meta = {
   "profiles": "Profiles",
   "hardware": "Devices and gateways",
   "simulation": "Simulation and messages",
-  "events": "Events, logs and live updates"
+  "events": "Events, logs and live updates",
+  "mcp": "Connect an MCP client"
 };
 
 export default meta;

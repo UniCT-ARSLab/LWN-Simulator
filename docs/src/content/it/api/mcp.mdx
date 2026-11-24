@@ -1,0 +1,40 @@
+---
+title: Collegare un client MCP
+---
+
+# Collegare un client MCP
+
+Usa il server locale Model Context Protocol (MCP) per consultare le simulazioni da un client AI. Si collega allo stesso backend della dashboard, così entrambi vedono gli stessi profili, simulazioni e metriche.
+
+Avvia il simulatore con un backend locale. Individua il percorso assoluto di `lwn-server` (`lwn-server.exe` su Windows), distribuito come eseguibile autonomo o incluso nell’app desktop. Registralo nel client MCP come server **stdio**. La posizione delle impostazioni dipende dal client.
+
+```json
+{
+  "mcpServers": {
+    "lwn-simulator": {
+      "command": "/absolute/path/to/lwn-server",
+      "args": ["-mcp", "-port", "8080"]
+    }
+  }
+}
+```
+
+Usa la porta del backend indicata nell’app. Il valore predefinito è `8080`. Il processo MCP si collega a `127.0.0.1` su quella porta. Tieni il backend avviato mentre usi il client.
+
+## Consultare una simulazione
+
+1. Chiama `list_profiles` per trovare l’ID del profilo. Passalo come `profileID` nelle chiamate relative al profilo.
+
+2. Usa `list_devices` e `list_gateways` per consultare la rete. `get_simulation_activity` indica quale profilo ha una simulazione in corso o in pausa. `get_simulation_status` restituisce tempo e metriche.
+
+3. Usa `list_simulation_runs` per trovare i run salvati e `list_simulation_events` per consultare gli eventi. Passa `runID` per un run salvato oppure omettilo per quello corrente. Continua passando `nextAfterSequence` come `afterSequence`. Per gli altri elenchi usa `nextOffset` come `offset` quando è presente.
+
+I risultati mostrano metadati come identificatori e misure radio. Chiavi dei dispositivi, codec e byte dei payload restano esclusi.
+
+## Abilitare i comandi di simulazione
+
+La configurazione predefinita è di sola lettura. Aggiungi `"-mcp-write"` ad `args` per abilitare `start_simulation`, `control_simulation` (pausa, ripresa o arresto), `queue_uplink` e `queue_downlink`. Le operazioni richiedono l’ID del profilo. Riconnetti il client dopo aver modificato la configurazione.
+
+L’avvio usa le impostazioni Gateway Bridge salvate. Usa velocità `1` con un gateway esterno. Può esserci una sola simulazione attiva tra tutti i profili. Per un downlink passa testo UTF-8 oppure imposta `base64Encoded` per Base64 standard. Usa `fPort` per LoRaWAN e omettilo per LoRa raw. La risposta conferma l’accodamento. Consulta gli eventi per l’esito.
+
+Controlla nel client il profilo e l’azione prima di approvare una scrittura.
