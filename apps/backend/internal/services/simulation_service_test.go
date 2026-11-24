@@ -109,19 +109,44 @@ func TestSimulationServiceLifecycleAndSingleSession(t *testing.T) {
 	}
 }
 
-func TestSimulationServiceRejectsStartWithoutActiveDevices(t *testing.T) {
-	service := NewSimulationService(
-		emptySimulationDeviceSource{},
-		simulationGatewaySource{},
-		types.Options{EventBuffer: 32},
-	)
+type configuredSimulationGateways []contracts.Gateway
 
-	_, err := service.Start(t.Context(), contracts.SimulationConfig{Speed: 1})
-	if err == nil || !errors.Is(err, apperrors.ErrInvalid) {
-		t.Fatalf("start without active devices returned %v, want invalid request", err)
+func (gateways configuredSimulationGateways) GetGateways(contracts.GetGatewaysRequest) (contracts.GetGatewaysResponse, error) {
+	return contracts.GetGatewaysResponse{Gateways: gateways}, nil
+}
+
+func TestSimulationServiceRejectsStartWithoutActiveHardware(t *testing.T) {
+	inactive := validSimulationGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c81")
+	inactive.Active = false
+	for _, gateways := range []configuredSimulationGateways{nil, {inactive}} {
+		service := NewSimulationService(emptySimulationDeviceSource{}, gateways, types.Options{})
+		_, err := service.Start(t.Context(), contracts.SimulationConfig{Speed: 1})
+		if !errors.Is(err, apperrors.ErrInvalid) || !strings.Contains(err.Error(), "active device or gateway") {
+			t.Fatalf("start without active hardware returned %v, want invalid request", err)
+		}
 	}
-	if !strings.Contains(err.Error(), "active device") {
-		t.Fatalf("unexpected empty-device error: %v", err)
+}
+
+func TestSimulationServiceStartsWithOneGatewayAndNoDevices(t *testing.T) {
+	gateway := validSimulationGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c81")
+	service := NewSimulationService(emptySimulationDeviceSource{}, configuredSimulationGateways{gateway}, types.Options{})
+	started, err := service.Start(t.Context(), contracts.SimulationConfig{Speed: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if _, err := service.Stop(context.Background()); err != nil {
+			t.Errorf("stop gateway-only simulation: %v", err)
+		}
+	})
+	if started.State.Status != contracts.SimulationStatusRunning || len(started.Devices) != 0 ||
+		len(started.Gateways) != 1 || started.Metrics.ActiveGateways != 1 {
+		t.Fatalf("unexpected gateway-only topology: %+v", started)
+	}
+	time.Sleep(20 * time.Millisecond)
+	current, err := service.Snapshot()
+	if err != nil || current.State.ElapsedMilliseconds <= started.State.ElapsedMilliseconds || current.Metrics.TotalUplinks != 0 {
+		t.Fatalf("unexpected idle gateway snapshot: %+v, %v", current, err)
 	}
 }
 

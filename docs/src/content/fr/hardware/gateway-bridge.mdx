@@ -50,7 +50,7 @@ Les deux connexions ont des directions différentes :
 Pour essayer sur un même ordinateur :
 
 1. Dans **Hardware → Gateways**, créez une passerelle **Real** active avec l'EUI `A840410001000101`, l'IPv4 `127.0.0.1` et le port `1701`. Remplissez les autres champs obligatoires. Le script Python représente ici la station externe ; une passerelle physique est facultative.
-2. Laissez le bridge désactivé. Créez au moins un appareil actif pour démarrer la simulation ; un appareil Raw LoRa convient.
+2. Laissez le bridge désactivé.
 3. Enregistrez le script suivant dans `send_sensor.py` et exécutez `python3 send_sensor.py`.
 4. Démarrez la simulation dans le même profil. Le script envoie les octets binaires `FF AA` toutes les cinq secondes. Dans **Engine activity** ou dans **Logs**, recherchez **Raw LoRa · HEX FF AA** associé à la passerelle.
 

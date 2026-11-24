@@ -85,16 +85,18 @@ const SimulationDashboardPage = () => {
     () => deviceService.devices ?? [],
     [deviceService.devices],
   );
-  const devicesLoaded = deviceService.devices !== null;
   const deviceProtocols = useMemo(
     () => Object.fromEntries(devices.map((device) => [device.id, device.radioProtocol])),
     [devices],
   );
-  const hasActiveDevices = devices.some((device) => device.active);
   const gateways = useMemo(
     () => gatewayService.gateways ?? [],
     [gatewayService.gateways],
   );
+  const hardwareLoaded = deviceService.devices !== null && gatewayService.gateways !== null;
+  const hasActiveHardware =
+    devices.some((device) => device.active) ||
+    gateways.some((gateway) => gateway.active);
   const requiresRealtime =
     profileConfiguration.gatewayBridgeConfig?.enabled === true ||
     gateways.some((gateway) => gateway.type === GatewayType.Real);
@@ -135,8 +137,8 @@ const SimulationDashboardPage = () => {
       profileService.activeProfileID;
   const canStart =
     canStartFromCurrentProfile &&
-    devicesLoaded &&
-    hasActiveDevices &&
+    hardwareLoaded &&
+    hasActiveHardware &&
     !profileService.simulationActivityLoading &&
     !hasActiveSimulation;
   const activeSimulationProfile = profileService.profiles.find(
@@ -354,8 +356,8 @@ const SimulationDashboardPage = () => {
         status={status}
         canStart={canStart}
         requiresRealtime={requiresRealtime}
-        devicesLoaded={devicesLoaded}
-        hasActiveDevices={hasActiveDevices}
+        hardwareLoaded={hardwareLoaded}
+        hasActiveHardware={hasActiveHardware}
         activeSimulationIsElsewhere={activeSimulationIsElsewhere}
         activeSimulationProfileName={activeSimulationProfile?.name}
         onStart={start}

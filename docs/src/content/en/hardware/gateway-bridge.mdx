@@ -202,7 +202,7 @@ There are two different directions:
 For a test on one computer:
 
 1. In **Hardware → Gateways**, create an active **Real** gateway with EUI `A840410001000101`, IPv4 `127.0.0.1` and port `1701`. Complete the other required fields. Here the external station is the Python script; physical gateway hardware is optional.
-2. Keep the bridge disabled for this example. Create at least one active device so the simulation can start. A Raw LoRa device is suitable.
+2. Keep the bridge disabled for this example.
 3. Save the following script as `send_sensor.py` and run `python3 send_sensor.py`.
 4. Start the simulation in the same profile. Every five seconds the script sends the binary bytes `FF AA`. Open **Engine activity** or the run in **Logs** and find **Raw LoRa · HEX FF AA** associated with the gateway.
 

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"slices"
 	"sync"
 	"time"
 
@@ -199,14 +200,16 @@ func (s *SimulationService) Start(
 		s.finishStarting()
 		return contracts.SimulationSnapshot{}, fmt.Errorf("load devices: %w", err)
 	}
-	if !hasActiveSimulationDevice(devices.Devices) {
-		s.finishStarting()
-		return contracts.SimulationSnapshot{}, apperrors.Invalid("at least one active device is required to start a simulation")
-	}
 	gateways, err := s.gateways.GetGateways(contracts.GetGatewaysRequest{})
 	if err != nil {
 		s.finishStarting()
 		return contracts.SimulationSnapshot{}, fmt.Errorf("load gateways: %w", err)
+	}
+	hasActiveDevice := slices.ContainsFunc(devices.Devices, func(device contracts.Device) bool { return device.Active })
+	hasActiveGateway := slices.ContainsFunc(gateways.Gateways, func(gateway contracts.Gateway) bool { return gateway.Active })
+	if !hasActiveDevice && !hasActiveGateway {
+		s.finishStarting()
+		return contracts.SimulationSnapshot{}, apperrors.Invalid("at least one active device or gateway is required to start a simulation")
 	}
 
 	options := s.options
@@ -309,15 +312,6 @@ func (s *SimulationService) Start(
 	snapshot := runtime.Snapshot()
 	s.publishSnapshot(snapshot)
 	return snapshot, nil
-}
-
-func hasActiveSimulationDevice(devices []contracts.Device) bool {
-	for _, device := range devices {
-		if device.Active {
-			return true
-		}
-	}
-	return false
 }
 
 func (s *SimulationService) Pause() (contracts.SimulationSnapshot, error) {

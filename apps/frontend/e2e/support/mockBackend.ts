@@ -3,6 +3,7 @@ import type { Page } from "@playwright/test";
 export type MockBackendOptions = {
   logs?: "success" | "empty" | "error";
   devices?: "empty" | "active" | "raw";
+  gateways?: "active" | "inactive";
   deviceCodec?: "configured" | "empty" | "absent";
   bridgeEnabled?: boolean;
 };
@@ -122,6 +123,7 @@ export const mockBackend = async (
   options: MockBackendOptions = {},
 ): Promise<void> => {
   const hasDevices = options.devices === "active" || options.devices === "raw";
+  const hasGateways = hasDevices || options.gateways !== undefined;
   let gatewayBridge = {
     enabled: options.bridgeEnabled ?? false,
     address: "0.0.0.0",
@@ -149,7 +151,7 @@ export const mockBackend = async (
       : { radioProtocol: "lorawan", radioReceiveMode: "lorawan" }),
     payloadConfig: runtimeDevicePayloadConfig,
   };
-  let runtimeGateway = { ...editableGateway };
+  let runtimeGateway = { ...editableGateway, active: options.gateways !== "inactive" };
 
   const simulationSnapshot = () => ({
     state: {
@@ -158,7 +160,7 @@ export const mockBackend = async (
       elapsedMilliseconds: simulationStatus === "idle" ? 0 : 1000,
       eventSequence: simulationStatus === "idle" ? 0 : 1,
       deviceCount: hasDevices ? 1 : 0,
-      gatewayCount: hasDevices ? 1 : 0,
+      gatewayCount: hasGateways ? 1 : 0,
     },
     devices: [],
     gateways: [],
@@ -169,7 +171,7 @@ export const mockBackend = async (
       totalPacketsReceived: 0,
       packetSuccessRate: 0,
       activeDevices: hasDevices ? 1 : 0,
-      activeGateways: hasDevices ? 1 : 0,
+      activeGateways: hasGateways && runtimeGateway.active ? 1 : 0,
     },
   });
 
@@ -292,7 +294,7 @@ export const mockBackend = async (
 
     if (path.endsWith("/gateway/get-gateways")) {
       await route.fulfill(
-        json({ gateways: hasDevices ? [runtimeGateway] : [] }),
+        json({ gateways: hasGateways ? [runtimeGateway] : [] }),
       );
       return;
     }
