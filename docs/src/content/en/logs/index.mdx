@@ -1,0 +1,153 @@
+---
+title: Logs
+---
+
+import { Callout, Steps } from "nextra/components";
+
+# Logs
+
+The Logs section is the historical view of the simulator. It lets you review
+every simulation run and understand what happened to the devices and gateways
+that participated in it.
+
+Logs are scoped to the profile selected in the application header. A profile
+can therefore keep a separate simulation history from the other networks on
+the same simulator server.
+
+Open **Logs** from the main navigation. Runs are shown with the most recent
+one first.
+
+<Callout type="info" emoji="🧾">
+  Logs are read-only evidence of a run. To change the scenario, update the
+  profile hardware or simulation settings and start a new run.
+</Callout>
+
+## Simulation history
+
+Each run card shows:
+
+| Information | Meaning |
+| --- | --- |
+| **Date and time** | When the simulation run started. |
+| **Status** | Whether the run is running, paused, stopped, or failed. |
+| **Duration** | The elapsed simulated time for the run. |
+| **Events** | The number of recorded events. |
+| **Devices** | The number of devices included in the run. |
+| **Gateways** | The number of gateways included in the run. |
+| **Packet success** | The proportion of uplinks received by at least one eligible gateway. |
+
+Select a card to open the detailed history for that run. If no simulation has
+been started yet, the page shows an empty state and explains how to create the
+first history entry.
+
+## Run details
+
+The run detail page is divided into three areas:
+
+### Devices and gateways
+
+The upper-left panel lists every device and gateway that took part in the run.
+Use **Search objects** to filter the list by name, identifier, or object type.
+Select an object to display its history in the panel below.
+
+### Selected object history
+
+The lower-left panel contains only the events involving the selected device or
+gateway. This is useful when a large simulation produces more events than can
+be inspected comfortably in the global stream.
+
+Events are ordered chronologically, with newer entries at the end of the list.
+The view opens near the newest entries; scroll to the beginning of the list to
+load older entries.
+
+### Event stream
+
+The right-hand panel contains all events recorded by the run. Each entry shows:
+
+- the event sequence number;
+- the simulated timestamp, displayed as `t+...`;
+- a readable event name;
+- the event description and, when available, the related device and gateway.
+
+Events can include device registration, join activity, uplinks and downlinks,
+receive windows, radio transmissions, collisions, packet loss, retries, and
+gateway or bridge connectivity changes.
+
+<Steps>
+### Select an object
+
+Choose a device or gateway in the object history list. Use the search field to
+find an object in a large run.
+
+### Read its history
+
+The selected-object panel shows only events involving that object, ordered from
+oldest to newest. Scroll to the beginning to load older entries.
+
+### Compare with the global stream
+
+Use the event stream on the right to see the wider sequence around the selected
+object’s events, including gateway, radio, and scheduler activity.
+</Steps>
+
+## Raw LoRa frames
+
+Raw radio events show **Raw LoRa · HEX** followed by the payload bytes in
+hexadecimal, for example `00 DE AD BE EF`. This preserves binary data without
+assuming that it is readable text. You can inspect the same representation in
+the dashboard's **Engine activity** stream.
+
+Use the associated gateway and simulated timestamp to place a raw frame in
+context. A raw frame received over UDP without a device address appears in
+the gateway history and global stream; it cannot automatically appear in a
+particular device's history. It does not imply a successful LoRaWAN join or
+application delivery. Raw bytes are separate from the **Decoded** application
+data produced by a LoRaWAN payload codec.
+
+## Live run history
+
+The Logs page and the run detail page update automatically while a simulation
+is running or paused. New events, the run status, duration, event count, and
+packet-success value appear without requiring a manual reload.
+
+This also works when the same simulation is open in more than one browser tab
+or by more than one user connected to the same simulator. Starting, pausing,
+resuming, or stopping a run is reflected in the other open views.
+
+The connection indicator in the application header shows whether live updates
+are available. If it temporarily shows **Reconnecting**, keep the page open:
+the application restores the live view and recovers the latest available state
+when the connection returns.
+
+The event stream follows new entries only when you are already close to the end
+of the list. If you scroll away to inspect older entries, incoming events do
+not interrupt your position. Return near the end to resume automatic following.
+
+Older events are loaded when you scroll to the beginning of a list. This keeps
+large simulations usable while still allowing the complete history to be
+reviewed.
+
+## Reading the results
+
+Use the run summary and event history together:
+
+- a low packet-success value usually means that uplinks were outside gateway
+  coverage, were affected by radio conditions or collisions, or could not be
+  accepted by the configured network parameters;
+- join-related events explain why an OTAA device has not started application
+  traffic yet;
+- retransmission, receive-window, and acknowledgement events help explain the
+  outcome of confirmed traffic;
+- gateway and bridge events help distinguish a radio delivery problem from a
+  connectivity problem at the network boundary.
+
+The detailed history is read-only. To change the scenario, return to
+**Hardware**, update the device or gateway configuration, and start another
+simulation from the dashboard.
+
+## Availability of history
+
+Completed runs remain available from **Logs** after the simulation ends. A
+running run can also be opened while it is in progress. History remains
+available after restarting the application when the simulator's application
+data is preserved.

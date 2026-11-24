@@ -1,0 +1,7 @@
+title: SimulationRunStatus
+type: string
+enum:
+  - running
+  - paused
+  - stopped
+  - failed

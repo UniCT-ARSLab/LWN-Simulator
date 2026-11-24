@@ -1,0 +1,20 @@
+// Card
+
+.card {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: 0 0 5px #0003;
+
+  &.l-padded {
+    padding: 1rem;
+  }
+
+  &.t-default {
+    background: var(--secondary-bg-color);
+  }
+
+  &.t-transparent {
+    background: color-mix(in srgb, var(--tertiary-bg-color) 80%, transparent);
+    backdrop-filter: blur(12px);
+  }
+}

@@ -1,0 +1,11 @@
+title: GetGatewaysResponse
+type: object
+
+properties:
+  gateways:
+    type: array
+    items:
+      $ref: "./Gateway.yaml"
+
+required:
+  - gateways

@@ -1,0 +1,12 @@
+title: AppInfoResponse
+type: object
+
+properties:
+  app:
+    type: string
+  version:
+    type: string
+
+required:
+  - app
+  - version

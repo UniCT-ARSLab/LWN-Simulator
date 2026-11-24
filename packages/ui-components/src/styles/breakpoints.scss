@@ -1,0 +1,38 @@
+// Breakpoints
+
+@use "sass:map";
+
+$bp: (
+  xs: 0,
+  sm: 480px,
+  md: 768px,
+  lg: 1024px,
+  xl: 1280px,
+  xxl: 1536px,
+);
+
+@mixin up($size) {
+  @media (min-width: map.get(bp.$breakpoints, $size)) {
+    @content;
+  }
+}
+
+@mixin down($size) {
+  @media (width <= calc(map.get(bp.$breakpoints, $size) - 0.02px)) {
+    @content;
+  }
+}
+
+@mixin between($min, $max) {
+  @media (min-width: map.get(bp.$breakpoints, $min)) and (width <= calc(map.get(bp.$breakpoints, $max) - 0.02px)) {
+    @content;
+  }
+}
+
+@mixin hover {
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      @content;
+    }
+  }
+}

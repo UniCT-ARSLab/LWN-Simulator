@@ -1,0 +1,30 @@
+title: FrameConfig
+type: object
+
+properties:
+  fPort:
+    type: integer
+    x-oapi-codegen-extra-tags:
+      validate: "required,min=1,max=223"
+  retransmission:
+    type: integer
+    x-go-type: "*int"
+    x-oapi-codegen-extra-tags:
+      validate: "required,min=0"
+  FCntUp:
+    type: integer
+    x-go-type: "*int"
+    x-oapi-codegen-extra-tags:
+      validate: "required,min=0"
+  FCntDown:
+    type: integer
+    x-go-type: "*int"
+    x-oapi-codegen-extra-tags:
+      validate: "required,min=0"
+  disableFrameCounterValidation:
+    type: boolean
+
+required:
+  - fPort
+  - retransmission
+  - disableFrameCounterValidation

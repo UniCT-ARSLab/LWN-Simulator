@@ -1,0 +1,10 @@
+title: SimulationRxWindow
+type: string
+
+enum:
+  - rx1
+  - rx2
+
+x-enum-varnames:
+  - RX1
+  - RX2

@@ -1,0 +1,30 @@
+// Colors
+
+.dark-theme {
+  --primary-color: #38bdf8;
+  --secondary-color: #f59e0b;
+  --primary-text-color: #c6c6cd;
+  --secondary-text-color: #6b7381;
+  --primary-bg-color: #031427;
+  --secondary-bg-color: #0b1c30;
+  --tertiary-bg-color: #1b2b3f;
+  --border-color: #45464d;
+  --base-color: #000;
+}
+
+.light-theme {
+  --primary-color: #005cff;
+  --secondary-color: #c53903;
+  --primary-text-color: #191c1e;
+  --secondary-text-color: #424656;
+  --primary-bg-color: #eef3f8;
+  --secondary-bg-color: #e4ebf3;
+  --tertiary-bg-color: #fff;
+  --border-color: #c3c5d9;
+  --base-color: #fff;
+}
+
+:root {
+  --success-color: #16a34a;
+  --error-color: #ba1a1a;
+}

@@ -1,0 +1,26 @@
+title: SimulationStatus
+type: string
+
+enum:
+  - idle
+  - starting
+  - running
+  - pausing
+  - paused
+  - resuming
+  - stopping
+  - stopped
+  - recovering
+  - failed
+
+x-enum-varnames:
+  - Idle
+  - Starting
+  - Running
+  - Pausing
+  - Paused
+  - Resuming
+  - Stopping
+  - Stopped
+  - Recovering
+  - Failed

@@ -1,0 +1,24 @@
+title: SimulationLogObject
+type: object
+properties:
+  gatewayType:
+    $ref: "../Gateway/GatewayType.yaml"
+  id:
+    type: string
+    x-oapi-codegen-extra-tags:
+      validate: "required,len=36"
+  name:
+    type: string
+    x-oapi-codegen-extra-tags:
+      validate: "required"
+  kind:
+    $ref: "./SimulationLogObjectKind.yaml"
+  identifier:
+    type: string
+    x-oapi-codegen-extra-tags:
+      validate: "required"
+required:
+  - id
+  - name
+  - kind
+  - identifier

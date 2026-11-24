@@ -1,0 +1,62 @@
+---
+title: "Ereignisse, Protokolle und Live-Daten"
+---
+
+# Ereignisse, Protokolle und Live-Daten
+
+Legen Sie vor diesen Befehlen `SERVER` und `BASE` wie unter [Verbindung und erste Anfrage](/api) beschrieben fest.
+
+Die Pfade sind relativ zu `$BASE`. Live-Ereignisse verfolgen den aktuellen Lauf; gespeicherte Protokolle liefern die vollständige aufgezeichnete Simulation. Der begrenzte Live-Puffer ersetzt kein Archiv.
+
+| Methode | Pfad | Anfrage / Ergebnis |
+| --- | --- | --- |
+| GET | `/simulation/events` | Live `{events,lastSequence}`; Standardlimit 100, maximal 1000. |
+| GET | `/simulation/logs` | Aufgezeichnete Läufe → `{runs,total}`. |
+| GET | `/simulation/logs/{id}` | Lauf → `{summary,objects}`. |
+| GET | `/simulation/logs/{id}/events` | Gespeichert `{events,lastSequence}`; Standard-/Maximallimit 1000. |
+| GET | `/simulation/logs/export` | Alle Läufe dieses Profils → ZIP. |
+| GET | `/simulation/logs/{id}/export` | Ein Lauf → JSON. |
+| GET | `/simulation/ws` | Simulations-WebSocket: `snapshot`, `event`, `error`. |
+
+
+## Filter und Seitennavigation
+
+Beide Ereignis-Endpunkte akzeptieren `afterSequence`, `limit`, `deviceID`, `gatewayID` und `type` (kommagetrennte Typen). Gespeicherte Ereignisse erlauben auch `beforeSequence`. Sequenzgrenzen sind exklusiv. Für die nächste Seite `lastSequence` verwenden und den Cursor bei anderen Läufen oder Filtern zurücksetzen. Filter zwischen Seiten beibehalten. Eine leere Seite ist kein Fehler.
+
+```bash
+curl -fsS "$BASE/simulation/events?afterSequence=0&limit=100"
+curl -fsS "$BASE/simulation/logs"
+RUN_ID=RUN_UUID
+curl -fsS "$BASE/simulation/logs/$RUN_ID/events?afterSequence=0&limit=1000"
+curl -fsS "$BASE/simulation/logs/$RUN_ID/events?deviceID=DEVICE_UUID&type=device-uplink-transmitted&limit=100"
+```
+
+
+`timestampMilliseconds` eines Ereignisses ist vergangene Simulationszeit. `startedAtMilliseconds` und Zeitstempel der WebSocket-Nachrichten sind Unix-Millisekunden der Echtzeituhr. Vergangene Zeit nicht als Kalenderdatum darstellen.
+
+## Archive herunterladen
+
+Archive mit `curl -o` speichern, statt binäre ZIP-Daten auszugeben. Die Lauf-UUID stammt aus `runs[].summary.id` und ist keine Geräte-UUID. Downloads enthalten nur Daten des gewählten Profils.
+
+```bash
+curl -fsS "$BASE/simulation/logs/export" -o simulation-logs.zip
+curl -fsS "$BASE/simulation/logs/$RUN_ID/export" -o simulation.json
+```
+
+
+## WebSocket-Aktualisierungen
+
+Verwenden Sie `ws://` für HTTP oder `wss://` hinter HTTPS. `/api/profiles/PROFILE_UUID/simulation/ws` sendet zuerst einen Snapshot, dann Ereignisse, teilweise mit Snapshot. `/api/ws?profileID=PROFILE_UUID` meldet gemeinsame Änderungen wie `device.created`, `device.updated`, `gateway.deleted`, `profile.gateway-bridge.updated`, `simulation.event` und `simulation.run.updated`; die Typen unterscheiden sich vom Simulations-Socket. Befehle per HTTP senden. Für den globalen Socket zuerst Status/Listen per REST laden. Nach Verbindungsabbruch Status aktualisieren und fehlende gespeicherte Ereignisse per REST nachladen; Sockets garantieren kein Replay.
+
+```javascript
+const socket = new WebSocket(
+  "ws://127.0.0.1:8080/api/profiles/PROFILE_UUID/simulation/ws"
+);
+socket.onmessage = ({ data }) => {
+  const message = JSON.parse(data);
+  console.log(message.type, message.snapshot ?? message.event ?? message.error);
+};
+socket.onerror = (error) => console.error(error);
+socket.onclose = () => console.log("WebSocket closed");
+```
+

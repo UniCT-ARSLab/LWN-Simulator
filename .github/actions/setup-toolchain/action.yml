@@ -1,0 +1,30 @@
+name: Set up LWN toolchain
+description: Install Node.js and enable the workspace's Yarn version
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v6
+      with:
+        node-version: 24
+        package-manager-cache: false
+
+    - name: Enable Corepack (Linux and macOS)
+      if: runner.os != 'Windows'
+      shell: bash
+      run: |
+        corepack_bin="$RUNNER_TEMP/corepack-bin"
+        mkdir -p "$corepack_bin"
+        corepack enable --install-directory "$corepack_bin"
+        echo "$corepack_bin" >> "$GITHUB_PATH"
+        "$corepack_bin/yarn" --version
+
+    - name: Enable Corepack (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $corepackBin = Join-Path $env:RUNNER_TEMP "corepack-bin"
+        New-Item -ItemType Directory -Force $corepackBin | Out-Null
+        corepack enable --install-directory $corepackBin
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        $corepackBin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        & (Join-Path $corepackBin "yarn.cmd") --version

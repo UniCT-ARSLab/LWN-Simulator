@@ -1,0 +1,99 @@
+---
+title: Gateway Bridge
+---
+
+# Gateway Bridge
+
+Gateway Bridge verbindet den Simulator mit einem externen UDP-Packet-Forwarder, etwa ChirpStack Gateway Bridge. Sie ist kein zusätzliches Gateway und verbindet Gateways nicht miteinander.
+
+Aktivieren Sie **Enable the Semtech UDP Bridge** und tragen Sie **Gateway Bridge's address** (IPv4 oder URL) sowie **Gateway Bridge's Port** ein. Speichern Sie vor dem Simulationsstart.
+
+Der Bridge transportiert Daten virtueller Gateways. Reale Gateways verwenden weiterhin ihre eigene UDP-Adresse und ihren eigenen Port. Die Anwendungskonfiguration von ChirpStack erfolgt außerhalb des Simulators.
+
+Ein aktives virtuelles Gateway sendet beim Start und in jedem **Keep Alive**-Intervall Statistiken an ChirpStack, auch ohne Datenverkehr von Geräten. Diese Berichte aktualisieren **Last seen** in ChirpStack.
+
+Virtuelle Gateways verwenden die Uhr des Simulator-Rechners für GPS-Zeitstempel in Uplinks und für die Planung von Downlinks zur GPS-Zeit. Synchronisiere die Uhren des Simulator-Rechners und des externen Netzwerkservers, wenn sie auf verschiedenen Rechnern laufen.
+
+## Raw-LoRa-Daten
+
+Der UDP-Transport unterstützt auch **Raw LoRa**-Bytes. Stellen Sie **Radio
+Protocol** auf **Raw LoRa** und zum Empfang von Raw-Daten **Radio Receive
+Mode** auf **Raw LoRa** oder **Auto**. Konfigurieren Sie die Bridge oder den
+Endpunkt des **Real**-Gateways wie gewohnt. Die Weiterleitung durch ein Gateway
+fügt Raw-Daten weder LoRaWAN-Header noch Verschlüsselung oder einen Join hinzu.
+
+Unter **Engine activity** und **Logs** sehen Sie den Payload **Raw LoRa ·
+HEX** und das zugehörige Gateway. Mehrere Gateways können gleichzeitig
+verbunden sein: Jedes benötigt eine eigene Gateway EUI, die mit der des Packet
+Forwarders übereinstimmt.
+
+Ein über UDP empfangener Raw-Payload kann ohne Geräteadresse ankommen. Der
+Frame wird dann dem empfangenden Gateway zugeordnet: Aus beliebigen Bytes
+lässt sich weder ein bestimmtes Gerät noch eine Verbindung auf der Karte
+ableiten. Ein externer Raw-Downlink ohne Zieladresse wird als Frame angezeigt,
+aber nicht automatisch an das ausgewählte Gerät oder an alle registrierten
+Geräte zugestellt.
+
+**Auto** erkennt Frames anhand ihrer Struktur. Als LoRaWAN erkannte Frames
+durchlaufen weiterhin die üblichen Sitzungs- und MIC-Prüfungen; Auto schaltet
+diese nicht ab. Die Bridge transportiert Raw-Bytes, doch das bedeutet nicht,
+dass ChirpStack sie als LoRaWAN-Anwendungsdaten interpretiert. Prüfen Sie die
+Raw-Frame-Unterstützung des externen Dienstes gesondert.
+
+## Frames aus einem Python-Skript senden
+
+Die beiden Verbindungen haben unterschiedliche Richtungen:
+
+- **Virtuelles Gateway → externe Bridge**: Adresse und Port unter **Hardware → Gateway Bridge** bezeichnen den externen Dienst, der Daten des Simulators empfängt. Dieser Dienst lauscht auf dem angegebenen Port.
+- **Externes Skript → Simulator**: Das Skript sendet Semtech-UDP-Pakete an den Listener des Backends, normalerweise UDP-Port `1700`. Für eine andere Adresse oder einen anderen Port setzen Sie vor dem Backend-Start `LWN_GATEWAY_UDP_LISTEN_ADDR`. Dieser Listener ist unabhängig vom Bridge-Ziel und vom HTTP-Port `8080`.
+
+Zum Testen auf einem Computer:
+
+1. Erstellen Sie unter **Hardware → Gateways** ein aktives **Real**-Gateway mit EUI `A840410001000101`, IPv4 `127.0.0.1` und Port `1701`. Füllen Sie die übrigen Pflichtfelder aus. Das Python-Skript ist hier die externe Station; physische Gateway-Hardware ist optional.
+2. Lassen Sie die Bridge deaktiviert.
+3. Speichern Sie das folgende Skript als `send_sensor.py` und starten Sie `python3 send_sensor.py`.
+4. Starten Sie die Simulation im selben Profil. Das Skript sendet alle fünf Sekunden die Binärbytes `FF AA`. Suchen Sie unter **Engine activity** oder im Lauf unter **Logs** nach **Raw LoRa · HEX FF AA** beim entsprechenden Gateway.
+
+Das Skript verwendet Port `1701`, das Backend lauscht auf `1700`. Bei verschiedenen Computern tragen Sie unter `SIMULATOR` die erreichbare Backend-Adresse und beim Gateway die IPv4 des Skript-Computers ein. Die EUI im Skript und in der Oberfläche muss übereinstimmen.
+
+```python
+import base64
+import json
+import secrets
+import socket
+import time
+
+SIMULATOR = ("127.0.0.1", 1700)
+GATEWAY_EUI = bytes.fromhex("A840410001000101")
+PAYLOAD = bytes.fromhex("FF AA")
+
+with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+    sock.bind(("0.0.0.0", 1701))
+    sock.settimeout(1)
+    try:
+        while True:
+            sock.sendto(bytes([2]) + secrets.token_bytes(2) + bytes([2])
+                        + GATEWAY_EUI, SIMULATOR)
+            body = {"rxpk": [{
+                "tmst": (time.monotonic_ns() // 1000) & 0xFFFFFFFF,
+                "freq": 868.1, "chan": 0, "rfch": 0, "stat": 1,
+                "modu": "LORA", "datr": "SF7BW125", "codr": "4/5",
+                "rssi": -60, "lsnr": 7, "size": len(PAYLOAD),
+                "data": base64.b64encode(PAYLOAD).decode("ascii")
+            }]}
+            sock.sendto(bytes([2]) + secrets.token_bytes(2) + bytes([0])
+                        + GATEWAY_EUI + json.dumps(body).encode(), SIMULATOR)
+            print("Sent:", PAYLOAD.hex(" ").upper(), flush=True)
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                try:
+                    packet, _ = sock.recvfrom(65535)
+                    if len(packet) >= 4:
+                        print("UDP response type:", hex(packet[3]), flush=True)
+                except socket.timeout:
+                    pass
+    except KeyboardInterrupt:
+        pass
+```
+
+Beenden Sie das Skript mit Ctrl+C. Die Antworten `0x1` und `0x4` bestätigen den UDP-Empfang; prüfen Sie den eigentlichen Frame unter Logs. Das Beispiel sendet Raw-Bytes. Für LoRaWAN sind ein vollständiger gültiger Frame und ein registriertes Gerät mit passenden Kennungen und Schlüsseln erforderlich. Beliebiger Text ist kein LoRaWAN-Frame.

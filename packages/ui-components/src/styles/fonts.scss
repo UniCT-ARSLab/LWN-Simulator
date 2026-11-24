@@ -1,0 +1,24 @@
+// Fonts
+
+@use "sass:map";
+
+:root {
+  --primary-font: "Inter", "Segoe UI", sans-serif;
+  --secondary-font: "JetBrains Mono", "SFMono-Regular", consolas, monospace;
+}
+
+$font-sizes: (
+  xs: 0.75rem,
+  sm: 0.875rem,
+  md: 1rem,
+  lg: 1.125rem,
+  xl: 1.25rem,
+  "2xl": 1.5rem,
+  "3xl": 1.875rem,
+  "4xl": 2.25rem,
+  "5xl": 3rem,
+);
+
+@function font-size($size) {
+  @return map.get($font-sizes, $size);
+}

@@ -1,0 +1,147 @@
+---
+title: Profils réseau
+---
+
+# Profils réseau
+
+Chaque profil contient un réseau indépendant : appareils, passerelles, paramètres du bridge et historique des simulations restent séparés.
+
+## Gérer les profils
+
+Utilisez le sélecteur de la barre supérieure pour changer de réseau. Le menu permet de créer un profil vide, le renommer, l'exporter dans un fichier JSON unique, importer une copie comme nouveau profil ou le supprimer.
+
+Chaque profil possède un identifiant interne unique. Le nom choisi sert uniquement à l'identifier dans l'interface.
+
+## Importer et exporter
+
+L'export contient la configuration réseau et l'historique disponible. Un import crée toujours un nouveau profil et ne remplace jamais le profil sélectionné.
+
+## Simulations partagées
+
+Le backend n'exécute qu'une simulation à la fois. Si un autre profil est en cours d'exécution, le bouton de démarrage est désactivé et l'interface explique la contrainte. Arrêtez la simulation active avant d'en lancer une autre.
+
+## Créer des profils par script ou avec l’IA
+
+| Champ | Contenu |
+| --- | --- |
+| `format`, `version` | `format` doit valoir `lwn-simulator-profile` et `version` doit être le nombre `1`. |
+| `profile` | `profile` contient `id` et `name`. Utilisez un UUID v4 valide et un nom de 1 à 100 caractères. Le backend attribue un nouvel UUID au profil importé. |
+| `devices`, `gateways` | `devices` et `gateways` contiennent des objets complets avec un UUID v4 `id` et un booléen `active`. Les identifiants du matériel sont conservés. |
+| `gatewayBridge` | `gatewayBridge` est facultatif. S’il est présent, renseignez `enabled` (booléen), `address` (destination du bridge) et `port` (port UDP). Omettez-le pour un nouveau réseau interne. |
+| `logs` | `logs` est un tableau d’objets avec `run` et `events`. Utilisez `[]` pour un réseau neuf. Si vous copiez un historique exporté, conservez les identifiants matériels référencés par ses événements. Les exécutions importées sont marquées comme arrêtées. |
+
+Respectez la casse des clés et valeurs JSON. Attribuez un UUID distinct à chaque appareil et gateway. Utilisez des DevEUI et Gateway EUI de 16 chiffres hexadécimaux, uniques dans chaque groupe. Pour ABP, attribuez un DevAddr distinct de 8 chiffres et des clés de 32 chiffres hexadécimaux. Pour OTAA, utilisez `activation: "oota"` avec `OOTAConfig`, un `joinEUI` de 16 chiffres et une `appKey` de 32, et retirez `ABPConfig`.
+
+Un gateway `virtual` exige un `keepAlive` positif en secondes. Un gateway `real` exige `gatewayIPv4` et `gatewayPort` et se définit sans `keepAlive`. Les coordonnées utilisent des degrés décimaux, l’altitude et la portée des mètres, les fréquences des Hz et les délais et durées RX des millisecondes. Choisissez une région, des fréquences et des débits compatibles et placez au moins un appareil actif à portée d’un gateway pour le premier essai.
+
+[Champs des appareils](/hardware/devices) · [Champs des gateways](/hardware/gateways) · [Import via l’API](/api/profiles)
+
+### Exemple Python
+
+Enregistrez le script dans `generate_profile.py` puis exécutez `python3 generate_profile.py`. Il crée trois appareils ABP et un gateway virtuel près de Catane avec des clés de test pour la simulation interne.
+
+```python
+from copy import deepcopy
+from pathlib import Path
+from uuid import uuid4
+import json
+
+DEVICE_TEMPLATE = {
+    "name": "External sensor",
+    "devEUI": "70B3D57ED0001001",
+    "class": "class-a",
+    "activation": "abp",
+    "radioProtocol": "lorawan",
+    "radioReceiveMode": "lorawan",
+    "ABPConfig": {
+        "devAddr": "26011BDA",
+        "nwkSKey": "00112233445566778899AABBCCDDEEFF",
+        "appSKey": "FFEEDDCCBBAA99887766554433221100"
+    },
+    "locationConfig": {
+        "latitude": 37.5,
+        "longitude": 15.1,
+        "altitude": 100,
+        "region": "EU868"
+    },
+    "RX1Config": {
+        "delay": 1000,
+        "duration": 1000,
+        "dataRateOffset": 0
+    },
+    "RX2Config": {
+        "delay": 2000,
+        "duration": 1000,
+        "channelFrequency": 869525000,
+        "dataRate": 0,
+        "ACKTimeout": 2000
+    },
+    "frameConfig": {
+        "fPort": 10,
+        "retransmission": 2,
+        "FCntUp": 0,
+        "FCntDown": 0,
+        "disableFrameCounterValidation": False
+    },
+    "payloadConfig": {
+        "uplinkInterval": 10,
+        "oversizedPayloadBehavior": "truncate",
+        "MType": "unconfirmed-data-up",
+        "payload": "temperature=23.5",
+        "base64Encoded": False
+    },
+    "advancedConfig": {
+        "antennaRange": 1500,
+        "ADREnabled": True,
+        "uplinkDataRate": 5
+    }
+}
+
+GATEWAY = {
+    "name": "External test gateway",
+    "type": "virtual",
+    "gatewayEUI": "A840410001001001",
+    "keepAlive": 30,
+    "latitude": 37.5,
+    "longitude": 15.1,
+    "altitude": 100
+}
+
+devices = []
+for i in range(1, 4):
+    device = deepcopy(DEVICE_TEMPLATE)
+    device.update(
+        id=str(uuid4()),
+        active=True,
+        name=f"Sensor {i}",
+        devEUI=f"70B3D57ED001{i:04X}",
+    )
+    device["ABPConfig"]["devAddr"] = f"260110{i:02X}"
+    device["locationConfig"]["latitude"] = 37.5 + i * 0.001
+    device["payloadConfig"]["payload"] = f"temperature={23 + i / 10:.1f}"
+    devices.append(device)
+
+archive = {
+    "format": "lwn-simulator-profile",
+    "version": 1,
+    "profile": {"id": str(uuid4()), "name": "Catania test network"},
+    "devices": devices,
+    "gateways": [dict(GATEWAY, id=str(uuid4()), active=True)],
+    "logs": [],
+}
+
+Path("catania-profile.json").write_text(
+    json.dumps(archive, ensure_ascii=False, indent=2) + "\n",
+    encoding="utf-8",
+)
+```
+
+### Générer le fichier avec l’IA
+
+Fournissez à l’IA ce format et cet exemple ou un profil de test exporté. Utilisez des clés de test dans les données que vous partagez. Vous pouvez partir de cette consigne.
+
+```text
+Génère un seul fichier JSON LWN Simulator Profile v1 à partir de l’exemple joint. Crée trois capteurs ABP EU868 et un gateway virtuel à proximité de 37.5, 15.1. Conserve les clés JSON et les blocs de configuration de l’exemple. Attribue des UUID v4, des EUI et des adresses ABP uniques. Utilise des clés de test, laisse logs vide et omets gatewayBridge. Retourne uniquement le JSON.
+```
+
+Vérifiez la syntaxe JSON, puis utilisez **Import** dans le menu des profils ou envoyez le document dans le champ `archive` via l’API. Si l’import échoue, corrigez le champ indiqué par l’erreur. Après l’import, ouvrez le nouveau profil, vérifiez les positions et exécutez une courte simulation pour contrôler les uplinks dans les journaux.

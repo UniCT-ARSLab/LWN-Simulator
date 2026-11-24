@@ -1,0 +1,26 @@
+title: DeviceClass
+type: string
+
+enum:
+  - EU868
+  - US915
+  - CN779
+  - EU433
+  - AU915
+  - CN470
+  - AS923
+  - KR920
+  - IN865
+  - RU864
+
+x-enum-varnames:
+  - EU868
+  - US915
+  - CN779
+  - EU433
+  - AU915
+  - CN470
+  - AS923
+  - KR920
+  - IN865
+  - RU864

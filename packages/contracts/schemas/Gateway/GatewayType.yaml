@@ -1,0 +1,8 @@
+title: GatewayType
+type: string
+enum:
+  - virtual
+  - real
+x-enum-varnames:
+  - Virtual
+  - Real

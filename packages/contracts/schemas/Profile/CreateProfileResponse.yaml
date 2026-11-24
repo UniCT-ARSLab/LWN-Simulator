@@ -1,0 +1,7 @@
+title: CreateProfileResponse
+type: object
+properties:
+  profile:
+    $ref: "./Profile.yaml"
+required:
+  - profile

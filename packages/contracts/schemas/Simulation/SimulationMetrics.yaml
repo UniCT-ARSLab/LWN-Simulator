@@ -1,0 +1,221 @@
+title: SimulationMetrics
+type: object
+
+properties:
+  totalUplinks:
+    type: integer
+    format: int64
+    x-go-name: TotalUplinks
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  successfulUplinks:
+    type: integer
+    format: int64
+    x-go-name: SuccessfulUplinks
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  droppedUplinks:
+    type: integer
+    format: int64
+    x-go-name: DroppedUplinks
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  totalPacketsReceived:
+    type: integer
+    format: int64
+    x-go-name: TotalPacketsReceived
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  packetSuccessRate:
+    type: number
+    format: double
+    x-go-type: float64
+    x-go-name: PacketSuccessRate
+    x-oapi-codegen-extra-tags:
+      validate: "min=0,max=1"
+  activeDevices:
+    type: integer
+    format: int64
+    x-go-name: ActiveDevices
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  activeGateways:
+    type: integer
+    format: int64
+    x-go-name: ActiveGateways
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  joinRequests:
+    type: integer
+    format: int64
+    x-go-name: JoinRequests
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  joinAccepts:
+    type: integer
+    format: int64
+    x-go-name: JoinAccepts
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  acknowledgedUplinks:
+    type: integer
+    format: int64
+    x-go-name: AcknowledgedUplinks
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  retransmissions:
+    type: integer
+    format: int64
+    x-go-name: Retransmissions
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  frameCounterErrors:
+    type: integer
+    format: int64
+    x-go-name: FrameCounterErrors
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  totalTransmissions:
+    type: integer
+    format: int64
+    x-go-name: TotalTransmissions
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  collisions:
+    type: integer
+    format: int64
+    x-go-name: Collisions
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  radioPacketLosses:
+    type: integer
+    format: int64
+    x-go-name: RadioPacketLosses
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  lowSnrLosses:
+    type: integer
+    format: int64
+    x-go-name: LowSNRLosses
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  averageRSSI:
+    type: number
+    format: double
+    x-go-type: float64
+    x-go-name: AverageRSSI
+  averageSNR:
+    type: number
+    format: double
+    x-go-type: float64
+    x-go-name: AverageSNR
+  averageAirtimeMilliseconds:
+    type: number
+    format: double
+    x-go-type: float64
+    x-go-name: AverageAirtimeMilliseconds
+  gatewayConnections:
+    type: integer
+    format: int64
+    x-go-name: GatewayConnections
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  gatewayHeartbeats:
+    type: integer
+    format: int64
+    x-go-name: GatewayHeartbeats
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  gatewayIngressPackets:
+    type: integer
+    format: int64
+    x-go-name: GatewayIngressPackets
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  gatewayEgressPackets:
+    type: integer
+    format: int64
+    x-go-name: GatewayEgressPackets
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  gatewayNetworkErrors:
+    type: integer
+    format: int64
+    x-go-name: GatewayNetworkErrors
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  gatewayTimeouts:
+    type: integer
+    format: int64
+    x-go-name: GatewayTimeouts
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  gatewayReconnects:
+    type: integer
+    format: int64
+    x-go-name: GatewayReconnects
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  classBBeacons:
+    type: integer
+    format: int64
+    x-go-name: ClassBBeacons
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  classBSynchronizations:
+    type: integer
+    format: int64
+    x-go-name: ClassBSynchronizations
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  classBMissedBeacons:
+    type: integer
+    format: int64
+    x-go-name: ClassBMissedBeacons
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  classBPingSlots:
+    type: integer
+    format: int64
+    x-go-name: ClassBPingSlots
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  classBDownlinks:
+    type: integer
+    format: int64
+    x-go-name: ClassBDownlinks
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+
+required:
+  - totalUplinks
+  - successfulUplinks
+  - droppedUplinks
+  - totalPacketsReceived
+  - packetSuccessRate
+  - activeDevices
+  - activeGateways
+  - joinRequests
+  - joinAccepts
+  - acknowledgedUplinks
+  - retransmissions
+  - frameCounterErrors
+  - totalTransmissions
+  - collisions
+  - radioPacketLosses
+  - lowSnrLosses
+  - averageRSSI
+  - averageSNR
+  - averageAirtimeMilliseconds
+  - gatewayConnections
+  - gatewayHeartbeats
+  - gatewayIngressPackets
+  - gatewayEgressPackets
+  - gatewayNetworkErrors
+  - gatewayTimeouts
+  - gatewayReconnects
+  - classBBeacons
+  - classBSynchronizations
+  - classBMissedBeacons
+  - classBPingSlots
+  - classBDownlinks

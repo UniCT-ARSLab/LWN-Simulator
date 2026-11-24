@@ -1,0 +1,62 @@
+---
+title: "Events, logs and live updates"
+---
+
+# Events, logs and live updates
+
+Set `SERVER` and `BASE` as shown in [Connection and first request](/api) before running these commands.
+
+Paths below are relative to `$BASE`. Use live events for following the current runtime and stored logs for a complete recorded run. A live event buffer is bounded; it is not a replacement for the archive.
+
+| Method | Path | Request / result |
+| --- | --- | --- |
+| GET | `/simulation/events` | Live `{events,lastSequence}`; default limit 100, maximum 1000. |
+| GET | `/simulation/logs` | Recorded runs → `{runs,total}`. |
+| GET | `/simulation/logs/{id}` | Run → `{summary,objects}`. |
+| GET | `/simulation/logs/{id}/events` | Stored `{events,lastSequence}`; default/max limit 1000. |
+| GET | `/simulation/logs/export` | All runs in this profile → ZIP download. |
+| GET | `/simulation/logs/{id}/export` | One run → JSON download. |
+| GET | `/simulation/ws` | Simulation WebSocket: `snapshot`, `event`, `error`. |
+
+
+## Filter and paginate
+
+Both event endpoints accept `afterSequence`, `limit`, `deviceID`, `gatewayID` and `type` (comma-separated event types). Stored events also accept `beforeSequence`. Sequence bounds are exclusive. Follow forward by passing the returned `lastSequence`; reset the cursor when changing runs or filters. Use the same filters on every page. An empty page is not an error.
+
+```bash
+curl -fsS "$BASE/simulation/events?afterSequence=0&limit=100"
+curl -fsS "$BASE/simulation/logs"
+RUN_ID=RUN_UUID
+curl -fsS "$BASE/simulation/logs/$RUN_ID/events?afterSequence=0&limit=1000"
+curl -fsS "$BASE/simulation/logs/$RUN_ID/events?deviceID=DEVICE_UUID&type=device-uplink-transmitted&limit=100"
+```
+
+
+Event `timestampMilliseconds` is elapsed simulation time. Run `startedAtMilliseconds` and WebSocket envelope timestamps are wall-clock Unix milliseconds. Do not display elapsed time as a calendar date.
+
+## Download archives
+
+Use `curl -o` to save archives rather than printing binary ZIP data. A run UUID comes from `runs[].summary.id`, not from a device UUID. Downloads include the data of the selected profile only.
+
+```bash
+curl -fsS "$BASE/simulation/logs/export" -o simulation-logs.zip
+curl -fsS "$BASE/simulation/logs/$RUN_ID/export" -o simulation.json
+```
+
+
+## WebSocket updates
+
+Use `ws://` for HTTP or `wss://` behind HTTPS. `/api/profiles/PROFILE_UUID/simulation/ws` sends an initial snapshot and then simulation events, sometimes with a snapshot. `/api/ws?profileID=PROFILE_UUID` reports shared resource changes such as `device.created`, `device.updated`, `gateway.deleted`, `profile.gateway-bridge.updated`, `simulation.event` and `simulation.run.updated`; its types differ from the simulation socket. Send commands over HTTP, not through these sockets. Fetch an initial REST snapshot/list for the global socket. After reconnecting, refresh state and recover missing recorded events through REST; sockets do not promise replay.
+
+```javascript
+const socket = new WebSocket(
+  "ws://127.0.0.1:8080/api/profiles/PROFILE_UUID/simulation/ws"
+);
+socket.onmessage = ({ data }) => {
+  const message = JSON.parse(data);
+  console.log(message.type, message.snapshot ?? message.event ?? message.error);
+};
+socket.onerror = (error) => console.error(error);
+socket.onclose = () => console.log("WebSocket closed");
+```
+

@@ -1,0 +1,80 @@
+{
+  "name": "@lwn-simulator/desktop",
+  "version": "2.0.0",
+  "description": "LoRaWAN network simulator desktop application",
+  "author": "LWN-Simulator contributors <lwn-simulator@users.noreply.github.com>",
+  "homepage": "https://github.com/Giuseppe-Compagnone/LWN-Simulator",
+  "desktopName": "lwn-simulator",
+  "main": "dist/main.js",
+  "scripts": {
+    "compile": "tsc --build",
+    "start": "yarn compile && electron .",
+    "build": "yarn clean && yarn compile && electron-builder --publish never",
+    "clean": "node scripts/clean-dist.mjs",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "electron-store": "^11.0.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/electron": "^1.6.12",
+    "@types/node": "^26.1.2",
+    "electron": "38.0.0",
+    "electron-builder": "^26.0.12",
+    "eslint": "^9",
+    "globals": "^17.9.0",
+    "typescript": "^5",
+    "typescript-eslint": "^8.66.0"
+  },
+  "build": {
+    "appId": "com.lwn.simulator",
+    "productName": "LWN-Simulator",
+    "executableName": "lwn-simulator",
+    "icon": "public/icon.png",
+    "directories": {
+      "app": ".",
+      "output": "../../releases/desktop/build"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "assets",
+        "to": "backend"
+      },
+      {
+        "from": "public/icon.png",
+        "to": "icon.png"
+      },
+      {
+        "from": "../launcher/out",
+        "to": "launcher/out"
+      }
+    ],
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "category": "Utility",
+      "maintainer": "LWN-Simulator contributors <lwn-simulator@users.noreply.github.com>",
+      "syncDesktopName": true
+    },
+    "mac": {
+      "icon": "public/icon.icns",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "category": "public.app-category.utilities"
+    },
+    "electronLanguages": [
+      "en-US",
+      "it"
+    ]
+  }
+}

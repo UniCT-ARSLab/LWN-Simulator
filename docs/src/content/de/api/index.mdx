@@ -1,0 +1,70 @@
+---
+title: "Verbindung und erste Anfrage"
+---
+
+import { Callout, Tabs } from "nextra/components";
+
+# Verbindung und erste Anfrage
+
+## Verbindung
+
+Steuern Sie dasselbe Backend wie die Web- oder Desktop-Oberfläche per HTTP aus einem Terminal, Python-Skript oder einer anderen Anwendung. Änderungen erscheinen bei verbundenen Clients.
+
+Verwenden Sie die Backend-Adresse, normalerweise `http://127.0.0.1:8080`, und passen Sie Host und Port an. Der Entwicklungsport des Frontends ist nicht der API-Port. Anfragen und Antworten verwenden JSON, außer Downloads und Metriken. Senden Sie bei JSON-Inhalten `Content-Type: application/json`.
+
+<Tabs items={["cURL", "Python"]}>
+<Tabs.Tab>
+
+```bash
+SERVER=http://127.0.0.1:8080
+curl -fsS "$SERVER/api/profile/get-profiles"
+PROFILE_ID=PROFILE_UUID
+BASE="$SERVER/api/profiles/$PROFILE_ID"
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+```python
+import json
+from urllib.request import urlopen
+
+with urlopen("http://127.0.0.1:8080/api/profile/get-profiles", timeout=10) as response:
+    profiles = json.load(response)
+print(profiles)
+```
+
+</Tabs.Tab>
+</Tabs>
+
+
+Listen Sie zuerst die Profile auf und übernehmen Sie die gewünschte `id`. Hardware- und Simulationsaufrufe verwenden `/api/profiles/{profileID}`. Die Profilauswahl im Browser gilt nicht für Ihr Skript. Routen ohne `/profiles/{profileID}` sind Kompatibilitätsaliasse für das Standardprofil. Wenn Sie das Standardprofil löschen, geben diese Aliasse HTTP 404 zurück. Verwenden Sie dann die ID eines vorhandenen Profils.
+
+Die Beispiele verwenden eine POSIX-Shell und `curl`; `jq` wird nur zur JSON-Umwandlung benötigt. Ersetzen Sie großgeschriebene Platzhalter durch tatsächliche IDs. UUIDs sind interne IDs und unterscheiden sich von DevEUI und Gateway EUI. Beachten Sie die Groß-/Kleinschreibung, insbesondere `OOTAConfig`, `RX1Config`, `MType` und `oota`.
+
+<Callout type="info">
+Die aktuelle API benötigt weder Anmeldung noch API-Token. Beschränken Sie den Zugriff auf vertrauenswürdige Clients. Browseranfragen und WebSocket-Ursprünge sind auf localhost/Loopback begrenzt; entfernte Browser benötigen einen geeigneten lokalen Zugang oder Proxy. Python und Kommandozeilenprogramme senden standardmäßig keinen Browser-Origin.
+</Callout>
+
+| Methode | Pfad | Anfrage / Ergebnis |
+| --- | --- | --- |
+| GET | `/api/app-info/info` | `{app,version}` |
+| GET | `/api/app-info/status` | `{port}` |
+
+
+## Antworten und Fehler
+
+Prüfen Sie vor der Verarbeitung den HTTP-Status. Fehler enthalten normalerweise `{"error":"…"}`. `202` bedeutet eingereiht, nicht zugestellt: prüfen Sie das Ergebnis in den Ereignissen.
+
+| HTTP | Anfrage / Ergebnis |
+| --- | --- |
+| 400 | Ungültiges JSON, Feldwerte oder Simulationszustand. |
+| 404 | Profil, Gerät, Gateway oder Lauf nicht gefunden. |
+| 409 | Konflikt, etwa eine andere aktive Simulation oder das Löschen des letzten Profils. |
+| 500 | Unerwarteter Serverfehler; Antwort und Backend-Protokoll für die Diagnose sichern. |
+
+
+- [Profile](/api/profiles)
+- [Geräte und Gateways](/api/hardware)
+- [Simulation und Nachrichten](/api/simulation)
+- [Ereignisse, Protokolle und Live-Daten](/api/events)

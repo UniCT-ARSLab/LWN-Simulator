@@ -1,0 +1,39 @@
+---
+title: LoRaWAN Simulator
+---
+
+import { Callout, Cards } from "nextra/components";
+
+# LoRaWAN Simulator
+
+Bienvenido a la documentación oficial de **LoRaWAN Simulator**.
+
+La aplicación permite crear, configurar y ejecutar simulaciones de redes LoRaWAN desde una interfaz gráfica. Incluye una edición de escritorio y una edición de servidor, ambas con el mismo espacio de simulación.
+
+<Callout type="info" emoji="💡">
+  Si es tu primera vez, empieza por [Instalación](./getting-started/installation) y continúa con la [guía de simulación](./simulation).
+</Callout>
+
+## Recorrido recomendado
+
+1. Instala la edición adecuada para tu entorno.
+2. Crea o selecciona un perfil de red.
+3. Añade dispositivos y gateways desde Hardware.
+4. Inicia la simulación y revisa métricas, enlaces y registros.
+
+<Cards num={2}>
+  <Cards.Card title="Configurar una red" href="./hardware" arrow>
+    Configura dispositivos, gateways, posiciones, radio y Gateway Bridge.
+  </Cards.Card>
+  <Cards.Card title="Ejecutar y analizar tráfico" href="./simulation" arrow>
+    Inicia una simulación, envía tráfico de protocolo y consulta los registros.
+  </Cards.Card>
+</Cards>
+
+## Secciones
+
+- [Primeros pasos](./getting-started/installation): instalación, conexión y problemas comunes.
+- [Perfiles](./profiles): redes independientes con hardware, ajustes e historial separados.
+- [Hardware](./hardware): dispositivos, gateways y bridge.
+- [Simulación](./simulation): controles, tráfico y métricas en tiempo real.
+- [Registros](./logs): historial de simulaciones y eventos por objeto.

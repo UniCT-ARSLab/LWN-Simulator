@@ -1,0 +1,20 @@
+title: GatewayBridgeConfig
+type: object
+
+properties:
+  enabled:
+    type: boolean
+  address:
+    type: string
+  port:
+    type: integer
+    format: int32
+    minimum: 1
+    maximum: 65535
+    x-oapi-codegen-extra-tags:
+      validate: "gt=0,lte=65535"
+
+required:
+  - enabled
+  - address
+  - port

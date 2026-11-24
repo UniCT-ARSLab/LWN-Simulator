@@ -1,0 +1,41 @@
+{
+  "extends": ["stylelint-config-standard-scss"],
+  "plugins": ["stylelint-order"],
+  "ignoreFiles": [".storybook/**"],
+  "rules": {
+    "order/properties-order": [
+      [
+        "position",
+        "top",
+        "right",
+        "bottom",
+        "left",
+
+        "display",
+        "align-items",
+        "justify-content",
+
+        "width",
+        "height",
+
+        "margin",
+        "padding",
+
+        "border",
+        "border-radius",
+
+        "background",
+        "color",
+
+        "font",
+        "font-size",
+
+        "cursor"
+      ]
+    ],
+
+    "scss/at-rule-no-unknown": true,
+    "color-function-notation": "modern",
+    "selector-class-pattern": "^(?:[a-z0-9]+(?:-[a-z0-9]+)*(?:__[a-z0-9]+(?:-[a-z0-9]+)*)?(?:--[a-z0-9]+(?:-[a-z0-9]+)*)?|Toastify__[A-Za-z0-9_-]+)$"
+  }
+}

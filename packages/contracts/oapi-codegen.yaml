@@ -1,0 +1,9 @@
+package: contracts
+
+output: generated/types.go
+
+generate:
+  models: true
+
+output-options:
+  skip-prune: true

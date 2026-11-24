@@ -1,0 +1,29 @@
+title: SimulationWebSocketMessage
+type: object
+
+properties:
+  profileID:
+    type: string
+    x-go-name: ProfileID
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,len=36,uuid4"
+  type:
+    $ref: "./SimulationWebSocketMessageType.yaml"
+  timestampMilliseconds:
+    type: integer
+    format: int64
+    x-go-name: TimestampMilliseconds
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  snapshot:
+    $ref: "./SimulationSnapshot.yaml"
+  event:
+    $ref: "./SimulationEvent.yaml"
+  error:
+    type: string
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty"
+
+required:
+  - type
+  - timestampMilliseconds

@@ -1,0 +1,368 @@
+.simulation-dashboard {
+  --dashboard-surface: var(--secondary-bg-color);
+  --dashboard-muted: var(--tertiary-bg-color);
+
+  gap: 1.25rem;
+  min-height: calc(100vh - 4rem);
+  padding: 2rem clamp(1.25rem, 3vw, 3rem);
+  background: var(--primary-bg-color);
+  color: var(--primary-text-color);
+  overflow-x: hidden;
+}
+
+.simulation-dashboard__header,
+.simulation-dashboard__controls,
+.simulation-dashboard__metric-grid,
+.simulation-dashboard__main-grid,
+.simulation-dashboard__runtime-grid,
+.simulation-dashboard__error,
+.simulation-dashboard__loading {
+  width: min(100%, 90rem);
+  margin: 0 auto;
+}
+
+.simulation-dashboard__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.simulation-dashboard__eyebrow,
+.simulation-dashboard__kicker {
+  margin: 0;
+  color: var(--secondary-text-color);
+  font-family: var(--secondary-font);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.simulation-dashboard h1,
+.simulation-dashboard h2 {
+  margin: 0.4rem 0 0.2rem;
+  letter-spacing: -0.03em;
+}
+
+.simulation-dashboard h1 {
+  font-size: clamp(1.8rem, 3vw, 2.5rem);
+}
+
+.simulation-dashboard h2 {
+  font-size: 1.05rem;
+}
+
+.simulation-dashboard__subtitle,
+.simulation-dashboard__section-heading > span,
+.simulation-dashboard__metric small,
+.simulation-dashboard__empty,
+.simulation-dashboard__runtime-list strong {
+  color: var(--secondary-text-color);
+}
+
+.simulation-dashboard__subtitle {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.simulation-dashboard__status {
+  display: grid;
+  justify-items: end;
+  gap: 0.45rem;
+}
+
+.simulation-dashboard__connection {
+  color: var(--secondary-text-color);
+  font: 0.68rem var(--secondary-font);
+  text-transform: uppercase;
+}
+
+.simulation-dashboard__controls {
+  border: 1px solid var(--border-color);
+  background: var(--dashboard-surface);
+}
+
+.simulation-dashboard__controls > .form {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-direction: row;
+  gap: 1.25rem;
+}
+
+.simulation-dashboard__controls .form-field-wrapper {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.simulation-dashboard__controls .form-button {
+  flex: 0 0 auto;
+  margin-top: 0;
+}
+
+
+.simulation-dashboard__simulation-lock {
+  margin: 0.75rem 0 0;
+  color: var(--secondary-text-color);
+  font: 0.72rem var(--secondary-font);
+}
+
+.simulation-dashboard__control-actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  margin-left: auto;
+}
+
+.simulation-dashboard__simulation-lock + .simulation-dashboard__control-actions {
+  margin-top: 0.75rem;
+}
+
+.simulation-dashboard__error {
+  padding: 0.75rem 1rem;
+  border: 1px solid
+    color-mix(in srgb, var(--error-color) 50%, var(--border-color));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--error-color) 10%, transparent);
+  color: var(--error-color);
+  font: 0.75rem var(--secondary-font);
+}
+
+.simulation-dashboard__metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.simulation-dashboard__metric {
+  min-width: 0;
+  border: 1px solid var(--border-color);
+  background: var(--dashboard-surface);
+}
+
+.simulation-dashboard__metric strong {
+  display: block;
+  margin: 0.75rem 0 0.4rem;
+  color: var(--primary-color);
+  font: 1.8rem var(--secondary-font);
+}
+
+.simulation-dashboard__metric small {
+  display: block;
+  min-height: 1.2rem;
+  font: 0.68rem var(--secondary-font);
+}
+
+.simulation-sparkline {
+  display: block;
+  width: 100%;
+  height: 2.8rem;
+  overflow: visible;
+}
+
+.simulation-sparkline polyline {
+  stroke: var(--primary-color);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.simulation-dashboard__main-grid,
+.simulation-dashboard__runtime-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(20rem, 0.75fr);
+  gap: 1rem;
+}
+
+.simulation-dashboard__map,
+.simulation-dashboard__events,
+.simulation-dashboard__runtime-grid > * {
+  min-width: 0;
+  border: 1px solid var(--border-color);
+  background: var(--dashboard-surface);
+}
+
+.simulation-dashboard__events {
+  display: flex;
+  flex-direction: column;
+}
+
+.simulation-dashboard__section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.simulation-dashboard__section-heading > span {
+  font: 0.68rem var(--secondary-font);
+}
+
+.simulation-dashboard__map-canvas {
+  height: 28rem;
+  min-height: 18rem;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+}
+
+.simulation-dashboard__map-canvas .sensor-map {
+  height: 100%;
+  min-height: 100%;
+}
+
+.simulation-dashboard__event-list {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 28rem;
+  overflow-y: auto;
+  border-top: 1px solid var(--border-color);
+}
+
+.simulation-dashboard__empty {
+  margin: auto 0 0;
+  padding-top: 1rem;
+}
+
+.simulation-dashboard__event {
+  display: grid;
+  grid-template-columns: 4.4rem minmax(7rem, auto) minmax(0, 1fr);
+  gap: 0.65rem;
+  align-items: baseline;
+  padding: 0.72rem 0;
+  border-bottom: 1px solid var(--border-color);
+  font: 0.68rem var(--secondary-font);
+}
+
+.simulation-dashboard__event time {
+  color: var(--secondary-text-color);
+}
+
+.simulation-dashboard__event strong {
+  overflow: hidden;
+  color: var(--primary-color);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.simulation-dashboard__event span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--primary-text-color);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.simulation-dashboard__runtime-list {
+  height: 20rem;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.simulation-dashboard__runtime-list-space {
+  position: relative;
+  width: 100%;
+}
+
+.simulation-dashboard__runtime-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  height: 2.9rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  will-change: transform;
+}
+
+.simulation-dashboard__runtime-list span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.simulation-dashboard__runtime-list strong {
+  flex: 0 0 auto;
+  font: 0.68rem var(--secondary-font);
+  text-align: right;
+}
+
+.simulation-dashboard__empty {
+  margin: 0;
+  font: 0.72rem var(--secondary-font);
+}
+
+.simulation-dashboard__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  min-height: 4rem;
+  color: var(--secondary-text-color);
+  font: 0.72rem var(--secondary-font);
+}
+
+@media (width <= 70rem) {
+  .simulation-dashboard__metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .simulation-dashboard__main-grid,
+  .simulation-dashboard__runtime-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (width <= 46rem) {
+  .simulation-dashboard__header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .simulation-dashboard__status {
+    justify-items: start;
+  }
+
+  .simulation-dashboard__controls > .form {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .simulation-dashboard__controls .form-field-wrapper {
+    width: 100%;
+  }
+
+  .simulation-dashboard__controls .form-button {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .simulation-dashboard__control-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    margin-left: 0;
+  }
+
+  .simulation-dashboard__metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .simulation-dashboard__event {
+    grid-template-columns: 3.5rem minmax(0, 1fr);
+  }
+
+  .simulation-dashboard__event span {
+    grid-column: 2;
+  }
+}

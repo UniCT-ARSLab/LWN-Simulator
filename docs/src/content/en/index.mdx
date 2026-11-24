@@ -1,0 +1,79 @@
+---
+title: LoRaWAN Simulator
+---
+
+import { Callout, Cards } from "nextra/components";
+
+# LoRaWAN Simulator
+
+Welcome to the official documentation of **LoRaWAN Simulator**.
+
+LoRaWAN Simulator is an application designed to simplify the creation, configuration, and execution of LoRaWAN network simulations through an intuitive graphical interface.
+
+The project is available in two editions:
+
+- **Desktop Edition** – A desktop application that provides a native user interface and can either start a local simulation server or connect to a remote one.
+- **Server Edition** – A standalone application that runs the simulation server and provides the web interface accessible through a browser.
+
+Both editions expose the same simulation workspace. The main difference is how
+the application is deployed and accessed.
+
+<Callout type="info" emoji="💡">
+  If you are trying the simulator for the first time, start with [Installation](/getting-started/installation), then follow the [Simulation guide](/simulation).
+</Callout>
+
+## Documentation
+
+### Getting Started
+
+Learn how to install the application and choose the deployment that best fits
+your needs.
+
+- [Installation](/getting-started/installation)
+- [Desktop Edition](/getting-started/desktop-edition)
+- [Server Edition](/getting-started/server-edition)
+- [Configuration](/getting-started/configuration)
+- [Troubleshooting](/getting-started/troubleshooting)
+
+<Cards num={2}>
+  <Cards.Card
+    title="Configure a network"
+    href="/hardware"
+    arrow
+  >
+    Create devices and gateways, place them on the map, and configure a
+    Gateway Bridge when you want to connect external gateway software.
+  </Cards.Card>
+  <Cards.Card
+    title="Run and inspect traffic"
+    href="/simulation"
+    arrow
+  >
+    Start a repeatable simulation, inject protocol traffic, follow the live
+    metrics, and inspect every event from Logs.
+  </Cards.Card>
+</Cards>
+
+### Hardware
+
+Read the [Hardware management guide](/hardware) to learn how to configure
+devices and gateways, use the map, connect real gateways through the Gateway
+Bridge, and interpret the detail pages.
+
+### Profiles
+
+Use [Profiles](/profiles) to keep multiple independent network configurations
+in the same application. Each profile has its own hardware, bridge settings,
+and simulation history.
+
+### Simulation
+
+Use the [Simulation guide](/simulation) to start a run, read the live metrics,
+inject uplinks and downlinks, send MAC commands, and monitor gateway
+connectivity.
+
+### Logs
+
+Use [Logs](/logs) to review previous and currently running simulations, inspect
+their event streams, and follow the history of an individual device or
+gateway.

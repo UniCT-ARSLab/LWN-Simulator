@@ -1,0 +1,33 @@
+title: ProfileArchive
+type: object
+properties:
+  format:
+    type: string
+    minLength: 1
+  version:
+    type: integer
+    format: int32
+    minimum: 1
+  profile:
+    $ref: "./Profile.yaml"
+  devices:
+    type: array
+    items:
+      $ref: "../Device/Device.yaml"
+  gateways:
+    type: array
+    items:
+      $ref: "../Gateway/Gateway.yaml"
+  gatewayBridge:
+    $ref: "../Simulation/GatewayBridgeConfig.yaml"
+  logs:
+    type: array
+    items:
+      $ref: "./ProfileLog.yaml"
+required:
+  - format
+  - version
+  - profile
+  - devices
+  - gateways
+  - logs

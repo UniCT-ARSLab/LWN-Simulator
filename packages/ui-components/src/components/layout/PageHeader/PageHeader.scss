@@ -1,0 +1,35 @@
+// PageHeader
+@use "../../../styles/fonts.scss" as *;
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 2rem;
+
+  .titles {
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    gap: calc(var(--gap) / 2);
+
+    .title {
+      font-size: font-size("4xl");
+      white-space: nowrap;
+    }
+
+    .sub-title {
+      color: var(--secondary-text-color);
+      font-size: font-size("xl");
+      white-space: nowrap;
+    }
+  }
+
+  .childrens {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--gap);
+  }
+}

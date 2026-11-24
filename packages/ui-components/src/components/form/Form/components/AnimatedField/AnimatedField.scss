@@ -1,0 +1,99 @@
+// AnimatedField
+
+.form-field-wrapper {
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  gap: calc(var(--gap) / 2);
+  width: 100%;
+  transition: all 0.2s ease-in-out;
+
+  &.in {
+    animation: form-field-fade-in 0.4s ease-in-out;
+
+    @keyframes form-field-fade-in {
+      0% {
+        max-height: 0;
+        opacity: 0;
+        filter: blur(12px);
+      }
+
+      100% {
+        max-height: 400px;
+        opacity: 1;
+        filter: blur(0);
+      }
+    }
+  }
+
+  &.out {
+    animation: form-field-fade-out 0.4s ease-in-out forwards;
+
+    @keyframes form-field-fade-out {
+      0% {
+        max-height: 400px;
+        opacity: 1;
+        filter: blur(0);
+      }
+
+      100% {
+        max-height: 0;
+        opacity: 0;
+        filter: blur(12px);
+      }
+    }
+  }
+
+  .form-field-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--gap);
+
+    .field-label {
+      font-weight: 600;
+      font-size: font-size(lg);
+      text-wrap: nowrap;
+    }
+
+    .error {
+      color: var(--error-color);
+      text-wrap: nowrap;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+
+  .field-wrapper {
+    display: flex;
+    align-items: center;
+    gap: var(--gap);
+    width: 100%;
+
+    .form-field {
+      transition: all 0.2s ease-in-out;
+      flex: 1;
+
+      &.disabled {
+        pointer-events: none;
+        filter: saturate(0) brightness(0.5);
+      }
+    }
+  }
+
+  .field-info {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+
+    span {
+      color: var(--secondary-text-color);
+      font-size: font-size(xs);
+    }
+
+    .icon {
+      font-size: font-size(md);
+    }
+  }
+}

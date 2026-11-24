@@ -1,0 +1,32 @@
+title: SimulationMACCommandType
+type: string
+
+enum:
+  - link-check-ans
+  - link-adr-req
+  - duty-cycle-req
+  - rx-param-setup-req
+  - dev-status-req
+  - new-channel-req
+  - rx-timing-setup-req
+  - tx-param-setup-req
+  - dl-channel-req
+  - device-time-ans
+  - ping-slot-info-ans
+  - ping-slot-channel-req
+  - beacon-freq-req
+
+x-enum-varnames:
+  - LinkCheckAns
+  - LinkADRReq
+  - DutyCycleReq
+  - RXParamSetupReq
+  - DevStatusReq
+  - NewChannelReq
+  - RXTimingSetupReq
+  - TXParamSetupReq
+  - DLChannelReq
+  - DeviceTimeAns
+  - PingSlotInfoAns
+  - PingSlotChannelReq
+  - BeaconFreqReq

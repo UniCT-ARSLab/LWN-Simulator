@@ -1,0 +1,17 @@
+// Form
+
+@use "./components/components";
+@use "../../../styles/fonts" as *;
+
+.form {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  width: 100%;
+  gap: var(--gap);
+
+  .form-button {
+    margin-top: var(--gap);
+  }
+}

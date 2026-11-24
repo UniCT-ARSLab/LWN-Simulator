@@ -1,0 +1,14 @@
+title: UpdateDevicePayloadRequest
+type: object
+properties:
+  payload:
+    type: string
+    description: Application payload. An empty string clears the payload.
+    x-go-type: "*string"
+    x-oapi-codegen-extra-tags:
+      validate: "required"
+  base64Encoded:
+    type: boolean
+    description: Whether the payload is Base64. Omit to keep the current setting.
+required:
+  - payload

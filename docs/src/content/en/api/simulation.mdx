@@ -1,0 +1,74 @@
+---
+title: "Simulation and messages"
+---
+
+# Simulation and messages
+
+Set `SERVER` and `BASE` as shown in [Connection and first request](/api) before running these commands.
+
+Paths below are relative to `$BASE`. One simulation may run or remain paused per backend, across all profiles and clients. At least one active device or gateway is required. Use speed `1` when a bridge or Real gateway participates. Include `gatewayBridge` in the start body to use an external bridge; saving its configuration alone is not a substitute for this start parameter in an HTTP client.
+
+| Method | Path | Request / result |
+| --- | --- | --- |
+| POST | `/simulation/start` | Start: `{"speed":1,"seed":42,"gatewayBridge":{"enabled":true,"address":"127.0.0.1","port":17800}}` → snapshot. Omit `gatewayBridge` for an internal-only run; `seed` is optional. |
+| POST | `/simulation/speed` | `{"speed":2}` → snapshot; external transports require `1`. |
+| POST | `/simulation/pause` | Pause → snapshot. |
+| POST | `/simulation/resume` | Resume → snapshot. |
+| POST | `/simulation/stop` | Stop → snapshot. |
+| GET | `/simulation/snapshot` | Read `{state,metrics,devices,gateways}`. |
+| POST | `/simulation/uplinks` | `{"deviceID":"DEVICE_UUID"}` → `202 {id}`. Uses the configured payload and protocol; OTAA may first perform a join. |
+| POST | `/simulation/downlinks` | Base64 bytes and optional LoRaWAN flags → `202 {id}`. |
+| POST | `/simulation/mac-commands` | `{"deviceID":"DEVICE_UUID","command":{"type":"dev-status-req"}}` → `202 {id}`. |
+| GET | `/simulation/metrics` | Prometheus metrics as text, not JSON. |
+
+
+## Control a run
+
+`GET /api/simulation/activity` is global: inspect it before starting a run to find whether another profile owns the active simulation. Control calls and snapshots return the simulation state, not a delivery acknowledgement.
+
+```bash
+curl -fsS "$SERVER/api/simulation/activity"
+curl -fsS "$BASE/simulation/start" -H 'Content-Type: application/json' -d '{"speed":1,"seed":42}'
+curl -fsS "$BASE/simulation/snapshot"
+curl -fsS -X POST "$BASE/simulation/pause"
+curl -fsS -X POST "$BASE/simulation/resume"
+curl -fsS -X POST "$BASE/simulation/stop"
+```
+
+
+## Send traffic
+
+Queue traffic while the simulation is running or paused; paused traffic is processed after resuming. A manual uplink can be rejected if that device already has a protocol transaction in progress. The message examples below require an active run; restart it if you used the stop command above.
+
+The downlink `payload` is always Base64 in HTTP JSON, even if your data is UTF-8. `fPort` is 1–223 for application LoRaWAN data; omit `dataRate` for automatic selection. Optional flags are `confirmed`, `ack`, `fPending`; `macCommands` can carry a list of MAC commands. Delivery depends on device class, session, coverage and receive windows. For Raw LoRa, configure the device accordingly before starting; do not wrap raw bytes in a LoRaWAN application payload.
+
+```bash
+curl -fsS "$BASE/simulation/uplinks" -H 'Content-Type: application/json' \
+  -d '{"deviceID":"DEVICE_UUID"}'
+curl -fsS "$BASE/simulation/downlinks" -H 'Content-Type: application/json' \
+  -d '{"deviceID":"DEVICE_UUID","payload":"SGVsbG8=","fPort":10}'
+curl -fsS "$BASE/simulation/mac-commands" -H 'Content-Type: application/json' \
+  -d '{"deviceID":"DEVICE_UUID","command":{"type":"dev-status-req"}}'
+```
+
+
+## MAC commands
+
+MAC command names and parameter keys are listed below. Supply the fields required by the command; regional validation still applies. Frequencies are Hz, `delaySeconds` is seconds and `deviceTimeMilliseconds` is a Unix timestamp in milliseconds. Not every optional parameter is relevant to every command.
+
+| `command.type` | Request / result |
+| --- | --- |
+| `link-check-ans` | `margin`, `gatewayCount` |
+| `link-adr-req` | `dataRate`, `txPower`, `nbTrans`, `channelMask`, `channelMaskControl` |
+| `duty-cycle-req` | `maxDutyCycleExponent` |
+| `rx-param-setup-req` | `dataRate`, `frequency`, `rx1DataRateOffset` |
+| `dev-status-req` | `—` |
+| `new-channel-req` | `channelIndex`, `frequency`, `minimumDataRate`, `maximumDataRate` |
+| `rx-timing-setup-req` | `delaySeconds` |
+| `tx-param-setup-req` | `uplinkDwellTime`, `downlinkDwellTime`, `maximumEIRP` |
+| `dl-channel-req` | `channelIndex`, `frequency` |
+| `device-time-ans` | `deviceTimeMilliseconds` |
+| `ping-slot-info-ans` | `pingSlotPeriodicity` |
+| `ping-slot-channel-req` | `frequency`, `dataRate` |
+| `beacon-freq-req` | `frequency` |
+

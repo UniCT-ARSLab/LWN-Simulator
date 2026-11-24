@@ -1,0 +1,15 @@
+title: SimulationRunsResponse
+type: object
+properties:
+  runs:
+    type: array
+    items:
+      $ref: "./SimulationRun.yaml"
+  total:
+    type: integer
+    format: int32
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+required:
+  - runs
+  - total

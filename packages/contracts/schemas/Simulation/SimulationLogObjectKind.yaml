@@ -1,0 +1,5 @@
+title: SimulationLogObjectKind
+type: string
+enum:
+  - device
+  - gateway

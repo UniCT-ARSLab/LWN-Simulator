@@ -1,5 +1,62 @@
-bin
-.idea
-.fleet
-lwnsimulator
-webserver/statik/statik.go
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+node_modules/
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+.agents
+.codex
+.aws
+
+# testing
+/coverage
+**/coverage/
+**/playwright-report/
+**/test-results/
+
+# next.js
+**/.next/
+**/out/
+**/dist/
+**/web/**
+!**/web/.gitkeep
+**/dev-db/**
+!apps/backend/dev-db/
+!apps/backend/dev-db/devices.json
+!apps/backend/dev-db/gateways.json
+**/generated/
+**/assets/
+**/storybook-static/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+releases/**
+
+debug-storybook.log

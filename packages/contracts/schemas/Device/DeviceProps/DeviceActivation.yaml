@@ -1,0 +1,10 @@
+title: DeviceClass
+type: string
+
+enum:
+  - oota
+  - abp
+
+x-enum-varnames:
+  - OOTA
+  - ABP

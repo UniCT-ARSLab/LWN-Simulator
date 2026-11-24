@@ -1,0 +1,13 @@
+title: RadioReceiveMode
+type: string
+description: Protocols accepted by a device when it listens for radio frames.
+
+enum:
+  - lorawan
+  - raw-lora
+  - auto
+
+x-enum-varnames:
+  - ReceiveLoRaWAN
+  - ReceiveRawLoRa
+  - ReceiveAuto

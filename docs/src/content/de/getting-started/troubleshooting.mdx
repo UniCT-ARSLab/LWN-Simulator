@@ -1,0 +1,9 @@
+---
+title: Fehlerbehebung
+---
+
+# Fehlerbehebung
+
+Wenn der Server nicht erreichbar ist, prüfen Sie Adresse, Port, Firewall und Backend-Status. Pro Backend ist nur eine Simulation erlaubt; beenden Sie eine Simulation in einem anderen Profil, bevor Sie eine neue starten.
+
+Bei Virtual-Gateways bezeichnen Adresse und Port unter **Hardware → Gateway Bridge** den externen Bridge-Dienst, der den Datenverkehr empfängt. Bei Real-Gateways sendet der Packet Forwarder dagegen an den UDP-Listener des Backends (standardmäßig Port 1700). Beachten Sie diese unterschiedlichen Richtungen; siehe [Verbindungsbeispiele](../hardware/gateway-bridge). Wenn Protokolle nicht aktualisiert werden, prüfen Sie die Verbindung und laden Sie die Seite neu.

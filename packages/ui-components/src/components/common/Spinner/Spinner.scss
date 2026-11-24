@@ -1,0 +1,48 @@
+// Spinner
+
+.light-theme {
+  .spinner {
+    --color-1: #000;
+  }
+}
+
+.dark-theme {
+  .spinner {
+    --color-1: #fff;
+  }
+}
+
+.spinner {
+  position: relative;
+  display: inline-block;
+  width: calc(48 * var(--size));
+  height: calc(48 * var(--size));
+  border: calc(3 * var(--size)) solid var(--color-1);
+  border-radius: 50%;
+  box-sizing: border-box;
+  animation: rotation 1s linear infinite;
+
+  &::after {
+    content: "";
+    box-sizing: border-box;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: calc(56 * var(--size));
+    height: calc(56 * var(--size));
+    border: calc(3 * var(--size)) solid transparent;
+    border-radius: 50%;
+    border-bottom-color: var(--color-2);
+  }
+}
+
+@keyframes rotation {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}

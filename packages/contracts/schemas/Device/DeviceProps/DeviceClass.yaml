@@ -1,0 +1,12 @@
+title: DeviceClass
+type: string
+
+enum:
+  - class-a
+  - class-b
+  - class-c
+
+x-enum-varnames:
+  - ClassA
+  - ClassB
+  - ClassC

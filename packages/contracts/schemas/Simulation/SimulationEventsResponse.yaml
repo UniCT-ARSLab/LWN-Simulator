@@ -1,0 +1,18 @@
+title: SimulationEventsResponse
+type: object
+
+properties:
+  events:
+    type: array
+    items:
+      $ref: "./SimulationEvent.yaml"
+  lastSequence:
+    type: integer
+    format: int64
+    minimum: 0
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+
+required:
+  - events
+  - lastSequence

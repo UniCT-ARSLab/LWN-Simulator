@@ -1,0 +1,12 @@
+title: SimulationActionResponse
+type: object
+
+properties:
+  id:
+    type: string
+    x-go-name: ID
+    x-oapi-codegen-extra-tags:
+      validate: "required,uuid4"
+
+required:
+  - id

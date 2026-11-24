@@ -1,0 +1,19 @@
+// Logo
+
+.logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1/1;
+  padding: 0.7rem;
+  border-radius: var(--radius-md);
+
+  &.background {
+    box-shadow: 0 0 5px #0003;
+  }
+
+  svg {
+    max-width: 100%;
+    aspect-ratio: 1008/1024;
+  }
+}

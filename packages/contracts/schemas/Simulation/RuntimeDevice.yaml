@@ -1,0 +1,119 @@
+title: RuntimeDevice
+type: object
+
+properties:
+  id:
+    type: string
+    x-go-name: ID
+    x-oapi-codegen-extra-tags:
+      validate: "required,len=36"
+  name:
+    type: string
+    x-oapi-codegen-extra-tags:
+      validate: "required"
+  active:
+    type: boolean
+  status:
+    $ref: "./RuntimeStatus.yaml"
+  joined:
+    type: boolean
+  frameCounterUp:
+    type: integer
+    format: int64
+    x-go-name: FrameCounterUp
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  frameCounterDown:
+    type: integer
+    format: int64
+    x-go-name: FrameCounterDown
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  pendingConfirmedUplink:
+    type: boolean
+    x-go-name: PendingConfirmedUplink
+  lastRSSI:
+    type: number
+    format: double
+    x-go-type: float64
+    x-go-name: LastRSSI
+  lastSNR:
+    type: number
+    format: double
+    x-go-type: float64
+    x-go-name: LastSNR
+  lastAirtimeMilliseconds:
+    type: integer
+    format: int64
+    x-go-name: LastAirtimeMilliseconds
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  lastChannelFrequency:
+    type: integer
+    format: int64
+    x-go-name: LastChannelFrequency
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  currentDataRate:
+    type: integer
+    x-go-name: CurrentDataRate
+    x-oapi-codegen-extra-tags:
+      validate: "min=0,max=15"
+  currentSpreadingFactor:
+    type: integer
+    x-go-name: CurrentSpreadingFactor
+    x-oapi-codegen-extra-tags:
+      validate: "min=7,max=12"
+  lastPayloadSize:
+    type: integer
+    x-go-name: LastPayloadSize
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  lastFPort:
+    type: integer
+    x-go-name: LastFPort
+    x-oapi-codegen-extra-tags:
+      validate: "min=1,max=223"
+  classBSynchronized:
+    type: boolean
+    x-go-name: ClassBSynchronized
+  lastBeaconTimestampMilliseconds:
+    type: integer
+    format: int64
+    x-go-name: LastBeaconTimestampMilliseconds
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  nextPingSlotTimestampMilliseconds:
+    type: integer
+    format: int64
+    x-go-name: NextPingSlotTimestampMilliseconds
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  classBMissedBeacons:
+    type: integer
+    format: int64
+    x-go-name: ClassBMissedBeacons
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+
+required:
+  - id
+  - name
+  - active
+  - status
+  - joined
+  - frameCounterUp
+  - frameCounterDown
+  - pendingConfirmedUplink
+  - lastRSSI
+  - lastSNR
+  - lastAirtimeMilliseconds
+  - lastChannelFrequency
+  - currentDataRate
+  - currentSpreadingFactor
+  - lastPayloadSize
+  - lastFPort
+  - classBSynchronized
+  - lastBeaconTimestampMilliseconds
+  - nextPingSlotTimestampMilliseconds
+  - classBMissedBeacons

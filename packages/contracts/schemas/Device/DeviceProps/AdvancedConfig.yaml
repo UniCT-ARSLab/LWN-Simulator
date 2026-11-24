@@ -1,0 +1,19 @@
+title: AdvancedConfig
+type: object
+
+properties:
+  antennaRange:
+    type: number
+    x-oapi-codegen-extra-tags:
+      validate: "required,gt=0"
+  ADREnabled:
+    type: boolean
+  uplinkDataRate:
+    type: integer
+    description: Initial uplink data rate. The valid range depends on the selected region (up to DR6 for AU915); when omitted, the engine uses the regional default.
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,min=0,max=6"
+
+required:
+  - antennaRange
+  - ADREnabled

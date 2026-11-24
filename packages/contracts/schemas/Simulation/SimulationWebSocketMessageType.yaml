@@ -1,0 +1,12 @@
+title: SimulationWebSocketMessageType
+type: string
+
+enum:
+  - snapshot
+  - event
+  - error
+
+x-enum-varnames:
+  - SimulationSnapshotMessage
+  - SimulationEventMessage
+  - SimulationErrorMessage

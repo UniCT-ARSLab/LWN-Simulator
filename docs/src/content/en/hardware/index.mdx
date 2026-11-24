@@ -1,0 +1,104 @@
+---
+title: Hardware management
+---
+
+import { Callout, Steps } from "nextra/components";
+
+# Hardware management
+
+The Hardware section is the place where the simulated LoRaWAN network is
+configured. It provides a list, filters, creation and editing forms, detail
+pages, and a map for devices and gateways.
+
+All hardware pages belong to the profile selected in the application header.
+Select the appropriate profile before creating or editing a network so that
+the changes are saved in the intended configuration. Profiles are independent:
+devices and gateways from another profile are not shown here.
+
+## Using the Hardware section
+
+Use **Devices** to configure LoRaWAN end devices and **Gateways** to configure
+the network endpoints that connect them to the simulation. Each area provides
+its own list, filters, creation form, detail page, and editing workflow.
+
+The forms guide you through the configuration and show only the fields that
+apply to the selected mode. For example, a device displays OTAA or ABP
+credentials according to its activation type, while a gateway displays
+keep-alive settings or network connection settings according to its type.
+
+Identifiers generated during creation are shown in the form and kept stable
+when the object is edited. Validation messages identify invalid or incomplete
+values before submission. After an operation, the application reports the
+result with a notification and returns to the most useful page when the action
+is complete.
+
+The simulation home page provides the operational view of the configured
+network: map, active hardware, health indicators, uptime, and recent events.
+Metrics that depend on simulation traffic remain unavailable until traffic is
+produced.
+
+<Callout type="info" emoji="🧩">
+  Start with a small network while learning the simulator: one device, one
+  gateway, and a location where the device is inside the gateway’s coverage.
+  Add more hardware only after the first traffic is behaving as expected.
+</Callout>
+
+## Creating hardware
+
+<Steps>
+### Choose the object type
+
+Open **Hardware** and select **Devices** or **Gateways**.
+
+### Complete the form
+
+Select **Create**, complete the form, and use the map to select or refine
+latitude and longitude when available.
+
+### Save and verify
+
+Submit the form and check the notification for the result. Required fields and
+invalid values are reported before the request is sent.
+</Steps>
+
+New devices are active by default. The create request therefore does not need
+an `active` field. The active state can be changed later from the edit form.
+
+The same workflow applies to gateways. Their form changes according to the
+selected gateway type; see [Gateways](./gateways) for the exact behavior.
+
+## Lists, filters, and details
+
+The list pages support searching and filtering the records before opening one.
+Selecting a row opens the detail page, where values are grouped by purpose
+instead of being shown as one undifferentiated list. This keeps the page usable
+as runtime and simulation information is added in the future.
+
+From a detail page:
+
+- use **Edit** to update the configuration;
+- use **Delete** to remove the object after confirmation;
+- use **Back** to return to the previous page;
+- use the map to inspect the object in its geographic context.
+
+Actions show a success or error notification. A successful create returns to
+the relevant list, while a successful edit or delete returns to the previous
+context.
+
+If the same simulator is open in another browser tab or on another connected
+client, device and gateway changes appear there automatically. This keeps
+hardware lists, maps, and forms consistent while the network is being
+configured.
+
+## Map behavior
+
+The map starts centered on the Catania area and keeps its initial position once
+mounted. It does not periodically replace the user’s position with browser
+geolocation.
+
+Selecting a marker opens a compact tooltip. Clicking anywhere outside the
+tooltip closes it. Device selection also displays the configured antenna range
+as a white dashed circle, expressed in meters.
+
+See the detailed field reference for [devices](./devices) and
+[gateways](./gateways).

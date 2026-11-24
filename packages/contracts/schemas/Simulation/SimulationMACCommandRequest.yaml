@@ -1,0 +1,15 @@
+title: SimulationMACCommandRequest
+type: object
+
+properties:
+  deviceID:
+    type: string
+    x-go-name: DeviceID
+    x-oapi-codegen-extra-tags:
+      validate: "required,uuid4"
+  command:
+    $ref: "./SimulationMACCommand.yaml"
+
+required:
+  - deviceID
+  - command

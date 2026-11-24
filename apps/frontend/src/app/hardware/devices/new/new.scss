@@ -1,0 +1,37 @@
+.new-device-page {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 4rem - 2.5rem);
+  max-height: calc(100vh - 4rem - 2.5rem);
+  overflow: hidden;
+
+  .page-content {
+    display: flex;
+    justify-content: center;
+    flex: 1;
+    max-height: 100%;
+    gap: var(--gap);
+    overflow: hidden;
+
+    .form-wrapper {
+      height: 100%;
+      max-height: 100%;
+      overflow-y: auto;
+      flex: 3;
+
+      .submit-button {
+        position: absolute;
+        top: 1.5rem;
+        right: 1.5rem;
+        margin-top: 0;
+      }
+    }
+
+    .sensor-map {
+      flex: 2;
+      width: 80%;
+      height: 100%;
+    }
+  }
+}

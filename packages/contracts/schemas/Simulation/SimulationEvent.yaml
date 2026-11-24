@@ -1,0 +1,148 @@
+title: SimulationEvent
+type: object
+
+properties:
+  radioProtocol:
+    $ref: "../Device/DeviceProps/RadioProtocol.yaml"
+  telemetry:
+    $ref: "./SimulationTelemetry.yaml"
+  uplinkOutcome:
+    type: string
+    x-enum-varnames:
+      - UplinkStarted
+      - UplinkSucceeded
+      - UplinkDropped
+      - UplinkAccepted
+    enum: [started, succeeded, dropped, accepted]
+  id:
+    type: string
+    x-go-name: ID
+    x-oapi-codegen-extra-tags:
+      validate: "required,len=36"
+  sequence:
+    type: integer
+    format: int64
+    x-oapi-codegen-extra-tags:
+      validate: "required,min=1"
+  type:
+    $ref: "./SimulationEventType.yaml"
+  timestampMilliseconds:
+    type: integer
+    format: int64
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  message:
+    type: string
+    x-oapi-codegen-extra-tags:
+      validate: "required"
+  deviceID:
+    type: string
+    x-go-name: DeviceID
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,len=36"
+  gatewayID:
+    type: string
+    x-go-name: GatewayID
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,len=36"
+  scheduledEventID:
+    type: string
+    x-go-name: ScheduledEventID
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty"
+  packetID:
+    type: string
+    x-go-name: PacketID
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,len=36"
+  frameCounter:
+    type: integer
+    format: int64
+    x-go-name: FrameCounter
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,min=0"
+  retryAttempt:
+    type: integer
+    format: int32
+    x-go-name: RetryAttempt
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,min=1"
+  confirmed:
+    type: boolean
+    x-go-name: Confirmed
+  rxWindow:
+    $ref: "./SimulationRxWindow.yaml"
+  channelFrequency:
+    type: integer
+    format: int64
+    x-go-name: ChannelFrequency
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,min=1"
+  bandwidth:
+    type: integer
+    format: int64
+    x-go-name: Bandwidth
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,min=1"
+  spreadingFactor:
+    type: integer
+    format: int32
+    x-go-name: SpreadingFactor
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,min=7,max=12"
+  airtimeMilliseconds:
+    type: integer
+    format: int64
+    x-go-name: AirtimeMilliseconds
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,min=1"
+  rssi:
+    type: number
+    format: double
+    x-go-type: float64
+    x-go-name: RSSI
+  snr:
+    type: number
+    format: double
+    x-go-type: float64
+    x-go-name: SNR
+  collision:
+    type: boolean
+    x-go-name: Collision
+  radioLossReason:
+    $ref: "./SimulationRadioLossReason.yaml"
+  gatewayState:
+    $ref: "./GatewayConnectionState.yaml"
+  payloadSize:
+    type: integer
+    format: int64
+    x-go-name: PayloadSize
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,min=0"
+  fPort:
+    type: integer
+    x-go-name: FPort
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,min=1,max=223"
+  dataRate:
+    type: integer
+    x-go-name: DataRate
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,min=0,max=15"
+  error:
+    type: string
+    x-go-name: Error
+  decodedPayload:
+    type: object
+    additionalProperties: true
+    x-go-name: DecodedPayload
+  radioFrame:
+    $ref: "./RadioFrame.yaml"
+    description: Radio-level frame associated with this event, when available.
+
+required:
+  - id
+  - sequence
+  - type
+  - timestampMilliseconds
+  - message

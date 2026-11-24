@@ -1,0 +1,57 @@
+title: Device
+type: object
+
+properties:
+  id:
+    type: string
+    x-go-name: ID
+    x-oapi-codegen-extra-tags:
+      validate: "required,len=36"
+  active:
+    type: boolean
+  name:
+    type: string
+  devEUI:
+    type: string
+    x-oapi-codegen-extra-tags:
+      validate: "required,len=16"
+  class:
+    $ref: "./DeviceProps/DeviceClass.yaml"
+  RX1Config:
+    $ref: "./DeviceProps/RX1Config.yaml"
+  RX2Config:
+    $ref: "./DeviceProps/RX2Config.yaml"
+  activation:
+    $ref: "./DeviceProps/DeviceActivation.yaml"
+  radioProtocol:
+    $ref: "./DeviceProps/RadioProtocol.yaml"
+    description: Protocol used when the device transmits a radio frame. Omitted values default to lorawan.
+  radioReceiveMode:
+    $ref: "./DeviceProps/RadioReceiveMode.yaml"
+    description: Protocol accepted while the device listens. Omitted values default to lorawan.
+  OOTAConfig:
+    $ref: "./DeviceProps/OOTAConfig.yaml"
+  ABPConfig:
+    $ref: "./DeviceProps/ABPConfig.yaml"
+  locationConfig:
+    $ref: "./DeviceProps/LocationConfig.yaml"
+  frameConfig:
+    $ref: "./DeviceProps/FrameConfig.yaml"
+  payloadConfig:
+    $ref: "./DeviceProps/PayloadConfig.yaml"
+  advancedConfig:
+    $ref: "./DeviceProps/AdvancedConfig.yaml"
+
+required:
+  - id
+  - active
+  - name
+  - devEUI
+  - class
+  - RX1Config
+  - RX2Config
+  - activation
+  - locationConfig
+  - frameConfig
+  - payloadConfig
+  - advancedConfig

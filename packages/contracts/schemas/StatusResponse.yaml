@@ -1,0 +1,9 @@
+title: StatusResponse
+type: object
+
+properties:
+  port:
+    type: string
+
+required:
+  - port

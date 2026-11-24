@@ -1,0 +1,9 @@
+title: UpdateGatewayResponse
+type: object
+
+properties:
+  gateway:
+    $ref: "./Gateway.yaml"
+
+required:
+  - gateway
