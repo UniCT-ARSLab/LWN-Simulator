@@ -1,4 +1,4 @@
-name: Deploy docs + storybook to GitHub Pages
+name: Deploy docs + Storybook to GitHub Pages
 
 on:
   workflow_dispatch:
@@ -8,108 +8,84 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pages: read
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      # ----------------------------
-      # Setup Node + Yarn
-      # ----------------------------
-
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
         with:
-          node-version: 20
-          cache: yarn
-          cache-dependency-path: |
-            yarn.lock
-            docs/yarn.lock
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-toolchain
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
 
       - name: Install workspace dependencies
         run: yarn install --immutable
-
-      # ----------------------------
-      # Nextra
-      # ----------------------------
 
       - name: Install docs dependencies
         working-directory: docs
         run: yarn install --immutable
 
-      - name: Build docs
+      - name: Build docs and search index
         working-directory: docs
+        env:
+          NEXT_PUBLIC_GITHUB_PAGES: "true"
         run: |
           yarn build
           yarn postbuild
-        env:
-          NODE_ENV: production
-          NEXT_PUBLIC_GITHUB_PAGES: true
-
-      - name: Prepare docs artifact
-        run: |
-          mkdir -p pages/docs
-          cp -r docs/out/* pages/docs/
-
-      # ----------------------------
-      # Storybook
-      # ----------------------------
 
       - name: Build Storybook
         run: yarn workspace @lwn-simulator/ui-components build-storybook
 
-      - name: Prepare Storybook artifact
+      - name: Assemble and verify site
+        shell: bash
         run: |
-          mkdir -p pages/storybook
-          cp -r packages/ui-components/storybook-static/* pages/storybook/
-
-      # ----------------------------
-      # Redirect /
-      # ----------------------------
-
-      - name: Create root redirect
-        run: |
-          cat > pages/index.html <<EOF
+          mkdir -p pages/{docs,storybook}
+          cp -R docs/out/. pages/docs/
+          cp -R packages/ui-components/storybook-static/. pages/storybook/
+          cat > pages/index.html <<'HTML'
           <!DOCTYPE html>
-          <html>
-            <head>
-              <meta charset="utf-8">
-              <meta http-equiv="refresh" content="0; url=./docs/">
-              <title>Redirecting...</title>
-            </head>
-            <body>
-              Redirecting...
-            </body>
+          <html lang="en">
+            <meta charset="utf-8">
+            <meta http-equiv="refresh" content="0; url=./docs/">
+            <title>LWN Simulator documentation</title>
+            <a href="./docs/">Open the LWN Simulator documentation</a>
           </html>
-          EOF
+          HTML
 
-      # ----------------------------
-      # Verify
-      # ----------------------------
-
-      - name: Verify artifact
-        run: |
-          find pages -maxdepth 2 -type f | sort | head -100
+          test -s pages/docs/index.html
+          for locale in en it es fr de; do
+            test -s "pages/docs/$locale.html"
+          done
+          test -s pages/docs/_pagefind/pagefind.js
+          test -s pages/storybook/index.html
+          test -s pages/storybook/iframe.html
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: pages
 
   deploy:
     needs: build
-
-    runs-on: ubuntu-latest
-
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

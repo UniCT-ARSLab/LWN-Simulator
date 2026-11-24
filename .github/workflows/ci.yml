@@ -2,30 +2,29 @@ name: CI
 
 on:
   pull_request:
-  push:
-    branches:
-      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   validate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/checkout@v6
         with:
-          node-version: 20
-          cache: yarn
-          cache-dependency-path: yarn.lock
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-toolchain
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: apps/backend/go.mod
           cache: true
@@ -40,9 +39,6 @@ jobs:
         working-directory: docs
         run: yarn install --immutable
 
-      - name: Generate contracts
-        run: yarn generate
-
       - name: Type-check
         run: yarn typecheck
 
@@ -52,11 +48,28 @@ jobs:
       - name: Build frontend assets
         run: yarn workspace @lwn-simulator/frontend build
 
-      - name: Install Playwright browsers
-        run: yarn workspace @lwn-simulator/frontend exec playwright install --with-deps chromium firefox webkit
+      - name: Build documentation and search index
+        working-directory: docs
+        env:
+          NEXT_PUBLIC_GITHUB_PAGES: "true"
+        run: |
+          yarn build
+          yarn postbuild
+
+      - name: Build Storybook
+        run: yarn workspace @lwn-simulator/ui-components build-storybook
 
       - name: Test frontend unit suite
         run: yarn test:frontend:coverage
+
+      - name: Test SDK
+        run: yarn test:sdk
+
+      - name: Test UI components
+        run: yarn test:ui-components
+
+      - name: Install Playwright browsers
+        run: yarn workspace @lwn-simulator/frontend exec playwright install --with-deps chromium firefox webkit
 
       - name: Test frontend user journeys
         run: yarn test:e2e
@@ -66,7 +79,7 @@ jobs:
 
       - name: Upload Playwright report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: frontend-playwright-report-${{ github.sha }}
           path: apps/frontend/playwright-report
@@ -74,7 +87,7 @@ jobs:
           retention-days: 7
 
       - name: Upload frontend coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: frontend-coverage-${{ github.sha }}
           path: apps/frontend/coverage
@@ -91,10 +104,10 @@ jobs:
           mkdir -p coverage
           go test ./... -covermode=atomic -coverprofile=coverage/engine.out
           coverage="$(go tool cover -func=coverage/engine.out | awk '/^total:/ {gsub(/%/, "", $3); print $3}')"
-          awk -v coverage="$coverage" 'BEGIN { if (coverage + 0 < 84.0) { printf "Engine coverage %.1f%% is below the required 84.0%%\n", coverage; exit 1 } }'
+          awk -v coverage="$coverage" 'BEGIN { if (coverage + 0 < 84.0) { printf "Engine coverage %.1f%% is below the required 84.0%%\n", coverage; exit 1 } printf "Engine coverage %.1f%%\n", coverage }'
 
       - name: Upload engine coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: engine-coverage-${{ github.sha }}
           path: packages/engine/coverage/engine.out

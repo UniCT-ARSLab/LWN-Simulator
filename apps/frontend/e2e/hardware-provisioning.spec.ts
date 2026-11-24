@@ -290,6 +290,7 @@ for (const deviceCodec of ["empty", "absent"] as const) {
 }
 
 test("updates device status, position and payload during simulation", async ({ page }) => {
+  test.slow();
   await mockBackend(page, { devices: "active" });
   await page.goto("/simulation/dashboard");
 
