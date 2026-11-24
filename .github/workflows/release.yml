@@ -58,7 +58,7 @@ jobs:
           - { platform: linux, arch: arm64, runner: ubuntu-22.04, binary_arch: ARM aarch64 }
           - { platform: linux, arch: armv7l, runner: ubuntu-22.04, binary_arch: 'ARM, EABI5' }
           - { platform: macos, arch: x64, runner: macos-15-intel, binary_arch: x86_64 }
-          - { platform: macos, arch: arm64, runner: macos-15, binary_arch: arm64 }
+          - { platform: macos, arch: arm64, runner: macos-15-intel, binary_arch: arm64 }
           - { platform: windows, arch: x64, runner: windows-2022, binary_arch: amd64 }
           - { platform: windows, arch: arm64, runner: windows-2022, binary_arch: arm64 }
     env:
@@ -117,13 +117,22 @@ jobs:
         if: matrix.platform == 'macos'
         shell: bash
         run: |
-          test "$(uname -m)" = "$EXPECTED_ARCH"
           ./scripts/build-all.sh
           backend=releases/server/lwn-server
           file "$backend" | grep -F "$EXPECTED_ARCH"
-          "$backend" --help >/dev/null
+          if [[ "$(uname -m)" == "$EXPECTED_ARCH" ]]; then
+            "$backend" --help >/dev/null
+          fi
           hdiutil verify releases/desktop/*.dmg
           unzip -tq releases/desktop/*.zip
+          app_dir="$(mktemp -d)"
+          trap 'rm -rf -- "$app_dir"' EXIT
+          ditto -x -k releases/desktop/*.zip "$app_dir"
+          app=("$app_dir"/*.app)
+          test "${#app[@]}" -eq 1
+          executable="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "${app[0]}/Contents/Info.plist")"
+          file "${app[0]}/Contents/MacOS/$executable" | grep -F "$EXPECTED_ARCH"
+          file "${app[0]}/Contents/Resources/backend/lwn-server" | grep -F "$EXPECTED_ARCH"
 
       - name: Build and verify Windows distribution
         if: matrix.platform == 'windows'
