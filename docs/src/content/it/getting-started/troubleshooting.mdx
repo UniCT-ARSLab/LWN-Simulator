@@ -14,7 +14,7 @@ Controlla l'indirizzo e la porta, verifica che il backend sia in esecuzione e ch
 
 ## Il bridge non riceve traffico
 
-Controlla che sia abilitato, che indirizzo e porta corrispondano al packet forwarder esterno e che il gateway sia configurato per usare quel trasporto.
+Per i gateway Virtual, indirizzo e porta in **Hardware → Gateway Bridge** indicano il servizio bridge esterno a cui inviare il traffico. Per i gateway Real, il packet forwarder invia invece al listener UDP del backend (porta 1700 predefinita). Sono due direzioni diverse: consulta gli [esempi di collegamento](../hardware/gateway-bridge).
 
 ## I log non si aggiornano
 

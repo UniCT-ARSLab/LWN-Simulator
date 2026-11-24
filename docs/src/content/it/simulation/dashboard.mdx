@@ -8,7 +8,27 @@ La dashboard riunisce mappa, metriche, runtime e stream eventi.
 
 ## Console
 
-La scheda **Uplink** pianifica un uplink per il device selezionato. **Downlink** invia payload UTF-8 o Base64, richiede FPort tra 1 e 223 e permette di scegliere data rate, confirmed e ACK. **MAC command** consente di scegliere un comando e i suoi parametri.
+La scheda **Uplink** pianifica un uplink per il device selezionato. Un device
+LoRaWAN OTAA non ancora connesso esegue prima la join; un device **Raw LoRa**
+trasmette direttamente i byte del payload, senza join.
+
+**Downlink** invia payload UTF-8 o Base64 e permette di scegliere **Data rate**,
+con **Auto** come valore iniziale. Per LoRaWAN sono disponibili anche **FPort**
+da 1 a 223, **Confirmed** e **ACK**. Questi tre campi sono nascosti per un
+destinatario Raw LoRa. Configura **Radio Receive Mode** su **Raw LoRa** oppure
+**Auto** quando il device deve accettare traffico raw. L'accodamento non
+garantisce la consegna: servono un gateway idoneo e un'opportunità di ricezione.
+
+**MAC command** consente di scegliere un comando LoRaWAN e i suoi parametri.
+I device Raw LoRa sono esclusi; se non ci sono device LoRaWAN attivi, l'invio
+è disabilitato.
+
+## Leggere i frame raw
+
+**Engine activity** mostra i frame raw con i byte in esadecimale, accanto a
+**Raw LoRa · HEX**. La stessa informazione resta disponibile nei [log della
+simulazione](/logs). I payload raw non vengono interpretati come dati
+applicativi LoRaWAN né elaborati dal relativo codec del payload.
 
 I campi mostrano informazioni contestuali e i pulsanti restano disabilitati quando la simulazione non è in uno stato compatibile.
 

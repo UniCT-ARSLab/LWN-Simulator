@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"path/filepath"
 	"sync"
 	"time"
@@ -57,8 +58,9 @@ func NewProfileRuntimeManager(
 		runtimes: make(map[string]*ProfileRuntime),
 	}
 	if profiles != nil {
-		profiles.SetDeleteGuard(manager.canDeleteProfile)
-		profiles.SetDeleteObserver(manager.forgetProfile)
+		profiles.mu.Lock()
+		profiles.withDeletion = manager.withProfileDeletion
+		profiles.mu.Unlock()
 	}
 	return manager
 }
@@ -68,7 +70,10 @@ func (m *ProfileRuntimeManager) Runtime(profileID string) (*ProfileRuntime, erro
 	if m.profiles == nil {
 		return nil, errors.New("profile service is not configured")
 	}
-	profile, err := m.profiles.Get(profileID)
+	// Serialize lookup and cache creation with profile deletion.
+	m.profiles.mu.Lock()
+	defer m.profiles.mu.Unlock()
+	profile, err := m.profiles.getLocked(profileID)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +81,9 @@ func (m *ProfileRuntimeManager) Runtime(profileID string) (*ProfileRuntime, erro
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if runtime, ok := m.runtimes[profile.ID]; ok {
-		return runtime, nil
+		view := *runtime
+		view.Profile = profile
+		return &view, nil
 	}
 
 	storage, err := database.NewProfileStorage(m.dataDir, profile.ID)
@@ -202,42 +209,36 @@ func (m *ProfileRuntimeManager) ImportArchive(archive contracts.ProfileArchive) 
 	if err := validateProfileArchive(archive); err != nil {
 		return contracts.Profile{}, err
 	}
-	profile, err := m.profiles.Create(archive.Profile.Name)
-	if errors.Is(err, apperrors.ErrConflict) {
-		for suffix := 2; suffix <= 1000 && errors.Is(err, apperrors.ErrConflict); suffix++ {
-			profile, err = m.profiles.Create(fmt.Sprintf("%s (imported %d)", archive.Profile.Name, suffix))
+	return m.profiles.create(archive.Profile.Name, func(storage database.ProfileStorage) error {
+		dir := storage.Directory()
+		devices := NewDeviceService(repositories.NewDeviceRepository(dir))
+		if err := devices.ImportDevices(archive.Devices); err != nil {
+			return err
 		}
-	}
-	if err != nil {
-		return contracts.Profile{}, err
-	}
-	runtime, err := m.Runtime(profile.ID)
-	if err == nil {
-		err = runtime.Device.ImportDevices(archive.Devices)
-	}
-	if err == nil {
-		err = runtime.Gateway.ImportGateways(archive.Gateways)
-	}
-	if err == nil && archive.GatewayBridge != nil {
-		_, err = runtime.Configuration.UpdateGatewayBridge(*archive.GatewayBridge)
-	}
-	if err == nil {
-		for index := range archive.Logs {
-			archive.Logs[index].Run.Summary.Status = contracts.SimulationRunStatusStopped
-			if archive.Logs[index].Run.Summary.EndedAtMilliseconds == nil {
-				endedAt := time.Now().UnixMilli()
-				archive.Logs[index].Run.Summary.EndedAtMilliseconds = &endedAt
+		gateways := NewGatewayService(repositories.NewGatewayRepository(dir))
+		if err := gateways.ImportGateways(archive.Gateways); err != nil {
+			return err
+		}
+		if archive.GatewayBridge != nil {
+			configuration := NewProfileConfigurationService(filepath.Join(dir, "gateway-bridge.json"), storage.ProfileID())
+			if _, err := configuration.UpdateGatewayBridge(*archive.GatewayBridge); err != nil {
+				return err
 			}
 		}
-		err = runtime.Simulation.inner.ImportLogs(archive.Logs)
-	}
-	if err != nil {
-		if deleteErr := m.profiles.Delete(profile.ID); deleteErr != nil {
-			return contracts.Profile{}, fmt.Errorf("import profile: %w; rollback failed: %v", err, deleteErr)
+		store := NewFileSimulationLogStore(filepath.Join(dir, "simulation-logs.json"))
+		for _, log := range archive.Logs {
+			if log.Run.Summary.Status != contracts.SimulationRunStatusFailed {
+				log.Run.Summary.Status = contracts.SimulationRunStatusStopped
+			}
+			if log.Run.Summary.EndedAtMilliseconds == nil {
+				log.Run.Summary.EndedAtMilliseconds = int64Pointer(time.Now().UnixMilli())
+			}
+			if err := store.Import(log.Run, log.Events); err != nil {
+				return fmt.Errorf("import simulation log %q: %w", log.Run.Summary.Id, err)
+			}
 		}
-		return contracts.Profile{}, fmt.Errorf("import profile: %w", err)
-	}
-	return profile, nil
+		return nil
+	})
 }
 
 func validateProfileArchive(archive contracts.ProfileArchive) error {
@@ -253,6 +254,17 @@ func validateProfileArchive(archive contracts.ProfileArchive) error {
 	if err := engineValidation.ValidateHardware(archive.Devices, archive.Gateways); err != nil {
 		return apperrors.Invalid("profile archive contains invalid hardware: %s", err)
 	}
+	runIDs := make(map[uuid.UUID]struct{}, len(archive.Logs))
+	for _, log := range archive.Logs {
+		id, err := uuid.Parse(log.Run.Summary.Id)
+		if err != nil {
+			return apperrors.Invalid("invalid simulation log id %q", log.Run.Summary.Id)
+		}
+		if _, exists := runIDs[id]; exists {
+			return apperrors.Invalid("duplicate simulation log id %q", log.Run.Summary.Id)
+		}
+		runIDs[id] = struct{}{}
+	}
 	if archive.GatewayBridge != nil {
 		if err := engineValidation.ValidateSimulationConfig(contracts.SimulationConfig{
 			Speed:         1,
@@ -264,41 +276,32 @@ func validateProfileArchive(archive contracts.ProfileArchive) error {
 	return nil
 }
 
-func (m *ProfileRuntimeManager) acquireSimulation(profileID string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.activeProfile == "" || m.activeProfile == profileID {
-		m.activeProfile = profileID
-		return nil
+// The manager mutex covers the ownership check and the entire start, stop,
+// restore or delete transition. A rejected request must preserve the owner.
+func (m *ProfileRuntimeManager) checkStartLocked(s *ProfileSimulationService) error {
+	runtime := m.runtimes[s.profileID]
+	if runtime == nil || runtime.Simulation != s {
+		return apperrors.NotFound("profile %q no longer exists", s.profileID)
 	}
-	if runtime, ok := m.runtimes[m.activeProfile]; ok {
-		if snapshot, err := runtime.Simulation.inner.Snapshot(); err == nil {
-			status := snapshot.State.Status
-			if status != contracts.SimulationStatusStopped && status != contracts.SimulationStatusFailed {
-				return apperrors.Conflict("a simulation is already active for profile %q", m.activeProfile)
-			}
-		}
+	activity, err := m.activeSimulationLocked()
+	if err != nil {
+		return err
 	}
-	m.activeProfile = profileID
+	if activity.Active {
+		return apperrors.Conflict("a simulation is already active for profile %q", m.activeProfile)
+	}
 	return nil
 }
 
-func (m *ProfileRuntimeManager) releaseSimulation(profileID string) {
-	m.mu.Lock()
-	if m.activeProfile == profileID {
-		m.activeProfile = ""
-	}
-	m.mu.Unlock()
-}
-
-// ActiveSimulation reports the single simulation that can run on this
-// backend, regardless of which profile owns it.
 func (m *ProfileRuntimeManager) ActiveSimulation() (contracts.SimulationActivity, error) {
 	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.activeSimulationLocked()
+}
+
+func (m *ProfileRuntimeManager) activeSimulationLocked() (contracts.SimulationActivity, error) {
 	profileID := m.activeProfile
 	runtime := m.runtimes[profileID]
-	m.mu.Unlock()
-
 	activity := contracts.SimulationActivity{
 		Active: false,
 		Status: contracts.SimulationStatusIdle,
@@ -307,51 +310,42 @@ func (m *ProfileRuntimeManager) ActiveSimulation() (contracts.SimulationActivity
 		return activity, nil
 	}
 
-	snapshot, err := runtime.Simulation.inner.Snapshot()
+	engine, err := runtime.Simulation.inner.currentEngine()
 	if err != nil {
 		return contracts.SimulationActivity{}, err
 	}
-	if snapshot.State.Status == contracts.SimulationStatusStopped || snapshot.State.Status == contracts.SimulationStatusFailed {
-		m.releaseSimulation(profileID)
+	state, _ := engine.StateAndMetrics()
+	if state.Status == contracts.SimulationStatusStopped || state.Status == contracts.SimulationStatusFailed {
+		m.activeProfile = ""
 		return activity, nil
 	}
 
 	activity.Active = true
 	activity.ProfileID = &profileID
-	activity.Status = snapshot.State.Status
+	activity.Status = state.Status
 	return activity, nil
 }
 
-func (m *ProfileRuntimeManager) canDeleteProfile(profileID string) error {
+func (m *ProfileRuntimeManager) withProfileDeletion(profileID string, remove func() error) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.activeProfile != profileID {
-		return nil
-	}
-	runtime, ok := m.runtimes[profileID]
-	if !ok {
-		m.activeProfile = ""
-		return nil
-	}
-	snapshot, err := runtime.Simulation.inner.Snapshot()
-	if err == nil && snapshot.State.Status != contracts.SimulationStatusStopped && snapshot.State.Status != contracts.SimulationStatusFailed {
-		return apperrors.Conflict("cannot delete profile %q while its simulation is active", profileID)
-	}
-	m.activeProfile = ""
-	return nil
-}
-
-func (m *ProfileRuntimeManager) forgetProfile(profileID string) {
-	m.mu.Lock()
-	runtime := m.runtimes[profileID]
-	delete(m.runtimes, profileID)
 	if m.activeProfile == profileID {
-		m.activeProfile = ""
+		activity, err := m.activeSimulationLocked()
+		if err != nil {
+			return err
+		}
+		if activity.Active {
+			return apperrors.Conflict("cannot delete profile %q while its simulation is active", profileID)
+		}
 	}
-	m.mu.Unlock()
-	if runtime != nil {
+	if err := remove(); err != nil {
+		return err
+	}
+	if runtime := m.runtimes[profileID]; runtime != nil {
+		delete(m.runtimes, profileID)
 		runtime.Simulation.inner.Close()
 	}
+	return nil
 }
 
 // ProfileSimulationService coordinates one profile's simulation with the
@@ -364,12 +358,14 @@ type ProfileSimulationService struct {
 }
 
 func (s *ProfileSimulationService) Start(ctx context.Context, config contracts.SimulationConfig) (contracts.SimulationSnapshot, error) {
-	if err := s.manager.acquireSimulation(s.profileID); err != nil {
+	s.manager.mu.Lock()
+	defer s.manager.mu.Unlock()
+	if err := s.manager.checkStartLocked(s); err != nil {
 		return contracts.SimulationSnapshot{}, err
 	}
 	snapshot, err := s.inner.Start(ctx, config)
-	if err != nil {
-		s.manager.releaseSimulation(s.profileID)
+	if err == nil {
+		s.manager.activeProfile = s.profileID
 	}
 	return snapshot, err
 }
@@ -387,19 +383,17 @@ func (s *ProfileSimulationService) Resume() (contracts.SimulationSnapshot, error
 }
 
 func (s *ProfileSimulationService) Stop(ctx context.Context) (contracts.SimulationSnapshot, error) {
+	s.manager.mu.Lock()
+	defer s.manager.mu.Unlock()
 	snapshot, err := s.inner.Stop(ctx)
-	if err == nil {
-		s.manager.releaseSimulation(s.profileID)
+	if err == nil && s.manager.activeProfile == s.profileID {
+		s.manager.activeProfile = ""
 	}
 	return snapshot, err
 }
 
 func (s *ProfileSimulationService) Snapshot() (contracts.SimulationSnapshot, error) {
-	snapshot, err := s.inner.Snapshot()
-	if err == nil && (snapshot.State.Status == contracts.SimulationStatusStopped || snapshot.State.Status == contracts.SimulationStatusFailed) {
-		s.manager.releaseSimulation(s.profileID)
-	}
-	return snapshot, err
+	return s.inner.Snapshot()
 }
 
 func (s *ProfileSimulationService) QueueUplink(req contracts.SimulationUplinkRequest) (contracts.SimulationActionResponse, error) {
@@ -430,6 +424,14 @@ func (s *ProfileSimulationService) ListLogs() (contracts.SimulationRunsResponse,
 	return s.inner.ListLogs()
 }
 
+func (s *ProfileSimulationService) ExportLogs(ctx context.Context, id string, destination io.Writer) error {
+	return s.inner.ExportLogs(ctx, id, destination)
+}
+
+func (s *ProfileSimulationService) ExportTelemetry(ctx context.Context, id string, destination io.Writer) error {
+	return s.inner.ExportTelemetry(ctx, id, destination)
+}
+
 func (s *ProfileSimulationService) GetLog(id string) (contracts.SimulationRun, []contracts.SimulationEvent, error) {
 	return s.inner.GetLog(id)
 }
@@ -451,15 +453,16 @@ func (s *ProfileSimulationService) FlushPersistence(ctx context.Context) error {
 }
 
 func (s *ProfileSimulationService) RestorePersisted(ctx context.Context) error {
-	if err := s.manager.acquireSimulation(s.profileID); err != nil {
+	s.manager.mu.Lock()
+	defer s.manager.mu.Unlock()
+	if err := s.manager.checkStartLocked(s); err != nil {
 		return err
 	}
 	if err := s.inner.RestorePersisted(ctx); err != nil {
-		s.manager.releaseSimulation(s.profileID)
 		return err
 	}
-	if _, err := s.inner.Snapshot(); err != nil {
-		s.manager.releaseSimulation(s.profileID)
+	if _, err := s.inner.Snapshot(); err == nil {
+		s.manager.activeProfile = s.profileID
 	}
 	return nil
 }

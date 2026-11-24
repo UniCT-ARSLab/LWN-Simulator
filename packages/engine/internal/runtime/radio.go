@@ -7,6 +7,7 @@ import (
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/Giuseppe-Compagnone/lwn-engine/geometry"
+	"github.com/Giuseppe-Compagnone/lwn-engine/lorawan"
 	"github.com/Giuseppe-Compagnone/lwn-engine/regional"
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
 	"github.com/google/uuid"
@@ -18,6 +19,13 @@ const (
 	radioCodingRate       = 1
 	radioBandwidthHz      = 125_000
 )
+
+func optionalString(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
+}
 
 func (e *Engine) startRadioTransmissionLocked(
 	device contracts.Device,
@@ -31,9 +39,8 @@ func (e *Engine) startRadioTransmissionLocked(
 	if scheduled.DataRate > 0 {
 		dataRate = regional.ClampDataRate(device.LocationConfig.Region, scheduled.DataRate)
 	}
-	payloadSize := payloadSizeForFragment(device, dataRate, scheduled.FragmentIndex)
+	payloadSize := payloadSizeForFragment(device, dataRate, scheduled.FragmentIndex, session)
 	channel := selectRadioChannelAtDataRate(device, session, frameCounter, dataRate)
-	airtime := calculateAirtimeForPayload(payloadSize, channel.SpreadingFactor, channel.Bandwidth)
 	gateways := e.coveredGateways(device)
 	transmitPower := radioTransmitPowerDBm
 	if session != nil {
@@ -41,28 +48,37 @@ func (e *Engine) startRadioTransmissionLocked(
 	}
 	rssi, snr := calculateSignal(device, gateways, channel.Frequency, transmitPower)
 	payload := e.buildUplinkPayloadLocked(device, session, frameCounter, confirmed, scheduled.FragmentIndex, dataRate)
+	airtimeSize := payloadSize
+	if deviceRadioProtocol(device) == contracts.LoRaWAN && len(payload) >= 8 && (payload[0]>>5 == lorawan.MTypeUnconfirmedDataUp || payload[0]>>5 == lorawan.MTypeConfirmedDataUp) {
+		airtimeSize += int(payload[5] & 15)
+	}
+	airtime := calculateAirtimeForPayload(airtimeSize, channel.SpreadingFactor, channel.Bandwidth)
 	transmission := &types.RadioTransmission{
-		PacketID:         packetID,
-		DeviceID:         device.ID,
-		FrameCounter:     frameCounter,
-		Attempt:          scheduled.Attempt,
-		Confirmed:        confirmed,
-		StartAt:          scheduled.At,
-		EndAt:            scheduled.At + airtime,
-		ChannelFrequency: channel.Frequency,
-		Bandwidth:        channel.Bandwidth,
-		SpreadingFactor:  channel.SpreadingFactor,
-		DataRate:         dataRate,
-		FPort:            device.FrameConfig.FPort,
-		PayloadSize:      payloadSize,
-		FragmentIndex:    scheduled.FragmentIndex,
-		FragmentCount:    scheduled.FragmentCount,
-		FPendingPoll:     scheduled.FPendingPoll,
-		Airtime:          airtime,
-		RSSI:             rssi,
-		SNR:              snr,
-		GatewayIDs:       gatewayIDs(gateways),
-		Payload:          append([]byte(nil), payload...),
+		RadioFrame: types.RadioFrame{
+			Protocol:          deviceRadioProtocol(device),
+			Payload:           append([]byte(nil), payload...),
+			ChannelFrequency:  channel.Frequency,
+			Bandwidth:         channel.Bandwidth,
+			SpreadingFactor:   channel.SpreadingFactor,
+			DataRate:          dataRate,
+			TransmissionPower: transmitPower,
+		},
+		PacketID:      packetID,
+		DeviceID:      device.ID,
+		FrameCounter:  frameCounter,
+		Attempt:       scheduled.Attempt,
+		Confirmed:     confirmed,
+		StartAt:       scheduled.At,
+		EndAt:         scheduled.At + airtime,
+		FPort:         device.FrameConfig.FPort,
+		PayloadSize:   payloadSize,
+		FragmentIndex: scheduled.FragmentIndex,
+		FragmentCount: scheduled.FragmentCount,
+		FPendingPoll:  scheduled.FPendingPoll,
+		Airtime:       airtime,
+		RSSI:          rssi,
+		SNR:           snr,
+		GatewayIDs:    gatewayIDs(gateways),
 	}
 	for _, active := range e.radio {
 		if active.EndAt > transmission.StartAt &&
@@ -164,7 +180,11 @@ func (e *Engine) processRadioTransmissionCompletedLocked(scheduled types.Schedul
 				if _, connected := e.gatewayAdapters[gatewayID]; connected {
 					e.gatewayPackets = append(e.gatewayPackets, types.GatewayPacket{
 						GatewayID:       gatewayID,
+						RSSI:            transmission.RSSI,
+						SNR:             transmission.SNR,
+						DeviceID:        transmission.DeviceID,
 						Kind:            types.GatewayPacketUplink,
+						Protocol:        transmission.Protocol,
 						Payload:         append([]byte(nil), transmission.Payload...),
 						Frequency:       transmission.ChannelFrequency,
 						Bandwidth:       transmission.Bandwidth,
@@ -197,14 +217,14 @@ func (e *Engine) completeRadioLossLocked(transmission *types.RadioTransmission, 
 				e.applyADRLocked(device, session)
 				e.metrics.SuccessfulUplinks++
 				e.metrics.PacketSuccessRate = e.packetSuccessRate()
-				return append([]contracts.SimulationEvent{e.newPacketEventLocked(contracts.MetricsUpdated, "simulation metrics updated", transmission.DeviceID, "", scheduledID, transmission.PacketID)}, e.scheduleNextUplinkAfterTransmissionLocked(device, transmission)...)
+				return append([]contracts.SimulationEvent{e.newUplinkOutcomeEventLocked(contracts.MetricsUpdated, "simulation metrics updated", transmission.DeviceID, "", scheduledID, transmission.PacketID, contracts.UplinkSucceeded)}, e.scheduleNextUplinkAfterTransmissionLocked(device, transmission)...)
 			}
 			session.PendingUplink = nil
 		}
 		e.metrics.DroppedUplinks++
 		e.metrics.PacketSuccessRate = e.packetSuccessRate()
 		events := []contracts.SimulationEvent{
-			e.newPacketEventLocked(contracts.PacketDropped, "uplink dropped by radio model", transmission.DeviceID, "", scheduledID, transmission.PacketID),
+			e.newUplinkOutcomeEventLocked(contracts.PacketDropped, "uplink dropped by radio model", transmission.DeviceID, "", scheduledID, transmission.PacketID, contracts.UplinkDropped),
 			e.newPacketEventLocked(contracts.MetricsUpdated, "simulation metrics updated", transmission.DeviceID, "", scheduledID, transmission.PacketID),
 		}
 		return append(events, e.scheduleNextUplinkAfterTransmissionLocked(device, transmission)...)
@@ -230,7 +250,7 @@ func (e *Engine) completeRadioSuccessLocked(transmission *types.RadioTransmissio
 			e.applyADRLocked(device, session)
 			e.metrics.SuccessfulUplinks++
 			e.metrics.PacketSuccessRate = e.packetSuccessRate()
-			events := []contracts.SimulationEvent{e.newPacketEventLocked(contracts.MetricsUpdated, "simulation metrics updated", transmission.DeviceID, "", scheduledID, transmission.PacketID)}
+			events := []contracts.SimulationEvent{e.newUplinkOutcomeEventLocked(contracts.MetricsUpdated, "simulation metrics updated", transmission.DeviceID, "", scheduledID, transmission.PacketID, contracts.UplinkSucceeded)}
 			if len(session.PendingClassADownlinks) > 0 {
 				events = append(events, e.scheduleWindowLocked(device, radioWindowSource(transmission), contracts.RX1, transmission.PacketID, transmission.FrameCounter, false))
 			}
@@ -238,6 +258,7 @@ func (e *Engine) completeRadioSuccessLocked(transmission *types.RadioTransmissio
 		}
 		return nil
 	}
+	session.PendingUplink.SentAt = time.Now()
 	session.PendingUplink.GatewayIDs = append([]string(nil), transmission.GatewayIDs...)
 	if transmission.Confirmed {
 		return []contracts.SimulationEvent{e.scheduleWindowLocked(device, radioWindowSource(transmission), contracts.RX1, transmission.PacketID, transmission.FrameCounter, true)}
@@ -267,7 +288,7 @@ func (e *Engine) completeRadioSuccessLocked(transmission *types.RadioTransmissio
 	e.applyADRLocked(device, session)
 	e.metrics.SuccessfulUplinks++
 	e.metrics.PacketSuccessRate = e.packetSuccessRate()
-	events := []contracts.SimulationEvent{e.newPacketEventLocked(contracts.MetricsUpdated, "simulation metrics updated", transmission.DeviceID, "", scheduledID, transmission.PacketID)}
+	events := []contracts.SimulationEvent{e.newUplinkOutcomeEventLocked(contracts.MetricsUpdated, "simulation metrics updated", transmission.DeviceID, "", scheduledID, transmission.PacketID, contracts.UplinkSucceeded)}
 	return append(events, e.scheduleNextUplinkAfterTransmissionLocked(device, transmission)...)
 }
 
@@ -288,7 +309,7 @@ func (e *Engine) scheduleUnconfirmedRepetitionLocked(device contracts.Device, pe
 		}
 		e.metrics.DroppedUplinks++
 		e.metrics.PacketSuccessRate = e.packetSuccessRate()
-		return []contracts.SimulationEvent{e.newPacketEventLocked(contracts.PacketDropped, "unconfirmed uplink repetition could not be scheduled", device.ID, "", repetition.ID, pending.PacketID)}
+		return []contracts.SimulationEvent{e.newUplinkOutcomeEventLocked(contracts.PacketDropped, "unconfirmed uplink repetition could not be scheduled", device.ID, "", repetition.ID, pending.PacketID, contracts.UplinkDropped)}
 	}
 	return []contracts.SimulationEvent{e.newProtocolEventLocked(
 		contracts.UplinkRetryScheduled, "unconfirmed uplink repetition scheduled", device.ID,
@@ -334,6 +355,23 @@ func (e *Engine) newRadioEventLocked(eventType contracts.SimulationEventType, me
 	event.RSSI = &rssi
 	event.SNR = &snr
 	event.Collision = &collision
+	event.RadioFrame = &contracts.RadioFrame{
+		Protocol:              transmission.Protocol,
+		Payload:               append([]byte(nil), transmission.Payload...),
+		Frequency:             transmission.ChannelFrequency,
+		Bandwidth:             transmission.Bandwidth,
+		SpreadingFactor:       int32(transmission.SpreadingFactor),
+		CodingRate:            "4/5",
+		TransmissionPower:     int32(transmission.TransmissionPower),
+		SenderID:              transmission.DeviceID,
+		GatewayID:             optionalString(gatewayID),
+		TimestampMilliseconds: transmission.StartAt.Milliseconds(),
+		AirtimeMilliseconds:   &airtimeMilliseconds,
+	}
+	device, ok := e.registry.Device(deviceID)
+	if ok {
+		decorateDecodedRadioPayload(&event, device, transmission, e.sessions[deviceID])
+	}
 	if reason != "" {
 		reasonValue := reason
 		event.RadioLossReason = &reasonValue
@@ -374,6 +412,9 @@ func sharesGateway(left, right []string) bool {
 }
 
 func gatewayEventType(transmission *types.RadioTransmission) contracts.SimulationEventType {
+	if transmission.Protocol == contracts.RawLoRa {
+		return contracts.GatewayPacketReceived
+	}
 	if transmission.Confirmed || transmission.FrameCounter > 0 {
 		return contracts.GatewayPacketReceived
 	}
@@ -393,6 +434,20 @@ func selectRadioChannel(device contracts.Device, frameCounter int64) types.Radio
 }
 
 func selectRadioChannelAtDataRate(device contracts.Device, session *types.DeviceSession, frameCounter int64, dataRate int) types.RadioChannel {
+	if session != nil && (len(session.NetworkChannels) > 0 || len(session.DisabledChannels) > 0) {
+		var channels []types.RadioChannel
+		profile := regional.Profile(device.LocationConfig.Region, dataRate)
+		table := externalChannelTable(device, session)
+		for i := 0; i < 256; i++ {
+			ch, ok := table[i]
+			if ok && !session.DisabledChannels[i] && dataRate >= ch.MinimumDataRate && dataRate <= ch.MaximumDataRate {
+				channels = append(channels, types.RadioChannel{Frequency: ch.Frequency, DataRate: dataRate, Bandwidth: profile.Bandwidth, SpreadingFactor: profile.SpreadingFactor})
+			}
+		}
+		if len(channels) > 0 {
+			return channels[int(maxInt64(frameCounter, 0))%len(channels)]
+		}
+	}
 	channels := regionalChannels(device.LocationConfig.Region, dataRate)
 	if session != nil {
 		for _, channel := range session.AdditionalChannels {
@@ -434,18 +489,18 @@ func effectivePayloadSize(device contracts.Device, dataRate int) int {
 	return payloadSizeForFragment(device, dataRate, 0)
 }
 
-func payloadFragmentCount(device contracts.Device, dataRate int) int {
+func payloadFragmentCount(device contracts.Device, dataRate int, sessions ...*types.DeviceSession) int {
 	payloadSize := len(payloadBytes(device))
-	maximum := maximumPayloadSize(device.LocationConfig.Region, dataRate)
+	maximum := applicationPayloadCapacity(device, dataRate, sessions...)
 	if payloadSize <= maximum || device.PayloadConfig.OversizedPayloadBehavior != contracts.Fragment {
 		return 1
 	}
 	return (payloadSize + maximum - 1) / maximum
 }
 
-func payloadSizeForFragment(device contracts.Device, dataRate, fragmentIndex int) int {
+func payloadSizeForFragment(device contracts.Device, dataRate, fragmentIndex int, sessions ...*types.DeviceSession) int {
 	payloadSize := len(payloadBytes(device))
-	maximum := maximumPayloadSize(device.LocationConfig.Region, dataRate)
+	maximum := applicationPayloadCapacity(device, dataRate, sessions...)
 	if payloadSize <= maximum {
 		return payloadSize
 	}

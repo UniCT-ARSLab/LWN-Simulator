@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"slices"
 	"sync"
 	"time"
 
@@ -33,9 +34,10 @@ type SimulationUpdate struct {
 }
 
 type simulationPersistenceCommand struct {
-	runID   string
-	event   *contracts.SimulationEvent
-	barrier chan error
+	runID           string
+	event           *contracts.SimulationEvent
+	barrier         chan error
+	forceCheckpoint bool
 }
 
 const (
@@ -198,28 +200,32 @@ func (s *SimulationService) Start(
 		s.finishStarting()
 		return contracts.SimulationSnapshot{}, fmt.Errorf("load devices: %w", err)
 	}
-	if !hasActiveSimulationDevice(devices.Devices) {
-		s.finishStarting()
-		return contracts.SimulationSnapshot{}, apperrors.Invalid("at least one active device is required to start a simulation")
-	}
 	gateways, err := s.gateways.GetGateways(contracts.GetGatewaysRequest{})
 	if err != nil {
 		s.finishStarting()
 		return contracts.SimulationSnapshot{}, fmt.Errorf("load gateways: %w", err)
 	}
+	hasActiveDevice := slices.ContainsFunc(devices.Devices, func(device contracts.Device) bool { return device.Active })
+	hasActiveGateway := slices.ContainsFunc(gateways.Gateways, func(gateway contracts.Gateway) bool { return gateway.Active })
+	if !hasActiveDevice && !hasActiveGateway {
+		s.finishStarting()
+		return contracts.SimulationSnapshot{}, apperrors.Invalid("at least one active device or gateway is required to start a simulation")
+	}
 
 	options := s.options
 	options.EventSink = s.handleEvent
-	if config.GatewayBridge != nil {
-		if configurator, ok := options.GatewayAdapterFactory.(types.GatewayBridgeConfigurator); ok {
-			if err := configurator.ConfigureGatewayBridge(*config.GatewayBridge); err != nil {
-				s.finishStarting()
-				return contracts.SimulationSnapshot{}, fmt.Errorf("configure gateway bridge: %w", err)
-			}
-		} else if options.GatewayAdapterFactory != nil {
-			s.finishStarting()
-			return contracts.SimulationSnapshot{}, fmt.Errorf("gateway adapter factory does not support gateway bridge configuration")
+	if configurator, ok := options.GatewayAdapterFactory.(types.GatewayBridgeConfigurator); ok {
+		bridge := contracts.GatewayBridgeConfig{}
+		if config.GatewayBridge != nil {
+			bridge = *config.GatewayBridge
 		}
+		if err := configurator.ConfigureGatewayBridge(bridge); err != nil {
+			s.finishStarting()
+			return contracts.SimulationSnapshot{}, fmt.Errorf("configure gateway bridge: %w", err)
+		}
+	} else if config.GatewayBridge != nil && options.GatewayAdapterFactory != nil {
+		s.finishStarting()
+		return contracts.SimulationSnapshot{}, fmt.Errorf("gateway adapter factory does not support gateway bridge configuration")
 	}
 	var persistedCheckpoint *types.EngineCheckpoint
 	if s.checkpointStore != nil {
@@ -270,10 +276,11 @@ func (s *SimulationService) Start(
 			objects = append(objects, contracts.SimulationLogObject{Id: device.ID, Name: device.Name, Kind: contracts.SimulationLogObjectKindDevice, Identifier: device.DevEUI})
 		}
 		for _, gateway := range gateways.Gateways {
-			objects = append(objects, contracts.SimulationLogObject{Id: gateway.ID, Name: gateway.Name, Kind: contracts.SimulationLogObjectKindGateway, Identifier: gateway.GatewayEUI})
+			objects = append(objects, contracts.SimulationLogObject{Id: gateway.ID, Name: gateway.Name, Kind: contracts.SimulationLogObjectKindGateway, Identifier: gateway.GatewayEUI, GatewayType: &gateway.Type})
 		}
 		seed := config.Seed
-		run := contracts.SimulationRun{Summary: contracts.SimulationRunSummary{Id: runID, StartedAtMilliseconds: runStartedAtMilliseconds, Status: contracts.SimulationRunStatusRunning, Speed: config.Speed, Seed: seed, DeviceCount: int32(len(devices.Devices)), GatewayCount: int32(len(gateways.Gateways))}, Objects: objects}
+		state, _ := runtime.StateAndMetrics()
+		run := contracts.SimulationRun{Summary: contracts.SimulationRunSummary{Id: runID, StartedAtMilliseconds: runStartedAtMilliseconds, Status: contracts.SimulationRunStatusRunning, Speed: state.Speed, Seed: seed, DeviceCount: int32(len(devices.Devices)), GatewayCount: int32(len(gateways.Gateways))}, Objects: objects}
 		if err := s.logStore.Create(run); err != nil {
 			s.resetRuntimeAfterStartFailure(runtime)
 			return contracts.SimulationSnapshot{}, fmt.Errorf("create simulation log: %w", err)
@@ -289,7 +296,8 @@ func (s *SimulationService) Start(
 			failure = errors.Join(failure, fmt.Errorf("flush failed simulation events: %w", persistenceErr))
 		}
 		if s.logStore != nil {
-			summary := s.runSummaryFor(runID, runtime.Snapshot(), contracts.SimulationRunStatusFailed)
+			state, metrics := runtime.StateAndMetrics()
+			summary := s.runSummaryFor(runID, state, metrics, contracts.SimulationRunStatusFailed)
 			if finalizeErr := s.logStore.Finalize(runID, summary); finalizeErr != nil {
 				failure = errors.Join(failure, fmt.Errorf("finalize failed simulation log: %w", finalizeErr))
 			}
@@ -306,15 +314,6 @@ func (s *SimulationService) Start(
 	snapshot := runtime.Snapshot()
 	s.publishSnapshot(snapshot)
 	return snapshot, nil
-}
-
-func hasActiveSimulationDevice(devices []contracts.Device) bool {
-	for _, device := range devices {
-		if device.Active {
-			return true
-		}
-	}
-	return false
 }
 
 func (s *SimulationService) Pause() (contracts.SimulationSnapshot, error) {
@@ -365,15 +364,15 @@ func (s *SimulationService) Stop(ctx context.Context) (contracts.SimulationSnaps
 			return contracts.SimulationSnapshot{}, err
 		}
 	}
+	snapshot := runtime.Snapshot()
 	if s.logStore != nil {
 		runID := s.currentRunID()
-		summary := s.runSummaryFor(runID, runtime.Snapshot(), contracts.SimulationRunStatusStopped)
+		summary := s.runSummaryFor(runID, snapshot.State, snapshot.Metrics, contracts.SimulationRunStatusStopped)
 		if err := s.logStore.Finalize(runID, summary); err != nil {
 			return contracts.SimulationSnapshot{}, err
 		}
 		s.publishRunSummary(contracts.RealtimeSimulationRunUpdatedMessage, summary)
 	}
-	snapshot := runtime.Snapshot()
 	s.publishSnapshot(snapshot)
 	return snapshot, nil
 }
@@ -519,7 +518,11 @@ func (s *SimulationService) handleEvent(event contracts.SimulationEvent) {
 
 	if s.checkpointStore != nil || s.logStore != nil {
 		copy := event
-		s.persistenceQueue <- simulationPersistenceCommand{runID: runID, event: &copy}
+		select {
+		case s.persistenceQueue <- simulationPersistenceCommand{runID: runID, event: &copy}:
+		case <-s.persistenceDone:
+			return
+		}
 	}
 
 	update := SimulationUpdate{Event: event, IncludeSnapshot: includeSnapshot}
@@ -543,6 +546,8 @@ func (s *SimulationService) runPersistenceWorker() {
 	runID := ""
 	var terminalStatus *contracts.SimulationRunStatus
 	lastCheckpointAt := time.Time{}
+	lastCheckpointRunID := ""
+	lastCheckpointStatus := contracts.SimulationStatus("")
 
 	flush := func(forceCheckpoint bool) error {
 		if runID == "" && len(pending) == 0 && terminalStatus == nil {
@@ -559,10 +564,10 @@ func (s *SimulationService) runPersistenceWorker() {
 			return nil
 		}
 
-		snapshot := runtime.Snapshot()
+		state, metrics := runtime.StateAndMetrics()
 		var persistenceErr error
 		if s.logStore != nil && len(pending) > 0 {
-			summary := s.runSummaryFor(activeRunID, snapshot, contracts.SimulationRunStatus(snapshot.State.Status))
+			summary := s.runSummaryFor(activeRunID, state, metrics, contracts.SimulationRunStatus(state.Status))
 			summary.EndedAtMilliseconds = nil
 			if err := s.logStore.AppendBatch(activeRunID, pending, &summary); err != nil {
 				persistenceErr = errors.Join(persistenceErr, fmt.Errorf("append simulation log batch: %w", err))
@@ -573,22 +578,32 @@ func (s *SimulationService) runPersistenceWorker() {
 		} else if s.logStore == nil {
 			pending = pending[:0]
 		}
-		if s.checkpointStore != nil && (forceCheckpoint || lastCheckpointAt.IsZero() || time.Since(lastCheckpointAt) >= simulationCheckpointInterval) {
-			checkpoint := runtime.Checkpoint()
-			checkpoint.RunID = activeRunID
-			if err := s.checkpointStore.Save(checkpoint); err != nil {
-				persistenceErr = errors.Join(persistenceErr, fmt.Errorf("save simulation checkpoint: %w", err))
-			} else {
-				lastCheckpointAt = time.Now()
+		if s.checkpointStore != nil && (forceCheckpoint || lastCheckpointRunID != activeRunID || time.Since(lastCheckpointAt) >= simulationCheckpointInterval) {
+			terminal := state.Status == contracts.SimulationStatusStopped || state.Status == contracts.SimulationStatusFailed
+			// A terminal checkpoint is a marker used to prevent automatic restart.
+			checkpoint := types.EngineCheckpoint{RunID: activeRunID, State: state}
+			if !terminal || lastCheckpointRunID != activeRunID || state.Status != lastCheckpointStatus {
+				if !terminal {
+					checkpoint = runtime.Checkpoint()
+					checkpoint.RunID = activeRunID
+				}
+				if err := s.checkpointStore.Save(checkpoint); err != nil {
+					persistenceErr = errors.Join(persistenceErr, fmt.Errorf("save simulation checkpoint: %w", err))
+				} else {
+					lastCheckpointAt = time.Now()
+					lastCheckpointStatus = checkpoint.State.Status
+					lastCheckpointRunID = activeRunID
+				}
 			}
 		}
 		if terminalStatus != nil && len(pending) == 0 {
 			status := *terminalStatus
 			if s.logStore != nil {
-				if err := s.logStore.Finalize(activeRunID, s.runSummaryFor(activeRunID, snapshot, status)); err != nil {
+				summary := s.runSummaryFor(activeRunID, state, metrics, status)
+				if err := s.logStore.Finalize(activeRunID, summary); err != nil {
 					persistenceErr = errors.Join(persistenceErr, fmt.Errorf("finalize simulation log: %w", err))
 				} else {
-					s.publishRunSummary(contracts.RealtimeSimulationRunUpdatedMessage, s.runSummaryFor(activeRunID, snapshot, status))
+					s.publishRunSummary(contracts.RealtimeSimulationRunUpdatedMessage, summary)
 				}
 			}
 			if s.checkpointStore != nil && persistenceErr == nil {
@@ -622,7 +637,7 @@ func (s *SimulationService) runPersistenceWorker() {
 				}
 			}
 			if command.barrier != nil {
-				command.barrier <- flush(true)
+				command.barrier <- flush(command.forceCheckpoint)
 				continue
 			}
 			if terminalStatus != nil {
@@ -644,19 +659,27 @@ func (s *SimulationService) runPersistenceWorker() {
 }
 
 func (s *SimulationService) flushPersistence(ctx context.Context) error {
+	return s.flushPendingPersistence(ctx, true)
+}
+
+func (s *SimulationService) flushPendingPersistence(ctx context.Context, forceCheckpoint bool) error {
 	if s.checkpointStore == nil && s.logStore == nil {
 		return nil
 	}
 	barrier := make(chan error, 1)
-	command := simulationPersistenceCommand{barrier: barrier}
+	command := simulationPersistenceCommand{barrier: barrier, forceCheckpoint: forceCheckpoint}
 	select {
 	case s.persistenceQueue <- command:
+	case <-s.persistenceDone:
+		return os.ErrClosed
 	case <-ctx.Done():
 		return ctx.Err()
 	}
 	select {
 	case err := <-barrier:
 		return err
+	case <-s.persistenceDone:
+		return os.ErrClosed
 	case <-ctx.Done():
 		return ctx.Err()
 	}
@@ -717,18 +740,14 @@ func (s *SimulationService) ImportLogs(logs []contracts.ProfileLog) error {
 	return nil
 }
 
-func (s *SimulationService) runSummary(snapshot contracts.SimulationSnapshot, status contracts.SimulationRunStatus) contracts.SimulationRunSummary {
-	return s.runSummaryFor(s.activeRunID, snapshot, status)
-}
-
-func (s *SimulationService) runSummaryFor(runID string, snapshot contracts.SimulationSnapshot, status contracts.SimulationRunStatus) contracts.SimulationRunSummary {
+func (s *SimulationService) runSummaryFor(runID string, state contracts.SimulationState, metrics contracts.SimulationMetrics, status contracts.SimulationRunStatus) contracts.SimulationRunSummary {
 	s.mu.RLock()
 	startedAt := s.activeRunStartedAtMilliseconds
 	s.mu.RUnlock()
 	if startedAt <= 0 {
-		startedAt = time.Now().UnixMilli() - snapshot.State.ElapsedMilliseconds
+		startedAt = time.Now().UnixMilli() - state.ElapsedMilliseconds
 	}
-	return contracts.SimulationRunSummary{Id: runID, StartedAtMilliseconds: startedAt, EndedAtMilliseconds: int64Pointer(time.Now().UnixMilli()), DurationMilliseconds: snapshot.State.ElapsedMilliseconds, Status: status, Speed: snapshot.State.Speed, DeviceCount: int32(len(snapshot.Devices)), GatewayCount: int32(len(snapshot.Gateways)), EventCount: int32(snapshot.State.EventSequence), PacketSuccessRate: snapshot.Metrics.PacketSuccessRate}
+	return contracts.SimulationRunSummary{Id: runID, StartedAtMilliseconds: startedAt, EndedAtMilliseconds: int64Pointer(time.Now().UnixMilli()), DurationMilliseconds: state.ElapsedMilliseconds, Status: status, Speed: state.Speed, Seed: state.Seed, DeviceCount: int32(state.DeviceCount), GatewayCount: int32(state.GatewayCount), EventCount: int32(state.EventSequence), PacketSuccessRate: metrics.PacketSuccessRate}
 }
 
 func int64Pointer(value int64) *int64 { return &value }

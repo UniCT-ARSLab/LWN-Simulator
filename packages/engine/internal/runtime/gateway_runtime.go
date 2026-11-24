@@ -11,10 +11,28 @@ import (
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/Giuseppe-Compagnone/lwn-engine/lorawan"
+	"github.com/Giuseppe-Compagnone/lwn-engine/protocol"
 	"github.com/Giuseppe-Compagnone/lwn-engine/regional"
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
 	"github.com/google/uuid"
 )
+
+// External network servers use wall-clock receive windows and cannot follow
+// an accelerated or slowed simulation clock.
+func requiresRealtimeTransport(gateways []contracts.Gateway, factory types.GatewayAdapterFactory) bool {
+	if factory == nil {
+		return false
+	}
+	if virtualFactory, ok := factory.(types.VirtualGatewayAdapterFactory); ok && virtualFactory.SupportsVirtualGateways() {
+		return true
+	}
+	for _, gateway := range gateways {
+		if gateway.Type == contracts.Real {
+			return true
+		}
+	}
+	return false
+}
 
 func (e *Engine) startGatewayAdapters(ctx context.Context) {
 	if e.gatewayAdapterFactory == nil {
@@ -220,19 +238,48 @@ func (e *Engine) handleGatewayPacket(packet types.GatewayPacket) {
 		snr := packet.SNR
 		event.SNR = &snr
 	}
+	classified, classificationErr := classifyGatewayPacket(packet)
+	if packet.Protocol == "" && packet.DeviceID != "" {
+		if device, exists := e.registry.Device(packet.DeviceID); exists {
+			classified, classificationErr = protocol.Classify(packet.Payload, deviceReceiveMode(device))
+		}
+	}
+	if classificationErr == nil {
+		packet.Protocol = classified.Protocol
+		event.RadioProtocol = &classified.Protocol
+		if classified.Protocol == contracts.RawLoRa {
+			senderID := packet.DeviceID
+			if senderID == "" {
+				senderID = packet.GatewayID
+			}
+			event.Message = "raw LoRa frame received from gateway transport"
+			event.RadioFrame = radioFrameFromGatewayPacket(packet, senderID, event.TimestampMilliseconds)
+		}
+	}
+	e.eventLog[len(e.eventLog)-1] = event
 	events := []contracts.SimulationEvent{event}
 	if packet.Kind == types.GatewayPacketDownlink || packet.Kind == types.GatewayPacketClassBDownlink {
-		if decoded, err := lorawan.Parse(packet.Payload); err == nil {
-			events = append(events, e.processExternalDownlinkLocked(packet, decoded)...)
-		} else {
+		if classificationErr != nil {
 			events = append(events, e.newPacketEventLocked(
 				contracts.DeviceDownlinkDropped,
-				"downlink received from gateway transport is not a valid LoRaWAN frame",
-				"", packet.GatewayID, "", uuid.NewString(),
+				fmt.Sprintf("downlink received from gateway transport could not be classified: %v", classificationErr),
+				packet.DeviceID, packet.GatewayID, "", uuid.NewString(),
 			))
+		} else if classified.Protocol == contracts.RawLoRa && packet.DeviceID != "" {
+			events = append(events, e.processRawDownlinkLocked(packet)...)
+		} else if classified.Protocol == contracts.LoRaWAN {
+			events = append(events, e.processExternalDownlinkLocked(packet, classified.Packet)...)
 		}
-	} else if decoded, err := lorawan.Parse(packet.Payload); err == nil {
-		events = append(events, e.processRealUplinkLocked(packet, decoded)...)
+	} else if classificationErr != nil {
+		events = append(events, e.newPacketEventLocked(
+			contracts.PacketDropped,
+			fmt.Sprintf("uplink received from gateway transport could not be classified: %v", classificationErr),
+			packet.DeviceID, packet.GatewayID, "", uuid.NewString(),
+		))
+	} else if classified.Protocol == contracts.RawLoRa && packet.DeviceID != "" {
+		events = append(events, e.processRawUplinkLocked(packet)...)
+	} else if classified.Protocol == contracts.LoRaWAN {
+		events = append(events, e.processRealUplinkLocked(packet, classified.Packet)...)
 	}
 	pendingPackets := e.takeGatewayPacketsLocked(packet.GatewayID)
 	e.mu.Unlock()
@@ -244,7 +291,120 @@ func (e *Engine) handleGatewayPacket(packet types.GatewayPacket) {
 	}
 }
 
+func classifyGatewayPacket(packet types.GatewayPacket) (protocol.ClassifiedFrame, error) {
+	switch packet.Protocol {
+	case contracts.LoRaWAN:
+		return protocol.Classify(packet.Payload, contracts.ReceiveLoRaWAN)
+	case contracts.RawLoRa:
+		return protocol.Classify(packet.Payload, contracts.ReceiveRawLoRa)
+	case "":
+		return protocol.Classify(packet.Payload, contracts.ReceiveAuto)
+	default:
+		return protocol.ClassifiedFrame{}, fmt.Errorf("unsupported radio protocol %q", packet.Protocol)
+	}
+}
+
+func (e *Engine) processRawUplinkLocked(packet types.GatewayPacket) []contracts.SimulationEvent {
+	device, session, ok := e.deviceSessionLocked(packet.DeviceID)
+	if !ok || session == nil || !device.Active || !acceptsRadioProtocol(device, contracts.RawLoRa) {
+		return []contracts.SimulationEvent{e.newPacketEventLocked(
+			contracts.PacketDropped,
+			"raw LoRa uplink was rejected because the device does not accept raw LoRa",
+			packet.DeviceID, packet.GatewayID, "", uuid.NewString(),
+		)}
+	}
+	payloadSize := int64(len(packet.Payload))
+	e.metrics.TotalUplinks++
+	e.metrics.SuccessfulUplinks++
+	e.metrics.TotalPacketsReceived++
+	e.metrics.PacketSuccessRate = e.packetSuccessRate()
+	if packet.RSSI != 0 {
+		session.LastRSSI = packet.RSSI
+	}
+	if packet.SNR != 0 {
+		session.LastSNR = packet.SNR
+	}
+	if packet.Frequency > 0 {
+		session.LastChannel = packet.Frequency
+	}
+	session.LastPayloadSize = len(packet.Payload)
+	packetID := uuid.NewString()
+	event := e.newProtocolEventLocked(
+		contracts.DeviceUplinkTransmitted,
+		"raw LoRa frame received from gateway",
+		device.ID, packet.GatewayID, "", packetID, -1, 1, false, nil,
+	)
+	event.PayloadSize = &payloadSize
+	event.RadioFrame = radioFrameFromGatewayPacket(packet, device.ID, event.TimestampMilliseconds)
+	e.setUplinkOutcomeLocked(&event, contracts.UplinkAccepted)
+	return []contracts.SimulationEvent{event}
+}
+
+func (e *Engine) processRawDownlinkLocked(packet types.GatewayPacket) []contracts.SimulationEvent {
+	device, session, ok := e.deviceSessionLocked(packet.DeviceID)
+	if !ok || session == nil {
+		return []contracts.SimulationEvent{e.newPacketEventLocked(
+			contracts.DeviceDownlinkDropped,
+			"raw LoRa downlink has no known target device",
+			packet.DeviceID, packet.GatewayID, "", uuid.NewString(),
+		)}
+	}
+	if !device.Active || !acceptsRadioProtocol(device, contracts.RawLoRa) {
+		return []contracts.SimulationEvent{e.newPacketEventLocked(
+			contracts.DeviceDownlinkDropped,
+			"raw LoRa downlink was rejected because the device does not accept raw LoRa",
+			device.ID, packet.GatewayID, "", uuid.NewString(),
+		)}
+	}
+	downlink := types.Downlink{ID: uuid.NewString(), DeviceID: device.ID, Payload: append([]byte(nil), packet.Payload...), DataRate: gatewayPacketDataRate(device, packet)}
+	event := e.newDownlinkEventLocked(
+		contracts.DeviceDownlinkTransmitted,
+		"raw LoRa downlink received from gateway transport",
+		device, session, downlink, "",
+	)
+	event.GatewayID = &packet.GatewayID
+	event.FPort = nil
+	event.FrameCounter = nil
+	event.Confirmed = nil
+	event.RadioFrame = radioFrameFromGatewayPacket(packet, packet.GatewayID, event.TimestampMilliseconds)
+	e.eventLog[len(e.eventLog)-1] = event
+	return []contracts.SimulationEvent{event}
+}
+
+func radioFrameFromGatewayPacket(packet types.GatewayPacket, senderID string, timestamp int64) *contracts.RadioFrame {
+	frequency := packet.Frequency
+	if frequency <= 0 {
+		frequency = 1
+	}
+	bandwidth := packet.Bandwidth
+	if bandwidth <= 0 {
+		bandwidth = radioBandwidthHz
+	}
+	spreadingFactor := packet.SpreadingFactor
+	if spreadingFactor < 5 {
+		spreadingFactor = 7
+	}
+	frame := &contracts.RadioFrame{
+		Protocol:              packet.Protocol,
+		Payload:               append([]byte(nil), packet.Payload...),
+		Bandwidth:             bandwidth,
+		CodingRate:            "4/5",
+		Frequency:             frequency,
+		SenderID:              senderID,
+		SpreadingFactor:       int32(spreadingFactor),
+		TimestampMilliseconds: timestamp,
+		TransmissionPower:     int32(packet.Power),
+	}
+	if packet.GatewayID != "" {
+		frame.GatewayID = &packet.GatewayID
+	}
+	return frame
+}
+
 func (e *Engine) processExternalDownlinkLocked(packet types.GatewayPacket, decoded lorawan.Packet) []contracts.SimulationEvent {
+	if decoded.MType == lorawan.MTypeJoinAccept {
+		return e.processExternalJoinAcceptLocked(packet, decoded)
+	}
 	if decoded.MType != lorawan.MTypeUnconfirmedDataDown && decoded.MType != lorawan.MTypeConfirmedDataDown {
 		return []contracts.SimulationEvent{e.newPacketEventLocked(
 			contracts.DeviceDownlinkDropped,
@@ -260,7 +420,14 @@ func (e *Engine) processExternalDownlinkLocked(packet types.GatewayPacket, decod
 			"", packet.GatewayID, "", uuid.NewString(),
 		)}
 	}
-	if len(session.NwkSKey) != 16 || !lorawan.VerifyDataMIC(decoded, session.NwkSKey, 1) {
+	if !acceptsRadioProtocol(device, contracts.LoRaWAN) {
+		return []contracts.SimulationEvent{e.newPacketEventLocked(
+			contracts.DeviceDownlinkDropped,
+			"LoRaWAN downlink was rejected because the device does not accept LoRaWAN",
+			device.ID, packet.GatewayID, "", uuid.NewString(),
+		)}
+	}
+	if len(session.NwkSKey) != 16 || !lorawanHandler.VerifyDataMIC(decoded, session.NwkSKey, 1) {
 		e.metrics.FrameCounterErrors++
 		return []contracts.SimulationEvent{e.newPacketEventLocked(
 			contracts.DeviceDownlinkDropped,
@@ -268,7 +435,11 @@ func (e *Engine) processExternalDownlinkLocked(packet types.GatewayPacket, decod
 			device.ID, packet.GatewayID, "", uuid.NewString(),
 		)}
 	}
-	if decoded.FCnt <= uint32(session.FrameCounterDown) {
+	if decoded.ACK && !e.externalACKMatchesUplink(device, session, packet) {
+		return []contracts.SimulationEvent{e.newPacketEventLocked(contracts.DeviceDownlinkDropped,
+			"external ACK is outside the pending uplink receive windows", device.ID, packet.GatewayID, "", uuid.NewString())}
+	}
+	if session.ExternalDownlinkFrameCounterSet && decoded.FCnt <= session.LastExternalDownlinkFrameCounter {
 		e.metrics.FrameCounterErrors++
 		return []contracts.SimulationEvent{e.newProtocolEventLocked(
 			contracts.FrameCounterRejected,
@@ -290,7 +461,7 @@ func (e *Engine) processExternalDownlinkLocked(packet types.GatewayPacket, decod
 		if *decoded.FPort == 0 {
 			key = session.NwkSKey
 		}
-		payload, err := lorawan.DecryptPayload(decoded, key, 1)
+		payload, err := lorawanHandler.DecryptPayload(decoded, key, 1)
 		if err != nil {
 			return []contracts.SimulationEvent{e.newPacketEventLocked(
 				contracts.DeviceDownlinkDropped,
@@ -300,6 +471,16 @@ func (e *Engine) processExternalDownlinkLocked(packet types.GatewayPacket, decod
 		}
 		downlink.Payload = payload
 	}
+	commands, err := externalMACCommands(decoded, downlink.Payload)
+	if err != nil {
+		return []contracts.SimulationEvent{e.newPacketEventLocked(contracts.DeviceDownlinkDropped, "invalid external MAC commands: "+err.Error(), device.ID, packet.GatewayID, "", uuid.NewString())}
+	}
+	e.applyExternalMACLocked(device, session, commands)
+	if decoded.Confirmed {
+		session.PendingDownlinkACK = true
+	}
+	session.LastExternalDownlinkFrameCounter = decoded.FCnt
+	session.ExternalDownlinkFrameCounterSet = true
 	session.FrameCounterDown = int64(decoded.FCnt)
 	event := e.newDownlinkEventLocked(
 		contracts.DeviceDownlinkTransmitted,
@@ -319,14 +500,154 @@ func (e *Engine) processExternalDownlinkLocked(packet types.GatewayPacket, decod
 	}
 	e.eventLog[len(e.eventLog)-1] = event
 	events := []contracts.SimulationEvent{event}
+	if decoded.ACK {
+		events = append(events, e.completeExternalUplinkACKLocked(device, session, packet.GatewayID)...)
+	}
 	events = append(events, e.applyDownlinkEffectsLocked(device, session, downlink, e.clock.Now())...)
 	return events
+}
+
+func (e *Engine) completeExternalUplinkACKLocked(device contracts.Device, session *types.DeviceSession, gatewayID string) []contracts.SimulationEvent {
+	pending := session.PendingUplink
+	if pending == nil || !pending.Confirmed {
+		return nil
+	}
+	e.metrics.AcknowledgedUplinks++
+	events := []contracts.SimulationEvent{e.newProtocolEventLocked(
+		contracts.UplinkACKReceived,
+		"uplink acknowledgement received from external network server",
+		device.ID,
+		gatewayID,
+		"",
+		pending.PacketID,
+		pending.FrameCounter,
+		pending.Attempt,
+		true,
+		nil,
+	)}
+	if pending.FragmentIndex+1 < pending.FragmentCount {
+		pending.FragmentIndex++
+		pending.WirePayload = nil
+		pending.Attempt = 1
+		pending.GatewayIDs = nil
+		next := types.ScheduledEvent{
+			ID: uuid.NewString(), At: e.clock.Now(), Type: contracts.DeviceUplinkTransmitted,
+			Message: "next application payload fragment scheduled", DeviceID: device.ID,
+			Kind: types.ScheduledEventDeviceUplink, Attempt: 1, PacketID: pending.PacketID,
+			FrameCounter: pending.FrameCounter, Confirmed: true,
+			FragmentIndex: pending.FragmentIndex, FragmentCount: pending.FragmentCount,
+		}
+		if err := e.scheduler.Schedule(next); err != nil {
+			session.PendingUplink = nil
+			return append(events, e.newEventLocked(contracts.PacketDropped, "next payload fragment could not be scheduled", device.ID, "", next.ID))
+		}
+		return append(events, e.newEventLocked(contracts.DeviceUplinkScheduled, "next application payload fragment scheduled", device.ID, "", next.ID))
+	}
+	session.PendingUplink = nil
+	e.metrics.SuccessfulUplinks++
+	e.metrics.PacketSuccessRate = e.packetSuccessRate()
+	events = append(events, e.newUplinkOutcomeEventLocked(contracts.MetricsUpdated, "simulation metrics updated", device.ID, gatewayID, "", pending.PacketID, contracts.UplinkSucceeded))
+	return append(events, e.scheduleUplinkLocked(device, pending.TransmissionAt)...)
+}
+
+func (e *Engine) processExternalJoinAcceptLocked(packet types.GatewayPacket, decoded lorawan.Packet) []contracts.SimulationEvent {
+	matchedCandidate := false
+	for _, device := range e.registry.ActiveDevices() {
+		if device.OOTAConfig == nil || !acceptsRadioProtocol(device, contracts.LoRaWAN) {
+			continue
+		}
+		session := e.sessions[device.ID]
+		if session == nil || session.PendingJoinRequest == nil ||
+			!pendingJoinGateway(session.PendingJoinRequest, packet.GatewayID) {
+			continue
+		}
+		appKey, err := lorawan.DecodeHex(device.OOTAConfig.AppKey)
+		if err != nil {
+			return []contracts.SimulationEvent{e.newPacketEventLocked(
+				contracts.DeviceDownlinkDropped,
+				"external Join-Accept could not be decoded because the device AppKey is invalid",
+				device.ID, packet.GatewayID, "", uuid.NewString(),
+			)}
+		}
+		matchedCandidate = true
+		joinAccept, err := lorawan.DecodeJoinAccept(decoded.Raw, appKey)
+		if err != nil {
+			continue
+		}
+		if !packet.TransmitAt.IsZero() && !session.PendingJoinRequest.RequestedAt.IsZero() && packet.TransmitAt.Before(session.PendingJoinRequest.RequestedAt) {
+			return []contracts.SimulationEvent{e.newPacketEventLocked(
+				contracts.DeviceDownlinkDropped,
+				"external Join-Accept belongs to an expired join attempt",
+				device.ID, packet.GatewayID, "", uuid.NewString(),
+			)}
+		}
+		nwkSKey, appSKey, err := lorawan.DeriveSessionKeys(appKey, joinAccept.AppNonce, joinAccept.NetID, session.DevNonce)
+		if err != nil {
+			return []contracts.SimulationEvent{e.newPacketEventLocked(
+				contracts.DeviceDownlinkDropped,
+				"external Join-Accept could not derive the device session keys",
+				device.ID, packet.GatewayID, "", uuid.NewString(),
+			)}
+		}
+		session.Joined = true
+		session.PendingJoinRequest = nil
+		session.DeviceAddress = fmt.Sprintf("%08X", joinAccept.DevAddr)
+		session.NwkSKey = nwkSKey
+		session.AppSKey = appSKey
+		session.RX1DataRateOffset = joinAccept.RX1DataRateOffset
+		session.RX2DataRate = joinAccept.RX2DataRate
+		session.ReceiveDelay = joinAcceptReceiveDelay(joinAccept.RXDelay)
+		if len(joinAccept.CFList) == 16 && joinAccept.CFList[15] == 0 && device.LocationConfig.Region != contracts.US915 && device.LocationConfig.Region != contracts.AU915 {
+			session.NetworkChannels = make(map[int]types.NetworkChannel)
+			start := len(regionalChannels(device.LocationConfig.Region, 0))
+			for i := 0; i < 5; i++ {
+				b := joinAccept.CFList[i*3:]
+				frequency := int64(uint32(b[0])|uint32(b[1])<<8|uint32(b[2])<<16) * 100
+				if frequency > 0 && externalFrequencyValid(device.LocationConfig.Region, frequency) {
+					session.NetworkChannels[start+i] = types.NetworkChannel{Frequency: frequency, MinimumDataRate: 0, MaximumDataRate: 5}
+				}
+			}
+		}
+		session.FrameCounterDown = 0
+		packetID := uuid.NewString()
+		e.metrics.JoinAccepts++
+		events := []contracts.SimulationEvent{e.newProtocolEventLocked(
+			contracts.JoinAcceptReceived,
+			fmt.Sprintf("OTAA Join-Accept received from external network server for DevAddr %s", session.DeviceAddress),
+			device.ID, packet.GatewayID, "", packetID, -1, 1, false, nil,
+		)}
+		return append(events, e.scheduleUplinkLocked(device, e.clock.Now())...)
+	}
+	if matchedCandidate {
+		return []contracts.SimulationEvent{e.newPacketEventLocked(contracts.DeviceDownlinkDropped,
+			"external Join-Accept was rejected because its MIC is invalid", "", packet.GatewayID, "", uuid.NewString())}
+	}
+	return []contracts.SimulationEvent{e.newPacketEventLocked(
+		contracts.DeviceDownlinkDropped,
+		"external Join-Accept targets a device without a pending join request",
+		"", packet.GatewayID, "", uuid.NewString(),
+	)}
+}
+
+func pendingJoinGateway(pending *types.PendingJoinRequest, gatewayID string) bool {
+	if pending == nil {
+		return false
+	}
+	if len(pending.GatewayIDs) == 0 {
+		return true
+	}
+	for _, id := range pending.GatewayIDs {
+		if id == gatewayID {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *Engine) processRealUplinkLocked(packet types.GatewayPacket, decoded lorawan.Packet) []contracts.SimulationEvent {
 	if decoded.MType == lorawan.MTypeJoinRequest {
 		for _, device := range e.registry.ActiveDevices() {
-			if device.OOTAConfig == nil || !sameEUI(device.OOTAConfig.JoinEUI, decoded.JoinEUI) || !sameEUI(device.DevEUI, decoded.DevEUI) {
+			if !acceptsRadioProtocol(device, contracts.LoRaWAN) || device.OOTAConfig == nil || !sameEUI(device.OOTAConfig.JoinEUI, decoded.JoinEUI) || !sameEUI(device.DevEUI, decoded.DevEUI) {
 				continue
 			}
 			appKey, keyErr := lorawan.DecodeHex(device.OOTAConfig.AppKey)
@@ -375,7 +696,13 @@ func (e *Engine) processRealUplinkLocked(packet types.GatewayPacket, decoded lor
 	if session == nil {
 		return nil
 	}
-	if len(session.NwkSKey) == 16 && !lorawan.VerifyDataMIC(decoded, session.NwkSKey, 0) {
+	if !device.Active || !acceptsRadioProtocol(device, contracts.LoRaWAN) {
+		return []contracts.SimulationEvent{e.newPacketEventLocked(
+			contracts.PacketDropped, "LoRaWAN uplink was rejected because the device is inactive or does not accept LoRaWAN",
+			device.ID, packet.GatewayID, "", uuid.NewString(),
+		)}
+	}
+	if len(session.NwkSKey) == 16 && !lorawanHandler.VerifyDataMIC(decoded, session.NwkSKey, 0) {
 		return []contracts.SimulationEvent{e.newPacketEventLocked(
 			contracts.PacketDropped,
 			"real gateway uplink has an invalid MIC",
@@ -387,7 +714,7 @@ func (e *Engine) processRealUplinkLocked(packet types.GatewayPacket, decoded lor
 		if *decoded.FPort == 0 {
 			key = session.NwkSKey
 		}
-		if _, err := lorawan.DecryptPayload(decoded, key, 0); err != nil {
+		if _, err := lorawanHandler.DecryptPayload(decoded, key, 0); err != nil {
 			return []contracts.SimulationEvent{e.newPacketEventLocked(
 				contracts.PacketDropped,
 				"real gateway uplink payload could not be decrypted",
@@ -446,6 +773,16 @@ func (e *Engine) processRealUplinkLocked(packet types.GatewayPacket, decoded lor
 		"uplink received from real gateway",
 		device.ID, packet.GatewayID, "", packetID, int64(frameCounter), 1, decoded.Confirmed, nil,
 	)}
+	e.setUplinkOutcomeLocked(&events[0], contracts.UplinkAccepted)
+	decodeKey := session.AppSKey
+	if decoded.FPort != nil && *decoded.FPort == 0 {
+		decodeKey = session.NwkSKey
+	}
+	decodedPayload, decodeErr := lorawanHandler.DecryptPayload(decoded, decodeKey, 0)
+	if decoded.FPort != nil && len(decoded.FRMPayload) > 0 && decodeErr == nil {
+		decorateDecodedPayload(&events[0], device, decodedPayload, int(*decoded.FPort))
+		e.eventLog[len(e.eventLog)-1] = events[0]
+	}
 	if len(session.PendingClassADownlinks) > 0 {
 		downlink := session.PendingClassADownlinks[0]
 		session.PendingClassADownlinks = session.PendingClassADownlinks[1:]
@@ -515,7 +852,7 @@ func (e *Engine) queueRealACKLocked(packet types.GatewayPacket, device contracts
 		return false
 	}
 	devAddr := binary.BigEndian.Uint32(devAddrBytes)
-	payload, err := lorawan.BuildDataFrame(lorawan.DataFrameOptions{
+	payload, err := lorawanHandler.EncodeDataFrame(protocol.DataFrame{
 		DevAddr:   devAddr,
 		FCnt:      uint32(session.FrameCounterDown + 1),
 		Direction: 1,
@@ -526,8 +863,8 @@ func (e *Engine) queueRealACKLocked(packet types.GatewayPacket, device contracts
 	if err != nil {
 		return false
 	}
-	delay := durationSeconds(device.RX1Config.Delay)
-	transmitAt := time.Now().Add(time.Duration(float64(delay) / e.state.Speed))
+	delay := durationMilliseconds(device.RX1Config.Delay)
+	transmitAt, timestamp := gatewayReplyTiming(packet, delay)
 	dataRate := gatewayPacketDataRate(device, packet)
 	if dataRate < 0 {
 		dataRate = currentDeviceDataRate(session, device)
@@ -535,15 +872,16 @@ func (e *Engine) queueRealACKLocked(packet types.GatewayPacket, device contracts
 	spreadingFactor := spreadingFactorForDataRate(device.LocationConfig.Region, dataRate)
 	bandwidth := gatewayPacketBandwidth(packet)
 	e.gatewayPackets = append(e.gatewayPackets, types.GatewayPacket{
-		GatewayID:       packet.GatewayID,
-		Kind:            types.GatewayPacketDownlink,
-		Payload:         payload,
-		Frequency:       packet.Frequency,
-		Bandwidth:       bandwidth,
-		SpreadingFactor: spreadingFactor,
-		Power:           classBBeaconPower,
-		DataRate:        fmt.Sprintf("SF%dBW%d", spreadingFactor, bandwidth/1000),
-		TransmitAt:      transmitAt,
+		GatewayID:             packet.GatewayID,
+		Kind:                  types.GatewayPacketDownlink,
+		Payload:               payload,
+		Frequency:             packet.Frequency,
+		Bandwidth:             bandwidth,
+		SpreadingFactor:       spreadingFactor,
+		Power:                 classBBeaconPower,
+		DataRate:              fmt.Sprintf("SF%dBW%d", spreadingFactor, bandwidth/1000),
+		TransmitAt:            transmitAt,
+		ConcentratorTimestamp: timestamp,
 	})
 	session.FrameCounterDown++
 	_ = uplink
@@ -556,31 +894,36 @@ func (e *Engine) queueRealJoinAcceptLocked(packet types.GatewayPacket, device co
 		return false
 	}
 	devAddr := binary.BigEndian.Uint32(devAddrBytes)
-	payload, err := lorawan.BuildJoinAccept(lorawan.JoinAcceptOptions{
+	payload, err := lorawanHandler.EncodeJoinAccept(protocol.JoinAccept{
 		AppNonce:          0,
 		NetID:             0,
 		DevAddr:           devAddr,
 		RX2DataRate:       intValue(device.RX2Config.DataRate),
 		RX1DataRateOffset: intValue(device.RX1Config.DataRateOffset),
-		RXDelay:           intValue(device.RX1Config.Delay),
+		RXDelay:           millisecondsAsWholeSeconds(device.RX1Config.Delay),
 		AppKey:            appKey,
 	})
 	if err != nil {
 		return false
 	}
-	delay := durationSeconds(device.RX1Config.Delay)
-	transmitAt := time.Now().Add(time.Duration(float64(delay) / e.state.Speed))
+	delay := 5 * time.Second
+	transmitAt, timestamp := gatewayReplyTiming(packet, delay)
+	dataRate := gatewayPacketDataRate(device, packet)
+	if dataRate < 0 {
+		dataRate = currentDeviceDataRate(session, device)
+	}
 	bandwidth := gatewayPacketBandwidth(packet)
 	e.gatewayPackets = append(e.gatewayPackets, types.GatewayPacket{
-		GatewayID:       packet.GatewayID,
-		Kind:            types.GatewayPacketDownlink,
-		Payload:         payload,
-		Frequency:       packet.Frequency,
-		Bandwidth:       bandwidth,
-		SpreadingFactor: spreadingFactorForDataRate(device.LocationConfig.Region, currentDeviceDataRate(session, device)),
-		Power:           classBBeaconPower,
-		DataRate:        fmt.Sprintf("SF%dBW%d", spreadingFactorForDataRate(device.LocationConfig.Region, currentDeviceDataRate(session, device)), bandwidth/1000),
-		TransmitAt:      transmitAt,
+		GatewayID:             packet.GatewayID,
+		Kind:                  types.GatewayPacketDownlink,
+		Payload:               payload,
+		Frequency:             packet.Frequency,
+		Bandwidth:             bandwidth,
+		SpreadingFactor:       spreadingFactorForDataRate(device.LocationConfig.Region, dataRate),
+		Power:                 classBBeaconPower,
+		DataRate:              fmt.Sprintf("SF%dBW%d", spreadingFactorForDataRate(device.LocationConfig.Region, dataRate), bandwidth/1000),
+		TransmitAt:            transmitAt,
+		ConcentratorTimestamp: timestamp,
 	})
 	return true
 }
@@ -839,4 +1182,48 @@ func (e *Engine) dispatchGatewayPackets(packets []types.GatewayPacket) {
 		_ = e.sendGatewayPacket(ctx, packet)
 		cancel()
 	}
+}
+
+// Timed packet-forwarder responses can arrive before their radio transmission.
+// Match the requested transmission time against the current uplink, not arrival.
+func (e *Engine) externalACKMatchesUplink(device contracts.Device, session *types.DeviceSession, packet types.GatewayPacket) bool {
+	pending := session.PendingUplink
+	if pending == nil || packet.TransmitAt.IsZero() {
+		return true
+	}
+	base := pending.SentAt
+	if base.IsZero() {
+		base = time.Now().Add(pending.TransmissionAt + session.LastAirtime - e.clock.Now())
+	}
+	if packet.TransmitAt.Before(base) {
+		return false
+	}
+	if device.Class == contracts.ClassC {
+		return true
+	}
+	rx1 := durationMilliseconds(device.RX1Config.Delay)
+	rx2 := durationMilliseconds(device.RX2Config.Delay)
+	if session.ReceiveDelay > 0 {
+		if session.ReceiveDelay != rx1 {
+			rx2 = session.ReceiveDelay + time.Second
+		}
+		rx1 = session.ReceiveDelay
+	}
+	delay := packet.TransmitAt.Sub(base)
+	return (delay >= rx1 && delay <= rx1+windowDuration(device, contracts.RX1)) ||
+		(delay >= rx2 && delay <= rx2+windowDuration(device, contracts.RX2))
+}
+
+// Replies use the originating RX counter so network and processing latency do
+// not shift the device's receive window. uint32 addition handles counter wrap.
+func gatewayReplyTiming(packet types.GatewayPacket, delay time.Duration) (time.Time, *uint32) {
+	receivedAt := packet.ReceivedAt
+	if receivedAt.IsZero() {
+		receivedAt = time.Now()
+	}
+	if packet.ConcentratorTimestamp == nil {
+		return receivedAt.Add(delay), nil
+	}
+	timestamp := *packet.ConcentratorTimestamp + uint32(delay.Microseconds())
+	return receivedAt.Add(delay), &timestamp
 }

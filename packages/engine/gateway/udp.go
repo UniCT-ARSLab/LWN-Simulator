@@ -34,6 +34,7 @@ var (
 	ErrInvalidGatewayEndpoint = errors.New("invalid gateway UDP endpoint")
 	ErrGatewayNotConnected    = errors.New("gateway UDP adapter is not connected")
 	ErrGatewayHeartbeat       = errors.New("gateway heartbeat timeout")
+	errGatewayGPSUnlocked     = errors.New("GPS-timed transmission requires a synchronized GPS clock")
 )
 
 type UDPOptions struct {
@@ -187,20 +188,25 @@ func (factory *UDPFactory) NewGatewayAdapter(gateway contracts.Gateway) (types.G
 	} else if remote == nil {
 		return nil, fmt.Errorf("%w: virtual gateway bridge is not configured", ErrGatewayNotConnected)
 	}
-	return &udpAdapter{
-		factory:    factory,
-		gatewayID:  gateway.ID,
-		gatewayEUI: strings.ToUpper(gateway.GatewayEUI),
-		remote:     remote,
-		virtual:    virtual,
-		options:    options,
-		inbound:    make(chan udpDatagram, options.PacketBuffer),
-		packets:    make(chan types.GatewayPacket, options.PacketBuffer),
-		events:     make(chan types.GatewayAdapterEvent, options.EventBuffer),
-		failures:   make(chan error, 4),
-		done:       make(chan struct{}),
-		pending:    make(map[string]types.GatewayPacket),
-	}, nil
+	adapter := &udpAdapter{
+		factory:            factory,
+		gatewayID:          gateway.ID,
+		gatewayEUI:         strings.ToUpper(gateway.GatewayEUI),
+		remote:             remote,
+		virtual:            virtual,
+		options:            options,
+		inbound:            make(chan udpDatagram, options.PacketBuffer),
+		packets:            make(chan types.GatewayPacket, options.PacketBuffer),
+		events:             make(chan types.GatewayAdapterEvent, options.EventBuffer),
+		failures:           make(chan error, 4),
+		done:               make(chan struct{}),
+		pending:            make(map[string]types.GatewayPacket),
+		statisticsInterval: statisticsInterval(gateway),
+	}
+	if virtual {
+		adapter.SetGatewayPosition(gateway.Latitude, gateway.Longitude, gateway.Altitude)
+	}
+	return adapter, nil
 }
 
 func (factory *UDPFactory) register(adapter *udpAdapter) error {
@@ -332,7 +338,7 @@ func (factory *UDPFactory) routeDatagram(ctx context.Context, runtime *udpRuntim
 		return
 	}
 	var adapter *udpAdapter
-	if len(data) >= 12 && (data[3] == pushDataType || data[3] == pullDataType) {
+	if len(data) >= 12 && (data[3] == pushDataType || data[3] == pullDataType || data[3] == txAckType) {
 		gatewayEUI := strings.ToUpper(hex.EncodeToString(data[4:12]))
 		adapter = runtime.adapters[gatewayEUI]
 	} else {
@@ -387,19 +393,26 @@ func (factory *UDPFactory) broadcastError(runtime *udpRuntime, err error) {
 }
 
 type udpAdapter struct {
-	factory    *UDPFactory
-	gatewayID  string
-	gatewayEUI string
-	remote     *net.UDPAddr
-	virtual    bool
-	options    UDPOptions
+	factory            *UDPFactory
+	gatewayID          string
+	gatewayEUI         string
+	remote             *net.UDPAddr
+	virtual            bool
+	options            UDPOptions
+	statisticsInterval time.Duration
 
-	mu       sync.Mutex
-	cancel   context.CancelFunc
-	conn     *net.UDPConn
-	started  bool
-	closed   bool
-	lastPeer *net.UDPAddr
+	mu              sync.Mutex
+	cancel          context.CancelFunc
+	conn            *net.UDPConn
+	started         bool
+	closed          bool
+	lastPeer        *net.UDPAddr
+	clockTimestamp  uint32
+	clockReceivedAt time.Time
+	pullToken       [2]byte
+	pullPending     bool
+	statistics      udpStatistics
+	gpsDownlinks    gpsDownlinkQueue
 
 	inbound  chan udpDatagram
 	packets  chan types.GatewayPacket
@@ -460,6 +473,7 @@ func (adapter *udpAdapter) Send(ctx context.Context, packet types.GatewayPacket)
 		return errors.New("gateway packet context cannot be nil")
 	}
 	adapter.mu.Lock()
+	clockTimestamp, clockReceivedAt := adapter.clockTimestamp, adapter.clockReceivedAt
 	destination := adapter.lastPeer
 	if destination == nil {
 		destination = adapter.remote
@@ -475,17 +489,33 @@ func (adapter *udpAdapter) Send(ctx context.Context, packet types.GatewayPacket)
 		frequency = 868.1
 	}
 	txpk := txPacket{
-		Immediate:  packet.TransmitAt.IsZero(),
-		Frequency:  frequency,
-		Modulation: "LORA",
-		DataRate:   dataRate,
-		CodingRate: "4/5",
-		Power:      packet.Power,
-		Size:       len(packet.Payload),
-		Data:       base64.StdEncoding.EncodeToString(packet.Payload),
+		Immediate:      packet.TransmitAt.IsZero() && packet.ConcentratorTimestamp == nil,
+		InvertPolarity: packet.Protocol != contracts.RawLoRa && packet.Kind != types.GatewayPacketClassBBeacon,
+		Frequency:      frequency,
+		Modulation:     "LORA",
+		DataRate:       dataRate,
+		CodingRate:     "4/5",
+		Power:          packet.Power,
+		Size:           len(packet.Payload),
+		Data:           base64.StdEncoding.EncodeToString(packet.Payload),
 	}
-	if !packet.TransmitAt.IsZero() {
-		txpk.Time = packet.TransmitAt.UTC().Format(time.RFC3339Nano)
+	if packet.ConcentratorTimestamp != nil {
+		timestamp := *packet.ConcentratorTimestamp
+		txpk.Timestamp = &timestamp
+	} else if !packet.TransmitAt.IsZero() {
+		if adapter.virtual {
+			txpk.Time = packet.TransmitAt.UTC().Format(time.RFC3339Nano)
+		} else {
+			if clockReceivedAt.IsZero() {
+				return errors.New("cannot schedule gateway downlink without a concentrator timestamp")
+			}
+			delta := packet.TransmitAt.Sub(clockReceivedAt).Microseconds()
+			if time.Since(clockReceivedAt) > time.Duration(1<<31-1)*time.Microsecond || delta < -1<<31 || delta > 1<<31-1 {
+				return errors.New("concentrator timestamp reference is too old or transmission time is out of range")
+			}
+			timestamp := clockTimestamp + uint32(delta)
+			txpk.Timestamp = &timestamp
+		}
 	}
 	body, err := json.Marshal(struct {
 		TXPK txPacket `json:"txpk"`
@@ -501,9 +531,10 @@ func (adapter *udpAdapter) Send(ctx context.Context, packet types.GatewayPacket)
 	tokenKey := hex.EncodeToString(token[:])
 	adapter.mu.Lock()
 	adapter.pending[tokenKey] = types.GatewayPacket{
-		GatewayID: packet.GatewayID, Kind: packet.Kind, Payload: append([]byte(nil), packet.Payload...),
-		Frequency: packet.Frequency, Bandwidth: packet.Bandwidth, SpreadingFactor: packet.SpreadingFactor,
-		Power: packet.Power, DataRate: packet.DataRate, TransmitAt: packet.TransmitAt,
+		GatewayID: packet.GatewayID, DeviceID: packet.DeviceID, Kind: packet.Kind, Protocol: packet.Protocol,
+		Payload: append([]byte(nil), packet.Payload...), Frequency: packet.Frequency, Bandwidth: packet.Bandwidth,
+		SpreadingFactor: packet.SpreadingFactor, Power: packet.Power, DataRate: packet.DataRate, TransmitAt: packet.TransmitAt,
+		ConcentratorTimestamp: txpk.Timestamp,
 	}
 	adapter.mu.Unlock()
 	if err := adapter.send(frame, destination); err != nil {
@@ -533,33 +564,19 @@ func (adapter *udpAdapter) SendUplink(ctx context.Context, packet types.GatewayP
 	if frequency <= 0 {
 		frequency = 868.1
 	}
-	timestamp := uint32(time.Now().UnixMicro())
-	body, err := json.Marshal(pushDataPayload{RXPK: []rxPacket{{
+	now := time.Now()
+	timestamp := uint32(now.UnixMicro())
+	uplink := rxPacket{
 		Data: base64.StdEncoding.EncodeToString(packet.Payload), Frequency: frequency,
 		Timestamp: &timestamp, Channel: 0, RFChannel: 0, Status: 1,
 		DataRate: dataRate, Modulation: "LORA", CodingRate: "4/5",
-		RSSI: -60, SNR: 7, Size: len(packet.Payload),
-	}}})
-	if err != nil {
-		return fmt.Errorf("encode gateway uplink: %w", err)
+		RSSI: int(math.Round(packet.RSSI)), SNR: packet.SNR, Size: len(packet.Payload),
 	}
-	token, err := randomToken()
-	if err != nil {
-		return fmt.Errorf("create gateway uplink token: %w", err)
+	if adapter.virtual {
+		gps := gpsMilliseconds(now)
+		uplink.GPSMilliseconds = &gps
 	}
-	eui, err := hex.DecodeString(adapter.gatewayEUI)
-	if err != nil {
-		return fmt.Errorf("decode gateway EUI: %w", err)
-	}
-	frame := append(packetHeader(token, pushDataType), eui...)
-	frame = append(frame, body...)
-	adapter.mu.Lock()
-	destination := cloneUDPAddr(adapter.lastPeer)
-	if destination == nil {
-		destination = cloneUDPAddr(adapter.remote)
-	}
-	adapter.mu.Unlock()
-	return adapter.send(frame, destination)
+	return adapter.sendPushData(ctx, pushDataPayload{RXPK: []rxPacket{uplink}})
 }
 
 func (adapter *udpAdapter) Packets() <-chan types.GatewayPacket { return adapter.packets }
@@ -605,6 +622,7 @@ func (adapter *udpAdapter) Close() error {
 }
 
 func (adapter *udpAdapter) run(ctx context.Context) {
+	defer adapter.gpsDownlinks.close()
 	defer func() {
 		if !adapter.virtual {
 			adapter.factory.unregister(adapter)
@@ -625,11 +643,18 @@ func (adapter *udpAdapter) run(ctx context.Context) {
 	}
 	ticker := time.NewTicker(tickInterval)
 	defer ticker.Stop()
+	var statisticsTicks <-chan time.Time
 	if adapter.virtual {
+		statisticsTicker := time.NewTicker(adapter.statisticsInterval)
+		defer statisticsTicker.Stop()
+		statisticsTicks = statisticsTicker.C
 		if err := adapter.sendKeepAlive(ctx); err != nil {
 			_ = adapter.emitError(ctx, err, false)
 		}
 		lastKeepAlive = time.Now()
+		if err := adapter.sendStatistics(ctx, lastKeepAlive); err != nil && !adapter.emitError(ctx, err, false) {
+			return
+		}
 	}
 
 	for {
@@ -639,6 +664,9 @@ func (adapter *udpAdapter) run(ctx context.Context) {
 		case datagram, ok := <-adapter.inbound:
 			if !ok {
 				return
+			}
+			if adapter.virtual && !adapter.acceptBridgeDatagram(datagram) {
+				continue
 			}
 			adapter.mu.Lock()
 			adapter.lastPeer = datagram.remote
@@ -653,6 +681,14 @@ func (adapter *udpAdapter) run(ctx context.Context) {
 				reconnectAt = time.Time{}
 			}
 			if err := adapter.handleDatagram(ctx, datagram); err != nil && !adapter.emitError(ctx, err, false) {
+				return
+			}
+		case now := <-statisticsTicks:
+			if err := adapter.sendStatistics(ctx, now); err != nil && !adapter.emitError(ctx, err, false) {
+				return
+			}
+		case <-adapter.gpsDownlinks.deadline():
+			if err := adapter.deliverDownlink(ctx, adapter.gpsDownlinks.pop()); err != nil {
 				return
 			}
 		case err := <-adapter.failures:
@@ -750,9 +786,16 @@ func (adapter *udpAdapter) sendKeepAlive(ctx context.Context) error {
 	}
 	frame := append(packetHeader(token, pullDataType), eui...)
 	adapter.mu.Lock()
-	destination := cloneUDPAddr(adapter.remote)
+	adapter.pullToken = token
+	adapter.pullPending = true
 	adapter.mu.Unlock()
-	return adapter.send(frame, destination)
+	if err := adapter.send(frame, adapter.remote); err != nil {
+		adapter.mu.Lock()
+		adapter.pullPending = false
+		adapter.mu.Unlock()
+		return err
+	}
+	return nil
 }
 
 func (adapter *udpAdapter) send(data []byte, destination *net.UDPAddr) error {
@@ -796,10 +839,20 @@ func (adapter *udpAdapter) handleDatagram(ctx context.Context, datagram udpDatag
 		// receiving either one proves that the UDP path is usable.
 		return adapter.emitHeartbeat(ctx)
 	case pullResponseType:
-		packet, err := adapter.decodePullResponse(data[4:])
+		if adapter.virtual {
+			adapter.mu.Lock()
+			adapter.statistics.downlinks++
+			adapter.mu.Unlock()
+		}
+		packet, gpsTimed, err := adapter.decodePullResponse(data[4:])
 		ackError := "NONE"
-		if err != nil {
+		switch {
+		case errors.Is(err, errGatewayGPSUnlocked):
+			ackError = "GPS_UNLOCKED"
+		case err != nil:
 			ackError = "INVALID_DATA"
+		case gpsTimed:
+			ackError, err = adapter.gpsDownlinkStatus(*packet)
 		}
 		if ackErr := adapter.sendTXAck(data[1:3], datagram.remote, ackError); ackErr != nil {
 			if err == nil {
@@ -810,12 +863,11 @@ func (adapter *udpAdapter) handleDatagram(ctx context.Context, datagram udpDatag
 		if err != nil {
 			return err
 		}
-		select {
-		case adapter.packets <- *packet:
+		if gpsTimed {
+			adapter.gpsDownlinks.add(*packet)
 			return nil
-		case <-ctx.Done():
-			return ctx.Err()
 		}
+		return adapter.deliverDownlink(ctx, *packet)
 	case txAckType:
 		if len(data) < 12 {
 			return errors.New("invalid TX_ACK packet")
@@ -835,31 +887,48 @@ func (adapter *udpAdapter) handleDatagram(ctx context.Context, datagram udpDatag
 	}
 }
 
-func (adapter *udpAdapter) decodePullResponse(body []byte) (*types.GatewayPacket, error) {
+func (adapter *udpAdapter) decodePullResponse(body []byte) (*types.GatewayPacket, bool, error) {
 	var payload struct {
 		TXPK txPacket `json:"txpk"`
 	}
 	if err := json.Unmarshal(body, &payload); err != nil {
-		return nil, fmt.Errorf("decode PULL_RESP payload: %w", err)
+		return nil, false, fmt.Errorf("decode PULL_RESP payload: %w", err)
+	}
+	gpsTimed := payload.TXPK.GPSMilliseconds != nil && !payload.TXPK.Immediate && payload.TXPK.Timestamp == nil && payload.TXPK.Time == ""
+	if gpsTimed && !adapter.virtual {
+		return nil, false, errGatewayGPSUnlocked
 	}
 	if payload.TXPK.Modulation != "" && !strings.EqualFold(payload.TXPK.Modulation, "LORA") {
-		return nil, fmt.Errorf("unsupported downlink modulation %q", payload.TXPK.Modulation)
+		return nil, false, fmt.Errorf("unsupported downlink modulation %q", payload.TXPK.Modulation)
 	}
 	if payload.TXPK.Data == "" {
-		return nil, errors.New("downlink payload is empty")
+		return nil, false, errors.New("downlink payload is empty")
 	}
 	decoded, err := base64.StdEncoding.DecodeString(payload.TXPK.Data)
 	if err != nil {
-		return nil, fmt.Errorf("decode downlink payload: %w", err)
+		return nil, false, fmt.Errorf("decode downlink payload: %w", err)
 	}
 	if payload.TXPK.Size > 0 && payload.TXPK.Size != len(decoded) {
-		return nil, fmt.Errorf("downlink payload size mismatch: declared %d, decoded %d", payload.TXPK.Size, len(decoded))
+		return nil, false, fmt.Errorf("downlink payload size mismatch: declared %d, decoded %d", payload.TXPK.Size, len(decoded))
 	}
+	receivedAt := time.Now()
 	var transmitAt time.Time
+	if gpsTimed {
+		var valid bool
+		transmitAt, valid = timeFromGPSMilliseconds(*payload.TXPK.GPSMilliseconds)
+		if !valid {
+			return nil, false, errors.New("invalid GPS transmission time")
+		}
+	}
+	if adapter.virtual && payload.TXPK.Timestamp != nil && !payload.TXPK.Immediate {
+		nowTimestamp := uint32(receivedAt.UnixMicro())
+		delta := int32(*payload.TXPK.Timestamp - nowTimestamp)
+		transmitAt = receivedAt.Add(time.Duration(delta) * time.Microsecond)
+	}
 	if payload.TXPK.Time != "" {
 		transmitAt, err = time.Parse(time.RFC3339Nano, payload.TXPK.Time)
 		if err != nil {
-			return nil, fmt.Errorf("parse downlink transmission time: %w", err)
+			return nil, false, fmt.Errorf("parse downlink transmission time: %w", err)
 		}
 	}
 	return &types.GatewayPacket{
@@ -872,8 +941,8 @@ func (adapter *udpAdapter) decodePullResponse(body []byte) (*types.GatewayPacket
 		Power:           payload.TXPK.Power,
 		DataRate:        payload.TXPK.DataRate,
 		TransmitAt:      transmitAt,
-		ReceivedAt:      time.Now(),
-	}, nil
+		ReceivedAt:      receivedAt,
+	}, gpsTimed, nil
 }
 
 func (adapter *udpAdapter) sendTXAck(token []byte, destination *net.UDPAddr, errorCode string) error {
@@ -896,45 +965,73 @@ func (adapter *udpAdapter) sendTXAck(token []byte, destination *net.UDPAddr, err
 }
 
 func (adapter *udpAdapter) handlePushData(ctx context.Context, body []byte) error {
-	var payload pushDataPayload
+	var payload struct {
+		RXPK []json.RawMessage `json:"rxpk"`
+	}
 	if len(body) == 0 {
 		return adapter.emitHeartbeat(ctx)
 	}
 	if err := json.Unmarshal(body, &payload); err != nil {
 		return fmt.Errorf("decode PUSH_DATA payload: %w", err)
 	}
-	if len(payload.RXPK) == 0 {
-		return adapter.emitHeartbeat(ctx)
-	}
-	for _, received := range payload.RXPK {
-		if received.Modulation != "" && !strings.EqualFold(received.Modulation, "LORA") {
-			return fmt.Errorf("unsupported gateway modulation %q", received.Modulation)
-		}
-		decoded, err := base64.StdEncoding.DecodeString(received.Data)
-		if err != nil {
-			return fmt.Errorf("decode gateway payload: %w", err)
-		}
-		if received.Size > 0 && received.Size != len(decoded) {
-			return fmt.Errorf("gateway payload size mismatch: declared %d, decoded %d", received.Size, len(decoded))
-		}
-		packet := types.GatewayPacket{
-			GatewayID:       adapter.gatewayID,
-			Payload:         decoded,
-			Frequency:       int64(math.Round(received.Frequency * 1_000_000)),
-			Bandwidth:       parseBandwidth(received.DataRate),
-			SpreadingFactor: parseSpreadingFactor(received.DataRate),
-			RSSI:            float64(received.RSSI),
-			SNR:             received.SNR,
-			DataRate:        received.DataRate,
-			ReceivedAt:      time.Now(),
-		}
-		select {
-		case adapter.packets <- packet:
-		case <-ctx.Done():
-			return ctx.Err()
+	var packetErrors []error
+	for index, rawPacket := range payload.RXPK {
+		if err := adapter.handleRXPacket(ctx, rawPacket); err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			packetErrors = append(packetErrors, fmt.Errorf("rxpk[%d]: %w", index, err))
 		}
 	}
-	return adapter.emitHeartbeat(ctx)
+	return errors.Join(append(packetErrors, adapter.emitHeartbeat(ctx))...)
+}
+
+func (adapter *udpAdapter) handleRXPacket(ctx context.Context, rawPacket json.RawMessage) error {
+	var received *rxPacket
+	if err := json.Unmarshal(rawPacket, &received); err != nil {
+		return fmt.Errorf("decode gateway RXPK: %w", err)
+	}
+	if received == nil {
+		return errors.New("gateway RXPK is null")
+	}
+	if received.Status == -1 {
+		return nil
+	}
+	if received.Modulation != "" && !strings.EqualFold(received.Modulation, "LORA") {
+		return fmt.Errorf("unsupported gateway modulation %q", received.Modulation)
+	}
+	decoded, err := base64.StdEncoding.DecodeString(received.Data)
+	if err != nil {
+		return fmt.Errorf("decode gateway payload: %w", err)
+	}
+	if received.Size > 0 && received.Size != len(decoded) {
+		return fmt.Errorf("gateway payload size mismatch: declared %d, decoded %d", received.Size, len(decoded))
+	}
+	receivedAt := time.Now()
+	if received.Timestamp != nil {
+		adapter.mu.Lock()
+		adapter.clockTimestamp = *received.Timestamp
+		adapter.clockReceivedAt = receivedAt
+		adapter.mu.Unlock()
+	}
+	packet := types.GatewayPacket{
+		ConcentratorTimestamp: received.Timestamp,
+		GatewayID:             adapter.gatewayID,
+		Payload:               decoded,
+		Frequency:             int64(math.Round(received.Frequency * 1_000_000)),
+		Bandwidth:             parseBandwidth(received.DataRate),
+		SpreadingFactor:       parseSpreadingFactor(received.DataRate),
+		RSSI:                  float64(received.RSSI),
+		SNR:                   received.SNR,
+		DataRate:              received.DataRate,
+		ReceivedAt:            receivedAt,
+	}
+	select {
+	case adapter.packets <- packet:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func parseSpreadingFactor(dataRate string) int {
@@ -1051,35 +1148,39 @@ func (adapter *udpAdapter) emitEvent(ctx context.Context, event types.GatewayAda
 }
 
 type pushDataPayload struct {
-	RXPK []rxPacket `json:"rxpk"`
+	RXPK []rxPacket         `json:"rxpk,omitempty"`
+	Stat *gatewayStatistics `json:"stat,omitempty"`
 }
 
 type rxPacket struct {
-	Data       string  `json:"data"`
-	Frequency  float64 `json:"freq"`
-	Timestamp  *uint32 `json:"tmst,omitempty"`
-	Channel    int     `json:"chan"`
-	RFChannel  int     `json:"rfch"`
-	Status     int     `json:"stat"`
-	DataRate   string  `json:"datr"`
-	Modulation string  `json:"modu,omitempty"`
-	CodingRate string  `json:"codr,omitempty"`
-	RSSI       int     `json:"rssi,omitempty"`
-	SNR        float64 `json:"lsnr,omitempty"`
-	Size       int     `json:"size,omitempty"`
+	GPSMilliseconds *uint64 `json:"tmms,omitempty"`
+	Data            string  `json:"data"`
+	Frequency       float64 `json:"freq"`
+	Timestamp       *uint32 `json:"tmst,omitempty"`
+	Channel         int     `json:"chan"`
+	RFChannel       int     `json:"rfch"`
+	Status          int     `json:"stat"`
+	DataRate        string  `json:"datr"`
+	Modulation      string  `json:"modu,omitempty"`
+	CodingRate      string  `json:"codr,omitempty"`
+	RSSI            int     `json:"rssi"`
+	SNR             float64 `json:"lsnr"`
+	Size            int     `json:"size,omitempty"`
 }
 
 type txPacket struct {
-	Immediate  bool    `json:"imme"`
-	Timestamp  *uint32 `json:"tmst,omitempty"`
-	Time       string  `json:"time,omitempty"`
-	Frequency  float64 `json:"freq"`
-	Modulation string  `json:"modu"`
-	DataRate   string  `json:"datr"`
-	CodingRate string  `json:"codr"`
-	Power      int     `json:"powe,omitempty"`
-	Size       int     `json:"size"`
-	Data       string  `json:"data"`
+	InvertPolarity  bool    `json:"ipol"`
+	Immediate       bool    `json:"imme"`
+	Timestamp       *uint32 `json:"tmst,omitempty"`
+	GPSMilliseconds *uint64 `json:"tmms,omitempty"`
+	Time            string  `json:"time,omitempty"`
+	Frequency       float64 `json:"freq"`
+	Modulation      string  `json:"modu"`
+	DataRate        string  `json:"datr"`
+	CodingRate      string  `json:"codr"`
+	Power           int     `json:"powe,omitempty"`
+	Size            int     `json:"size"`
+	Data            string  `json:"data"`
 }
 
 type txAckPayload struct {

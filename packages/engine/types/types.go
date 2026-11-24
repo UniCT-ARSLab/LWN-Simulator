@@ -11,7 +11,9 @@ type EventSink func(contracts.SimulationEvent)
 
 type GatewayPacket struct {
 	GatewayID       string
+	DeviceID        string
 	Kind            GatewayPacketKind
+	Protocol        contracts.RadioProtocol
 	Payload         []byte
 	Frequency       int64
 	Bandwidth       int64
@@ -20,6 +22,8 @@ type GatewayPacket struct {
 	SNR             float64
 	Power           int
 	DataRate        string
+	// ConcentratorTimestamp is the Semtech 32-bit microsecond counter at RX end or scheduled TX.
+	ConcentratorTimestamp *uint32
 	// TransmitAt requests a timed downlink. A zero value keeps the existing
 	// immediate-transmission behavior used by ordinary gateway packets.
 	TransmitAt time.Time
@@ -60,6 +64,11 @@ type GatewayAdapter interface {
 // can encode the Semtech PUSH_DATA envelope correctly.
 type GatewayUplinkAdapter interface {
 	SendUplink(context.Context, GatewayPacket) error
+}
+
+// GatewayPositionAdapter advertises changes to a gateway's location over its transport.
+type GatewayPositionAdapter interface {
+	SetGatewayPosition(latitude, longitude, altitude *float32)
 }
 
 // VirtualGatewayAdapterFactory identifies factories that can transport
@@ -104,39 +113,39 @@ type Options struct {
 // the contract snapshot and the engine runtime state together so a backend
 // restart can continue from the same simulation timeline.
 type EngineCheckpoint struct {
-	RunID          string
-	Config         contracts.SimulationConfig
-	Devices        []contracts.Device
-	Gateways       []contracts.Gateway
-	State          contracts.SimulationState
-	Metrics        contracts.SimulationMetrics
-	Sessions       map[string]DeviceSession
-	Radio          map[string]RadioTransmission
-	Scheduled      []ScheduledEvent
-	GatewayPackets []GatewayPacket
-	EventLog       []contracts.SimulationEvent
+	RunID          string                       `json:",omitzero"`
+	Config         contracts.SimulationConfig   `json:",omitzero"`
+	Devices        []contracts.Device           `json:",omitzero"`
+	Gateways       []contracts.Gateway          `json:",omitzero"`
+	State          contracts.SimulationState    `json:",omitzero"`
+	Metrics        contracts.SimulationMetrics  `json:",omitzero"`
+	Sessions       map[string]DeviceSession     `json:",omitzero"`
+	Radio          map[string]RadioTransmission `json:",omitzero"`
+	Scheduled      []ScheduledEvent             `json:",omitzero"`
+	GatewayPackets []GatewayPacket              `json:",omitzero"`
+	EventLog       []contracts.SimulationEvent  `json:",omitzero"`
 }
 
 type ScheduledEvent struct {
-	ID               string
-	At               time.Duration
-	Type             contracts.SimulationEventType
-	Message          string
-	DeviceID         string
-	GatewayID        string
-	Kind             ScheduledEventKind
-	Attempt          int
-	PacketID         string
-	FrameCounter     int64
-	Confirmed        bool
-	Window           contracts.SimulationRxWindow
-	WindowDuration   time.Duration
-	DataRate         int
-	ChannelFrequency int64
-	WindowBaseAt     time.Duration
-	FragmentIndex    int
-	FragmentCount    int
-	FPendingPoll     bool
+	ID               string                        `json:",omitzero"`
+	At               time.Duration                 `json:",omitzero"`
+	Type             contracts.SimulationEventType `json:",omitzero"`
+	Message          string                        `json:",omitzero"`
+	DeviceID         string                        `json:",omitzero"`
+	GatewayID        string                        `json:",omitzero"`
+	Kind             ScheduledEventKind            `json:",omitzero"`
+	Attempt          int                           `json:",omitzero"`
+	PacketID         string                        `json:",omitzero"`
+	FrameCounter     int64                         `json:",omitzero"`
+	Confirmed        bool                          `json:",omitzero"`
+	Window           contracts.SimulationRxWindow  `json:",omitzero"`
+	WindowDuration   time.Duration                 `json:",omitzero"`
+	DataRate         int                           `json:",omitzero"`
+	ChannelFrequency int64                         `json:",omitzero"`
+	WindowBaseAt     time.Duration                 `json:",omitzero"`
+	FragmentIndex    int                           `json:",omitzero"`
+	FragmentCount    int                           `json:",omitzero"`
+	FPendingPoll     bool                          `json:",omitzero"`
 }
 
 type ScheduledEventKind string
@@ -163,53 +172,75 @@ const (
 	ClassBPingSlotPeriod = time.Second
 )
 
+// NetworkChannel is an indexed channel installed by a LoRaWAN network server.
+type NetworkChannel struct {
+	// Frequency is the uplink frequency in hertz; zero removes the channel.
+	Frequency int64
+	// MinimumDataRate and MaximumDataRate bound the permitted uplink data rates.
+	MinimumDataRate, MaximumDataRate int
+	// DownlinkFrequency overrides RX1 when a DLChannelReq is accepted.
+	DownlinkFrequency int64
+}
+
 type DeviceSession struct {
-	Joined                    bool
-	FrameCounterUp            int64
-	LastExternalFrameCounter  uint32
-	FrameCounterDown          int64
-	CurrentDataRate           int
-	CurrentSpreadingFactor    int
-	DeviceAddress             string
-	JoinEUI                   string
-	SecurityFingerprint       string
-	PendingUplink             *PendingUplink
-	PendingJoinRequest        *PendingJoinRequest
-	LastRSSI                  float64
-	LastSNR                   float64
-	LastAirtime               time.Duration
-	LastChannel               int64
-	LastPayloadSize           int
-	LastFPort                 int
-	ClassBSynchronized        bool
-	LastBeaconAt              time.Duration
-	NextPingSlotAt            time.Duration
-	ClassBMissedBeacons       int64
-	ClassBGatewayID           string
-	ClassBNextPingEventID     string
-	ClassBBeaconTimeoutID     string
-	PendingClassBDownlinks    []ClassBDownlink
-	PendingClassADownlinks    []Downlink
-	PendingClassCDownlinks    []Downlink
-	ClassCNextDownlinkEventID string
-	NwkSKey                   []byte
-	AppSKey                   []byte
-	DevNonce                  uint16
-	CurrentTxPower            int
-	UnconfirmedRepetitions    int
-	MaximumDutyCycle          float64
-	RX1DataRateOffset         int
-	RX2DataRate               int
-	RX2Frequency              int64
-	ReceiveDelay              time.Duration
-	UplinkDwellTime           bool
-	DownlinkDwellTime         bool
-	MaximumEIRP               int
-	PingSlotDataRate          int
-	PingSlotFrequency         int64
-	PingSlotPeriodicity       int
-	BeaconFrequency           int64
-	AdditionalChannels        []RadioChannel
+	// PendingMACResponses contains complete uplink MAC responses waiting for transmission.
+	PendingMACResponses [][]byte `json:",omitzero"`
+	// NetworkChannels overrides the regional channel table by channel index.
+	NetworkChannels map[int]NetworkChannel `json:",omitzero"`
+	// DisabledChannels records channels disabled by a network channel mask.
+	DisabledChannels map[int]bool `json:",omitzero"`
+	// PendingDownlinkACK acknowledges a confirmed downlink on the next new uplink.
+	PendingDownlinkACK bool `json:",omitzero"`
+	// ExternalADR leaves ADR decisions to the connected network server.
+	ExternalADR                      bool                `json:",omitzero"`
+	Joined                           bool                `json:",omitzero"`
+	FrameCounterUp                   int64               `json:",omitzero"`
+	LastExternalFrameCounter         uint32              `json:",omitzero"`
+	FrameCounterDown                 int64               `json:",omitzero"`
+	LastExternalDownlinkFrameCounter uint32              `json:",omitzero"`
+	ExternalDownlinkFrameCounterSet  bool                `json:",omitzero"`
+	CurrentDataRate                  int                 `json:",omitzero"`
+	CurrentSpreadingFactor           int                 `json:",omitzero"`
+	DeviceAddress                    string              `json:",omitzero"`
+	JoinEUI                          string              `json:",omitzero"`
+	SecurityFingerprint              string              `json:",omitzero"`
+	PendingUplink                    *PendingUplink      `json:",omitzero"`
+	PendingJoinRequest               *PendingJoinRequest `json:",omitzero"`
+	LastRSSI                         float64             `json:",omitzero"`
+	LastSNR                          float64             `json:",omitzero"`
+	LastAirtime                      time.Duration       `json:",omitzero"`
+	LastChannel                      int64               `json:",omitzero"`
+	LastPayloadSize                  int                 `json:",omitzero"`
+	LastFPort                        int                 `json:",omitzero"`
+	ClassBSynchronized               bool                `json:",omitzero"`
+	LastBeaconAt                     time.Duration       `json:",omitzero"`
+	NextPingSlotAt                   time.Duration       `json:",omitzero"`
+	ClassBMissedBeacons              int64               `json:",omitzero"`
+	ClassBGatewayID                  string              `json:",omitzero"`
+	ClassBNextPingEventID            string              `json:",omitzero"`
+	ClassBBeaconTimeoutID            string              `json:",omitzero"`
+	PendingClassBDownlinks           []ClassBDownlink    `json:",omitzero"`
+	PendingClassADownlinks           []Downlink          `json:",omitzero"`
+	PendingClassCDownlinks           []Downlink          `json:",omitzero"`
+	ClassCNextDownlinkEventID        string              `json:",omitzero"`
+	NwkSKey                          []byte              `json:",omitzero"`
+	AppSKey                          []byte              `json:",omitzero"`
+	DevNonce                         uint16              `json:",omitzero"`
+	CurrentTxPower                   int                 `json:",omitzero"`
+	UnconfirmedRepetitions           int                 `json:",omitzero"`
+	MaximumDutyCycle                 float64             `json:",omitzero"`
+	RX1DataRateOffset                int                 `json:",omitzero"`
+	RX2DataRate                      int                 `json:",omitzero"`
+	RX2Frequency                     int64               `json:",omitzero"`
+	ReceiveDelay                     time.Duration       `json:",omitzero"`
+	UplinkDwellTime                  bool                `json:",omitzero"`
+	DownlinkDwellTime                bool                `json:",omitzero"`
+	MaximumEIRP                      int                 `json:",omitzero"`
+	PingSlotDataRate                 int                 `json:",omitzero"`
+	PingSlotFrequency                int64               `json:",omitzero"`
+	PingSlotPeriodicity              int                 `json:",omitzero"`
+	BeaconFrequency                  int64               `json:",omitzero"`
+	AdditionalChannels               []RadioChannel      `json:",omitzero"`
 }
 
 // Downlink is queued for delivery according to the device class. An empty ID
@@ -276,6 +307,16 @@ type MACCommand struct {
 type ClassBDownlink = Downlink
 
 type PendingUplink struct {
+	// WirePayload preserves the entire frame, including MAC responses, across retries.
+	WirePayload []byte
+	// WireFragmentIndex identifies the fragment represented by WirePayload.
+	WireFragmentIndex int
+	// ReservedFOpts freezes application fragment capacity while a message is in flight.
+	ReservedFOpts int
+	// PayloadConfig freezes the application data for retries and remaining fragments.
+	PayloadConfig *contracts.PayloadConfig
+	// SentAt is the wall-clock completion time of the latest radio attempt.
+	SentAt         time.Time
 	PacketID       string
 	FrameCounter   int64
 	Attempt        int
@@ -291,6 +332,8 @@ type PendingUplink struct {
 }
 
 type PendingJoinRequest struct {
+	// RequestedAt identifies the wall-clock attempt for timed external Join-Accepts.
+	RequestedAt    time.Time
 	PacketID       string
 	JoinEUI        string
 	GatewayIDs     []string
@@ -338,27 +381,40 @@ type RegionalPlan struct {
 	DataRates         map[int]DataRateProfile
 }
 
+// RadioFrame contains the radio-level data shared by every modulation
+// protocol. Protocol-specific encoders populate the payload and protocol,
+// while the radio medium uses the modulation parameters to model airtime,
+// range, and collisions.
+type RadioFrame struct {
+	Protocol          contracts.RadioProtocol
+	Payload           []byte
+	ChannelFrequency  int64
+	Bandwidth         int64
+	SpreadingFactor   int
+	DataRate          int
+	TransmissionPower float64
+}
+
+// RadioTransmission tracks a frame while it is in flight through the radio
+// medium. RadioFrame is embedded so the existing runtime can access common
+// radio properties without coupling them to LoRaWAN session state.
 type RadioTransmission struct {
-	PacketID         string
-	DeviceID         string
-	FrameCounter     int64
-	Attempt          int
-	Confirmed        bool
-	StartAt          time.Duration
-	EndAt            time.Duration
-	ChannelFrequency int64
-	Bandwidth        int64
-	SpreadingFactor  int
-	DataRate         int
-	FPort            int
-	PayloadSize      int
-	FragmentIndex    int
-	FragmentCount    int
-	Airtime          time.Duration
-	RSSI             float64
-	SNR              float64
-	GatewayIDs       []string
-	Collision        bool
-	FPendingPoll     bool
-	Payload          []byte
+	RadioFrame
+	PacketID      string
+	DeviceID      string
+	FrameCounter  int64
+	Attempt       int
+	Confirmed     bool
+	StartAt       time.Duration
+	EndAt         time.Duration
+	FPort         int
+	PayloadSize   int
+	FragmentIndex int
+	FragmentCount int
+	Airtime       time.Duration
+	RSSI          float64
+	SNR           float64
+	GatewayIDs    []string
+	Collision     bool
+	FPendingPoll  bool
 }

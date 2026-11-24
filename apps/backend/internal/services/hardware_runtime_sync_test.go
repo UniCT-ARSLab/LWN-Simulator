@@ -19,6 +19,10 @@ func (runtime *fakeDeviceRuntimeSynchronizer) RegisterDeviceLocked(device contra
 	runtime.registered = append(runtime.registered, device)
 	return runtime.err
 }
+func (runtime *fakeDeviceRuntimeSynchronizer) ValidateDeviceUpdateLocked(contracts.Device) error {
+	return nil
+}
+
 func (runtime *fakeDeviceRuntimeSynchronizer) UpdateDeviceLocked(device contracts.Device) error {
 	runtime.updated = append(runtime.updated, device)
 	return runtime.err
@@ -40,6 +44,10 @@ func (runtime *fakeGatewayRuntimeSynchronizer) RegisterGatewayLocked(gateway con
 	runtime.registered = append(runtime.registered, gateway)
 	return runtime.err
 }
+func (*fakeGatewayRuntimeSynchronizer) ValidateGatewayUpdateLocked(contracts.Gateway) error {
+	return nil
+}
+
 func (runtime *fakeGatewayRuntimeSynchronizer) UpdateGatewayLocked(gateway contracts.Gateway) error {
 	runtime.updated = append(runtime.updated, gateway)
 	return runtime.err

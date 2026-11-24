@@ -30,8 +30,8 @@ between the two sides.
 | Field | Meaning | Value |
 | --- | --- | --- |
 | **Gateway Bridge** | Enables or disables the external UDP transport for the next simulation run. | Checkbox. |
-| **Gateway Bridge's address** | Network address of the UDP bridge endpoint. | IPv4 address or URL accepted by the form. |
-| **Gateway Bridge's Port** | UDP port used by the bridge. | Numeric port, normally `1700`. |
+| **Gateway Bridge's address** | Destination address of the external bridge service. | IPv4 address or URL accepted by the form. |
+| **Gateway Bridge's Port** | Destination UDP port on the external bridge service. | Numeric port, normally `1700`. |
 
 The address and port are disabled while the bridge checkbox is off. Click
 **Save settings** to store the configuration locally. The page shows the
@@ -52,26 +52,22 @@ state.
 ## Connect external gateway software
 
 <Steps>
-### Save the bridge endpoint
+### Start the external bridge
 
-Open **Hardware → Gateway Bridge**, enable the bridge, set the address and UDP
-port, and click **Save settings**.
+Configure ChirpStack Gateway Bridge to listen for Semtech UDP packets on its own address and port, usually `1700`. Register the virtual gateway's EUI and the devices in the external network server when using LoRaWAN.
 
-### Configure the simulated gateway side
+### Set the destination in the simulator
 
-Create or edit an active gateway with type **Virtual**. Its location and
-Gateway EUI identify the gateway whose traffic is exposed through the bridge.
+Open **Hardware → Gateway Bridge**, enable the bridge and enter the address and port of that external service. Click **Save settings**.
 
-### Point the packet forwarder at the bridge
+### Start the virtual gateway
 
-Configure the gateway’s packet forwarder or ChirpStack Gateway Bridge to send
-Semtech UDP traffic to the saved bridge endpoint.
-
-### Start and observe
-
-Start the simulation with the virtual gateway enabled. Monitor **Connectivity**,
-**Engine activity**, and **Logs** for heartbeats and packet ingress/egress.
+Create an active **Virtual** gateway and start the simulation. The simulator sends the gateway's uplinks to the external bridge and receives its replies over that connection. Monitor **Connectivity**, **Engine activity** and **Logs**.
 </Steps>
+
+When the virtual gateway is active, it reports statistics to ChirpStack on startup and at the **Keep Alive** interval, even without device traffic. These reports update **Last seen** in ChirpStack.
+
+Virtual gateways use the simulator host’s clock to provide GPS timestamps on uplinks and to schedule GPS-timed downlinks. Keep the simulator host and the external network server synchronized when they run on different machines.
 
 The gateway should move from connecting/reconnecting to connected after its
 heartbeat is received. The runtime panel reports incoming and outgoing packet
@@ -122,46 +118,134 @@ gateway communicates with the network side independently. Coverage and packet
 delivery still depend on the device-to-gateway radio relationship.
 
 The simulator does not require a physical gateway for local testing. You can
-use a packet forwarder or ChirpStack Gateway Bridge pointed at the configured
-endpoint, then observe the same connection, packet, and error panels in the
-application.
+run a local packet-forwarder script against the simulator's UDP listener, or run an external ChirpStack Gateway Bridge and configure its address as the simulator's bridge destination. Both flows are described below.
 
 The simulator currently integrates with ChirpStack at the Gateway Bridge
 transport boundary. ChirpStack application/device provisioning and network
 server administration remain outside this page; configure those in your
 ChirpStack installation when your test requires them.
 
+## Raw LoRa traffic
+
+The UDP transport also carries **Raw LoRa** bytes. Set the device's **Radio
+Protocol** to **Raw LoRa**, configure **Radio Receive Mode** as **Raw LoRa** or
+**Auto** when receiving raw traffic, and configure the bridge or the **Real**
+gateway endpoint as usual. Raw traffic does not acquire LoRaWAN headers,
+encryption, or a join exchange by passing through a gateway.
+
+Use **Engine activity** and **Logs** to inspect the **Raw LoRa · HEX** payload
+and the associated gateway. Multiple gateways can be connected at the same
+time; each must have its own Gateway EUI matching the packet forwarder.
+
+<Callout type="info" emoji="📻">
+  Raw payloads received over UDP may contain no device address. These frames
+  are recorded against the receiving gateway; the simulator cannot infer a
+  particular device or a device-to-gateway map link from arbitrary bytes.
+  An external raw downlink without a target address is observable as a frame,
+  but is not automatically delivered to a selected device. Raw frames are not
+  broadcast to every registered device.
+</Callout>
+
+**Auto** recognition uses the frame structure. A recognized LoRaWAN frame
+still undergoes the normal session and MIC checks; choosing Auto does not
+bypass them. A bridge transports raw bytes, but this alone does not make
+ChirpStack interpret them as LoRaWAN application traffic. Check the external
+service's raw-frame support separately.
+
 ## Troubleshooting
 
 ### The gateway remains disconnected
 
-Check that:
+For a **Virtual** gateway, check that the bridge is enabled, that the external
+bridge service is listening at the saved destination, and that its EUI is
+registered on the external network server. The destination port belongs to
+that external service; it is not a port the simulator must reserve locally.
 
-1. the bridge is enabled and saved;
-2. the address is reachable from the packet-forwarder host;
-3. the UDP port is the same on both sides;
-4. at least one matching virtual gateway is active;
-5. no other process is already using the selected port.
+For a **Real** gateway, check that the external packet forwarder sends to the
+backend's UDP listener (normally port `1700`). Check the configured EUI and
+packet-forwarder IPv4/port in the gateway record. The bridge checkbox does not
+enable or configure this inbound listener.
 
 ### The gateway is connected but no uplinks arrive
 
-Confirm that the packet-forwarder is sending `PUSH_DATA`, that its Gateway EUI
-matches the configured Gateway EUI, and that the transmitted LoRaWAN frame is
-valid for the configured device session. Also confirm that the packet
-forwarder targets the configured bridge address and port. Check the event
-stream for ingress or validation errors.
+For inbound traffic, confirm that the packet forwarder sends `PUSH_DATA` to
+the backend's listener and announces the configured Gateway EUI. LoRaWAN
+frames must be valid for the configured device session. Raw LoRa frames are
+shown as raw events. For outbound traffic, check that the external bridge
+receives the Virtual gateway's uplinks. Inspect ingress, egress and validation
+errors in the event stream.
 
 ### No downlink is visible at the gateway
 
-Make sure the device is in range, the downlink is valid for its regional plan,
-and that the packet-forwarder answers the bridge’s transmission request. Check
-that the real gateway’s IPv4 address and port are reachable from the simulator.
-For Class A devices, a downlink normally requires a receive window after an
-uplink.
+Make sure the device is in range and that the downlink is valid for its
+regional plan. A Real gateway's packet forwarder must send `PULL_DATA` to the
+simulator and handle transmission requests. When using a Virtual gateway and
+external bridge, check that the external service sends downlinks back over
+the established UDP connection. Class A devices normally need a receive
+window after an uplink.
 
-### The bridge cannot start
+### A UDP connection cannot start
 
-Check that the selected endpoint is reachable and that the UDP port is open
-through the host firewall. If the server is running on another machine, use an
-address reachable from the packet-forwarder. Save the settings before
-starting a new simulation; bridge configuration changes apply to the next run.
+For outbound traffic, check that the external destination is reachable. For
+inbound traffic, check that the backend can bind its local UDP listener and
+that the firewall allows incoming packets. Another process using the same
+local listening port prevents binding. Save bridge settings before starting
+a new simulation; changes apply to the next run.
+
+## Send frames from a Python script
+
+There are two different directions:
+
+- **Virtual gateway → external bridge**: the address and port on **Hardware → Gateway Bridge** identify the external service receiving the simulator's traffic.
+- **External script → simulator**: the script sends Semtech UDP packets to the backend's listener, normally UDP `1700`. Set `LWN_GATEWAY_UDP_LISTEN_ADDR` before starting the backend to use another listening address or port. This listener is separate from the bridge destination and from the HTTP port `8080`.
+
+For a test on one computer:
+
+1. In **Hardware → Gateways**, create an active **Real** gateway with EUI `A840410001000101`, IPv4 `127.0.0.1` and port `1701`. Complete the other required fields. Here the external station is the Python script; physical gateway hardware is optional.
+2. Keep the bridge disabled for this example.
+3. Save the following script as `send_sensor.py` and run `python3 send_sensor.py`.
+4. Start the simulation in the same profile. Every five seconds the script sends the binary bytes `FF AA`. Open **Engine activity** or the run in **Logs** and find **Raw LoRa · HEX FF AA** associated with the gateway.
+
+The script binds port `1701`; the backend listens on `1700`. For different computers, change `SIMULATOR` to the backend's reachable address and set the gateway IPv4 to the script computer's address. The EUI in the UI and script must match.
+
+```python
+import base64
+import json
+import secrets
+import socket
+import time
+
+SIMULATOR = ("127.0.0.1", 1700)
+GATEWAY_EUI = bytes.fromhex("A840410001000101")
+PAYLOAD = bytes.fromhex("FF AA")
+
+with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+    sock.bind(("0.0.0.0", 1701))
+    sock.settimeout(1)
+    try:
+        while True:
+            sock.sendto(bytes([2]) + secrets.token_bytes(2) + bytes([2])
+                        + GATEWAY_EUI, SIMULATOR)
+            body = {"rxpk": [{
+                "tmst": (time.monotonic_ns() // 1000) & 0xFFFFFFFF,
+                "freq": 868.1, "chan": 0, "rfch": 0, "stat": 1,
+                "modu": "LORA", "datr": "SF7BW125", "codr": "4/5",
+                "rssi": -60, "lsnr": 7, "size": len(PAYLOAD),
+                "data": base64.b64encode(PAYLOAD).decode("ascii")
+            }]}
+            sock.sendto(bytes([2]) + secrets.token_bytes(2) + bytes([0])
+                        + GATEWAY_EUI + json.dumps(body).encode(), SIMULATOR)
+            print("Sent:", PAYLOAD.hex(" ").upper(), flush=True)
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                try:
+                    packet, _ = sock.recvfrom(65535)
+                    if len(packet) >= 4:
+                        print("UDP response type:", hex(packet[3]), flush=True)
+                except socket.timeout:
+                    pass
+    except KeyboardInterrupt:
+        pass
+```
+
+Stop with Ctrl+C. Responses `0x1` and `0x4` acknowledge UDP receipt; confirm the actual frame in Logs. This example sends raw bytes. For LoRaWAN, supply a complete valid frame and register the matching device and credentials in the simulator. An arbitrary text string is not a LoRaWAN frame.

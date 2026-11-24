@@ -22,6 +22,7 @@ type GatewayRepository interface {
 type GatewayRuntimeSynchronizer interface {
 	AcquireHardwareMutation() func()
 	RegisterGatewayLocked(contracts.Gateway) error
+	ValidateGatewayUpdateLocked(contracts.Gateway) error
 	UpdateGatewayLocked(contracts.Gateway) error
 	RemoveGatewayLocked(string) error
 }
@@ -71,12 +72,6 @@ func (s *GatewayService) CreateGateway(req contracts.CreateGatewayRequest) (cont
 				req.GatewayEUI,
 			)
 		}
-		if gateway.MacAddress == req.MacAddress {
-			return contracts.Gateway{}, apperrors.Conflict(
-				"gateway with macAddress %q already exists",
-				req.MacAddress,
-			)
-		}
 	}
 
 	gateway := contracts.Gateway{
@@ -84,7 +79,6 @@ func (s *GatewayService) CreateGateway(req contracts.CreateGatewayRequest) (cont
 		Active:      true,
 		Name:        req.Name,
 		Type:        req.Type,
-		MacAddress:  req.MacAddress,
 		GatewayEUI:  req.GatewayEUI,
 		KeepAlive:   req.KeepAlive,
 		GatewayIPv4: req.GatewayIPv4,
@@ -122,6 +116,9 @@ func (s *GatewayService) GetGateways(req contracts.GetGatewaysRequest) (contract
 	if err != nil {
 		return contracts.GetGatewaysResponse{}, fmt.Errorf("get all gateways: %w", err)
 	}
+	if gateways == nil {
+		gateways = []contracts.Gateway{}
+	}
 	return contracts.GetGatewaysResponse{Gateways: gateways}, nil
 }
 
@@ -135,7 +132,6 @@ func (s *GatewayService) ImportGateways(gateways []contracts.Gateway) error {
 
 	seenIDs := make(map[string]struct{}, len(gateways))
 	seenEUIs := make(map[string]struct{}, len(gateways))
-	seenMACs := make(map[string]struct{}, len(gateways))
 	for _, gateway := range gateways {
 		if _, err := uuid.Parse(gateway.ID); err != nil {
 			return apperrors.Invalid("gateway %q has an invalid id", gateway.ID)
@@ -149,12 +145,8 @@ func (s *GatewayService) ImportGateways(gateways []contracts.Gateway) error {
 		if _, exists := seenEUIs[gateway.GatewayEUI]; exists {
 			return apperrors.Conflict("duplicate gateway EUI %q", gateway.GatewayEUI)
 		}
-		if _, exists := seenMACs[gateway.MacAddress]; exists {
-			return apperrors.Conflict("duplicate gateway MAC address %q", gateway.MacAddress)
-		}
 		seenIDs[gateway.ID] = struct{}{}
 		seenEUIs[gateway.GatewayEUI] = struct{}{}
-		seenMACs[gateway.MacAddress] = struct{}{}
 	}
 
 	if err := s.repository.Save(gateways); err != nil {
@@ -171,19 +163,34 @@ func (s *GatewayService) ImportGateways(gateways []contracts.Gateway) error {
 }
 
 func (s *GatewayService) UpdateGateway(req contracts.UpdateGatewayRequest) (contracts.UpdateGatewayResponse, error) {
+	if err := ValidateGateway(req.Gateway); err != nil {
+		return contracts.UpdateGatewayResponse{}, err
+	}
+	return s.updateGateway(req.ID, func(gateway *contracts.Gateway) error {
+		*gateway = req.Gateway
+		return nil
+	})
+}
+
+func (s *GatewayService) updateGateway(
+	id string,
+	apply func(*contracts.Gateway) error,
+) (contracts.UpdateGatewayResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	releaseRuntime := acquireHardwareMutation(s.runtime)
 	defer releaseRuntime()
 
-	if err := ValidateGateway(req.Gateway); err != nil {
-		return contracts.UpdateGatewayResponse{}, err
-	}
-
-	previous, err := s.repository.GetByID(req.ID)
+	previous, err := s.repository.GetByID(id)
 	if err != nil {
 		return contracts.UpdateGatewayResponse{}, wrapGatewayRepositoryError("get gateway by id", err)
 	}
+
+	gateway := previous
+	if err := apply(&gateway); err != nil {
+		return contracts.UpdateGatewayResponse{}, err
+	}
+	gateway.ID = id
 
 	gateways, err := s.repository.GetAll()
 	if err != nil {
@@ -191,25 +198,22 @@ func (s *GatewayService) UpdateGateway(req contracts.UpdateGatewayRequest) (cont
 	}
 
 	for _, existing := range gateways {
-		if existing.ID == req.ID {
+		if existing.ID == id {
 			continue
 		}
-		if existing.GatewayEUI == req.Gateway.GatewayEUI {
+		if existing.GatewayEUI == gateway.GatewayEUI {
 			return contracts.UpdateGatewayResponse{}, apperrors.Conflict(
 				"gateway with gatewayEUI %q already exists",
-				req.Gateway.GatewayEUI,
-			)
-		}
-		if existing.MacAddress == req.Gateway.MacAddress {
-			return contracts.UpdateGatewayResponse{}, apperrors.Conflict(
-				"gateway with macAddress %q already exists",
-				req.Gateway.MacAddress,
+				gateway.GatewayEUI,
 			)
 		}
 	}
 
-	gateway := req.Gateway
-	gateway.ID = req.ID
+	if s.runtime != nil {
+		if err := s.runtime.ValidateGatewayUpdateLocked(gateway); err != nil {
+			return contracts.UpdateGatewayResponse{}, err
+		}
+	}
 	if err := s.repository.Update(gateway); err != nil {
 		return contracts.UpdateGatewayResponse{}, wrapGatewayRepositoryError("update gateway", err)
 	}

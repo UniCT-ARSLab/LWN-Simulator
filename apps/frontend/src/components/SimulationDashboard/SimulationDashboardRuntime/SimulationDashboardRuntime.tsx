@@ -18,7 +18,7 @@ export const SimulationDashboardRuntime = (
           </div>
           <span>{props.devices.length} devices</span>
         </div>
-        <DeviceRuntimeList devices={props.devices} />
+        <DeviceRuntimeList devices={props.devices} deviceProtocols={props.deviceProtocols} />
       </Card>
       <Card layout={CardLayout.Padded}>
         <div className="simulation-dashboard__section-heading">

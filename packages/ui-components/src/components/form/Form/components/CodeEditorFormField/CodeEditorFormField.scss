@@ -1,0 +1,47 @@
+// CodeEditorFormField
+
+.code-editor-form-field {
+  .code-editor {
+    display: block;
+    min-height: 180px;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    outline: none;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--primary-bg-color);
+    color: var(--primary-color);
+    font-family: var(--secondary-font);
+    line-height: 1.5;
+    tab-size: 2;
+    transition: border-color 0.2s ease-in-out;
+
+    &:focus {
+      border-color: var(--primary-color);
+    }
+
+    &::placeholder {
+      color: var(--secondary-text-color);
+    }
+  }
+
+  &.disabled {
+    filter: saturate(0);
+    opacity: 0.55;
+  }
+
+  .chars-check {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    gap: var(--gap);
+    margin: var(--gap) 0;
+
+    span {
+      color: var(--secondary-text-color);
+      font-family: var(--secondary-font);
+      text-wrap: nowrap;
+    }
+  }
+}

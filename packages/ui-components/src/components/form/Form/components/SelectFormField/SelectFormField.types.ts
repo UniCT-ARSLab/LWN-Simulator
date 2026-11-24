@@ -8,7 +8,7 @@ export interface SelectOption {
   /**
    * Value assigned to the option.
    */
-  value: string;
+  value: string | number;
 
   /**
    * Custom content displayed instead of the default option value.
@@ -27,14 +27,14 @@ export interface SelectFormFieldProps extends FormFieldProps {
    *
    * A `null` value indicates that no option is currently selected.
    */
-  value: string | null;
+  value: string | number | null;
 
   /**
    * Updates the selected option value.
    *
    * @param value New selected value, or `null` to clear the selection.
    */
-  setValue(value: string | null): void;
+  setValue(value: string | number | null): void;
 
   /**
    * Available options displayed by the select field.

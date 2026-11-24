@@ -9,10 +9,12 @@ import {
   SimulationRunStatus,
 } from "@lwn-simulator/contracts";
 import {
+  useProfileService,
   useSimulationService,
   useWebSocketService,
 } from "@lwn-simulator/sdk";
 import { Button, ButtonType, Spinner } from "@lwn-simulator/ui-components";
+import { LogExportButton } from "@/components/Logs";
 import "./logs.scss";
 
 const formatDate = (value: number): string =>
@@ -31,6 +33,7 @@ const labelStatus = (value: SimulationRunStatus): string =>
 
 const LogsPage = () => {
   const simulation = useSimulationService();
+  const { activeProfileID } = useProfileService();
   const getLogs = simulation.getLogs;
   const { connectionState, subscribe } = useWebSocketService();
   const hasConnectedRef = useRef(false);
@@ -92,6 +95,7 @@ const LogsPage = () => {
       subscribe((rawMessage) => {
         try {
           const message = JSON.parse(rawMessage) as RealtimeWebSocketMessage;
+          if (message.profileID && message.profileID !== activeProfileID) return;
           if (
             (message.type === RealtimeWebSocketMessageType.SimulationRunCreated ||
               message.type === RealtimeWebSocketMessageType.SimulationRunUpdated) &&
@@ -122,7 +126,7 @@ const LogsPage = () => {
           // Ignore messages owned by other realtime consumers.
         }
       }),
-    [subscribe],
+    [activeProfileID, subscribe],
   );
 
   return (
@@ -133,9 +137,13 @@ const LogsPage = () => {
           <h1>Logs</h1>
           <p>Review every simulation run and inspect the events observed by each device and gateway.</p>
         </div>
-        <Link href="/simulation/dashboard">
-          <Button value="Open dashboard" type={ButtonType.Primary} />
-        </Link>
+        <div className="logs-page__header-actions">
+          <LogExportButton disabled={loading || Boolean(error) || runs.length === 0} />
+          <LogExportButton telemetry disabled={loading || Boolean(error) || runs.length === 0} />
+          <Link href="/simulation/dashboard">
+            <Button value="Open dashboard" type={ButtonType.Primary} />
+          </Link>
+        </div>
       </header>
       {loading ? (
         <div className="logs-page__loading"><Spinner /></div>

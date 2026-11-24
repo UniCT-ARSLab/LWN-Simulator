@@ -50,6 +50,7 @@ type JoinAcceptOptions struct {
 	RX1DataRateOffset int
 	RXDelay           int
 	AppKey            []byte
+	CFList            []byte
 }
 
 type JoinRequestOptions struct {
@@ -57,6 +58,16 @@ type JoinRequestOptions struct {
 	DevEUI   uint64
 	DevNonce uint16
 	AppKey   []byte
+}
+
+type JoinAccept struct {
+	AppNonce          uint32
+	NetID             uint32
+	DevAddr           uint32
+	RX1DataRateOffset int
+	RX2DataRate       int
+	RXDelay           int
+	CFList            []byte
 }
 
 func Parse(raw []byte) (Packet, error) {
@@ -138,8 +149,11 @@ func BuildDataFrame(options DataFrameOptions) ([]byte, error) {
 	if options.Direction > 1 {
 		return nil, fmt.Errorf("%w: direction must be 0 or 1", ErrInvalidFrame)
 	}
-	if options.FPort != nil && (*options.FPort == 0 || *options.FPort > 223) {
-		return nil, fmt.Errorf("%w: FPort must be between 1 and 223", ErrInvalidFrame)
+	if options.FPort != nil && *options.FPort > 223 {
+		return nil, fmt.Errorf("%w: FPort must be between 0 and 223", ErrInvalidFrame)
+	}
+	if options.FPort != nil && *options.FPort == 0 && (len(options.FOpts) > 0 || len(options.Payload) == 0) {
+		return nil, fmt.Errorf("%w: FPort 0 requires MAC payload and empty FOpts", ErrInvalidFrame)
 	}
 	if len(options.FOpts) > 15 {
 		return nil, fmt.Errorf("%w: FOpts cannot exceed 15 bytes", ErrInvalidFrame)
@@ -182,7 +196,11 @@ func BuildDataFrame(options DataFrameOptions) ([]byte, error) {
 		}
 		frame = append(frame, *options.FPort)
 		if len(options.Payload) > 0 {
-			encrypted, err := cryptPayload(options.AppSKey, options.Direction, options.DevAddr, options.FCnt, options.Payload)
+			key := options.AppSKey
+			if *options.FPort == 0 {
+				key = options.NwkSKey
+			}
+			encrypted, err := cryptPayload(key, options.Direction, options.DevAddr, options.FCnt, options.Payload)
 			if err != nil {
 				return nil, err
 			}
@@ -227,13 +245,17 @@ func BuildJoinAccept(options JoinAcceptOptions) ([]byte, error) {
 	if options.RX2DataRate < 0 || options.RX2DataRate > 15 || options.RX1DataRateOffset < 0 || options.RX1DataRateOffset > 7 || options.RXDelay < 0 || options.RXDelay > 255 {
 		return nil, fmt.Errorf("%w: invalid join accept radio settings", ErrInvalidFrame)
 	}
-	payload := make([]byte, 0, 12)
+	if len(options.CFList) != 0 && len(options.CFList) != 16 {
+		return nil, fmt.Errorf("%w: CFList must contain 16 bytes", ErrInvalidFrame)
+	}
+	payload := make([]byte, 0, 12+len(options.CFList))
 	payload = append(payload, byte(options.AppNonce), byte(options.AppNonce>>8), byte(options.AppNonce>>16))
 	payload = append(payload, byte(options.NetID), byte(options.NetID>>8), byte(options.NetID>>16))
 	devAddr := make([]byte, 4)
 	binary.LittleEndian.PutUint32(devAddr, options.DevAddr)
 	payload = append(payload, devAddr...)
 	payload = append(payload, byte(options.RX1DataRateOffset<<4|options.RX2DataRate), byte(options.RXDelay))
+	payload = append(payload, options.CFList...)
 
 	mhdr := []byte{MTypeJoinAccept << 5}
 	mac, err := cmac(options.AppKey, append(append([]byte(nil), mhdr...), payload...))
@@ -246,6 +268,43 @@ func BuildJoinAccept(options JoinAcceptOptions) ([]byte, error) {
 		return nil, err
 	}
 	return append(mhdr, encrypted...), nil
+}
+
+func DecodeJoinAccept(raw, appKey []byte) (JoinAccept, error) {
+	if (len(raw) != 17 && len(raw) != 33) || raw[0] != MTypeJoinAccept<<5 {
+		return JoinAccept{}, fmt.Errorf("%w: join accept must contain 17 or 33 bytes", ErrInvalidFrame)
+	}
+	if len(appKey) != 16 {
+		return JoinAccept{}, fmt.Errorf("%w: AppKey must be 16 bytes", ErrInvalidFrame)
+	}
+	decrypted, err := aesEncrypt(appKey, raw[1:])
+	if err != nil {
+		return JoinAccept{}, err
+	}
+	payloadEnd := len(decrypted) - 4
+	message := append([]byte{raw[0]}, decrypted[:payloadEnd]...)
+	mac, err := cmac(appKey, message)
+	if err != nil {
+		return JoinAccept{}, err
+	}
+	for index := 0; index < 4; index++ {
+		if mac[index] != decrypted[payloadEnd+index] {
+			return JoinAccept{}, fmt.Errorf("%w: join accept MIC is invalid", ErrInvalidFrame)
+		}
+	}
+	settings := decrypted[10]
+	joinAccept := JoinAccept{
+		AppNonce:          uint32(decrypted[0]) | uint32(decrypted[1])<<8 | uint32(decrypted[2])<<16,
+		NetID:             uint32(decrypted[3]) | uint32(decrypted[4])<<8 | uint32(decrypted[5])<<16,
+		DevAddr:           binary.LittleEndian.Uint32(decrypted[6:10]),
+		RX1DataRateOffset: int(settings >> 4),
+		RX2DataRate:       int(settings & 0x0f),
+		RXDelay:           int(decrypted[11]),
+	}
+	if payloadEnd == 28 {
+		joinAccept.CFList = append([]byte(nil), decrypted[12:28]...)
+	}
+	return joinAccept, nil
 }
 
 func BuildJoinRequest(options JoinRequestOptions) ([]byte, error) {
@@ -444,8 +503,13 @@ func aesEncrypt(key, value []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	result := make([]byte, aes.BlockSize)
-	block.Encrypt(result, value)
+	if len(value)%aes.BlockSize != 0 {
+		return nil, fmt.Errorf("%w: AES input must be a multiple of 16 bytes", ErrInvalidFrame)
+	}
+	result := make([]byte, len(value))
+	for offset := 0; offset < len(value); offset += aes.BlockSize {
+		block.Encrypt(result[offset:offset+aes.BlockSize], value[offset:offset+aes.BlockSize])
+	}
 	return result, nil
 }
 

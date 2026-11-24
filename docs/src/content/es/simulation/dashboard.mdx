@@ -6,6 +6,27 @@ title: Dashboard y consola
 
 La dashboard reúne el mapa, las métricas, el estado runtime y el stream de eventos.
 
-En **Uplink** programa un mensaje para el dispositivo elegido. En **Downlink** envía un payload UTF-8 o Base64, selecciona un FPort de 1 a 223, data rate y las opciones confirmed y ACK. En **MAC command** elige un comando y completa sus parámetros.
+En **Uplink**, programa un mensaje para el dispositivo elegido. Un dispositivo
+LoRaWAN OTAA sin sesión completa primero el join; un dispositivo **Raw LoRa**
+transmite directamente los bytes del payload, sin join.
+
+En **Downlink**, envía un payload UTF-8 o Base64 y elige **Data rate**, con
+**Auto** como valor inicial. Para LoRaWAN también están disponibles **FPort**
+de 1 a 223, **Confirmed** y **ACK**. Estos tres campos se ocultan para un
+destinatario Raw LoRa. Configura **Radio Receive Mode** como **Raw LoRa** o
+**Auto** si el dispositivo debe aceptar tráfico raw. Encolar no garantiza la
+entrega: siguen siendo necesarios un gateway adecuado y una oportunidad de
+recepción.
+
+En **MAC command**, elige un comando LoRaWAN y sus parámetros. Los dispositivos
+Raw LoRa están excluidos; si no hay dispositivos LoRaWAN activos, el envío
+está deshabilitado.
+
+## Consultar tramas raw
+
+**Engine activity** muestra los bytes raw en hexadecimal junto a **Raw LoRa ·
+HEX**. La misma información se conserva en los [registros de la
+simulación](/logs). Los payloads raw no se interpretan como datos de
+aplicación LoRaWAN ni se procesan con su codec del payload.
 
 Los LinkMarker representan comunicaciones recientes y válidas. La posición inicial del mapa se conserva mientras llegan nuevos eventos.

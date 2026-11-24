@@ -15,6 +15,8 @@ $PSNativeCommandUseErrorActionPreference = $true
 
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
+$version = (Get-Content (Join-Path $root "package.json") -Raw | ConvertFrom-Json).version
+$env:VERSION = $version
 
 $desktopBuildOutput = Join-Path $root "releases/desktop/build"
 Remove-Item -Recurse -Force $desktopBuildOutput -ErrorAction SilentlyContinue
@@ -84,7 +86,6 @@ try {
 
 $desktopAssets = Join-Path $root "apps/desktop/assets"
 New-Item -ItemType Directory -Force $desktopAssets | Out-Null
-$version = (Get-Content (Join-Path $root "package.json") -Raw | ConvertFrom-Json).version
 $backendOutput = Join-Path $desktopAssets "lwn-server.exe"
 
 Push-Location (Join-Path $root "apps/backend")

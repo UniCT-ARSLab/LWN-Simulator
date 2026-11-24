@@ -1,0 +1,163 @@
+---
+title: "Dispositivos y gateways"
+---
+
+import { Callout } from "nextra/components";
+
+# Dispositivos y gateways
+
+Define `SERVER` y `BASE` como se indica en [Conexión y primera solicitud](/api) antes de ejecutar estos comandos.
+
+Las rutas son relativas a `$BASE`. La creación recibe los campos directamente, sin envoltorio `device` o `gateway`. Una PUT sustituye el objeto completo: léelo con GET, modifica los campos deseados y envíalo en el envoltorio correspondiente. Su `id` debe coincidir con el UUID de la URL. Las listas devuelven `{devices}` o `{gateways}`; los objetos individuales `{device}` o `{gateway}`.
+
+| Método | Ruta | Solicitud / resultado |
+| --- | --- | --- |
+| POST | `/device/create-device` | Creación → `201 {device}`. |
+| GET | `/device/get-device/{id}` | Lectura → `{device}`. |
+| GET | `/device/get-devices` | Lista → `{devices}`. |
+| PUT | `/device/update-device/{id}` | `{"device": OBJETO_COMPLETO}` → `{device}`. |
+| DELETE | `/device/delete-device/{id}` | Eliminación → `204`. |
+| POST | `/gateway/create-gateway` | Creación → `201 {gateway}`. |
+| GET | `/gateway/get-gateway/{id}` | Lectura → `{gateway}`. |
+| GET | `/gateway/get-gateways` | Lista → `{gateways}`. |
+| PUT | `/gateway/update-gateway/{id}` | `{"gateway": OBJETO_COMPLETO}` → `{gateway}`. |
+| DELETE | `/gateway/delete-gateway/{id}` | Eliminación → `204`. |
+| GET | `/configuration/gateway-bridge` | Lectura → `{enabled,address,port}`. |
+| PUT | `/configuration/gateway-bridge` | `{"enabled":true,"address":"127.0.0.1","port":17800}` → configuración guardada. |
+
+
+## Crear un dispositivo
+
+Ejemplo completo de dispositivo ABP: guárdalo como `device.json`. La creación establece `active` automáticamente. Para OTAA usa `activation: "oota"` y sustituye `ABPConfig` por `OOTAConfig: {"joinEUI":"0000000000000001","appKey":"00112233445566778899AABBCCDDEEFF"}`. Si utilizas un servidor externo, registra allí los identificadores y claves correspondientes.
+
+```json
+{
+  "name": "External sensor",
+  "devEUI": "70B3D57ED0001001",
+  "class": "class-a",
+  "activation": "abp",
+  "radioProtocol": "lorawan",
+  "radioReceiveMode": "lorawan",
+  "ABPConfig": {
+    "devAddr": "26011BDA",
+    "nwkSKey": "00112233445566778899AABBCCDDEEFF",
+    "appSKey": "FFEEDDCCBBAA99887766554433221100"
+  },
+  "locationConfig": {
+    "latitude": 37.5,
+    "longitude": 15.1,
+    "altitude": 100,
+    "region": "EU868"
+  },
+  "RX1Config": {
+    "delay": 1000,
+    "duration": 1000,
+    "dataRateOffset": 0
+  },
+  "RX2Config": {
+    "delay": 2000,
+    "duration": 1000,
+    "channelFrequency": 869525000,
+    "dataRate": 0,
+    "ACKTimeout": 2000
+  },
+  "frameConfig": {
+    "fPort": 10,
+    "retransmission": 2,
+    "FCntUp": 0,
+    "FCntDown": 0,
+    "disableFrameCounterValidation": false
+  },
+  "payloadConfig": {
+    "uplinkInterval": 10,
+    "oversizedPayloadBehavior": "truncate",
+    "MType": "unconfirmed-data-up",
+    "payload": "temperature=23.5",
+    "base64Encoded": false
+  },
+  "advancedConfig": {
+    "antennaRange": 1500,
+    "ADREnabled": true,
+    "uplinkDataRate": 5
+  }
+}
+```
+
+
+`class`: `class-a`, `class-b`, `class-c`; `radioProtocol`: `lorawan`, `raw-lora`; `radioReceiveMode` también permite `auto`. `payloadConfig.payload` es texto salvo con `base64Encoded: true`. Retardos/duraciones RX y timeout ACK: milisegundos; `uplinkInterval`: segundos; frecuencias: Hz; alcance: metros. El `payloadCodec` opcional contiene `enabled` y `script` con `decodeUplink(input)`. Consulta los [campos de los dispositivos](/hardware/devices) para límites regionales y uso del codec.
+
+## Crear un gateway
+
+Guarda este gateway Virtual como `gateway.json`. Para uno Real usa `type: "real"`, elimina `keepAlive` y añade `gatewayIPv4` y `gatewayPort`. El UUID identifica el registro y `gatewayEUI` el gateway Semtech.
+
+```json
+{
+  "name": "External test gateway",
+  "type": "virtual",
+  "gatewayEUI": "A840410001001001",
+  "keepAlive": 30,
+  "latitude": 37.5,
+  "longitude": 15.1,
+  "altitude": 100
+}
+```
+
+
+```bash
+curl -fsS "$BASE/device/create-device" -H 'Content-Type: application/json' --data-binary @device.json
+curl -fsS "$BASE/gateway/create-gateway" -H 'Content-Type: application/json' --data-binary @gateway.json
+```
+
+
+## Actualizar dispositivos en directo
+
+<Callout type="info">
+Mientras la simulación del perfil está activa o en pausa, una PUT del dispositivo solo puede cambiar `active`, `payloadConfig.payload` y `payloadConfig.base64Encoded`, `locationConfig.latitude`, `locationConfig.longitude`, `locationConfig.altitude`. Los demás cambios se rechazan. Los bytes nuevos se aplican al siguiente mensaje; retransmisiones y fragmentos conservan los originales. Detén la simulación para cambiar identidad, radio o sesión. Durante la simulación, una PUT del gateway puede cambiar `active`, `latitude`, `longitude` y `altitude`.
+</Callout>
+
+## Actualizar un solo ajuste
+
+Usa estas rutas PATCH relativas a `$BASE` en cualquier estado, con la simulación en marcha o en pausa. Para la posición, indica latitud y longitud en grados decimales y altitud en metros. HTTP 200 devuelve el objeto actualizado en `device` o `gateway`. Envía `active: false` para desactivar el dispositivo o gateway. Omite `base64Encoded` para conservar su valor actual. Una cadena vacía borra el payload.
+
+| Ruta | Cuerpo JSON |
+| --- | --- |
+| `PATCH /device/{id}/position` | `{"latitude":37.5079,"longitude":15.083,"altitude":125}` |
+| `PATCH /device/{id}/active` | `{"active":false}` |
+| `PATCH /device/{id}/payload` | `{"payload":"temperature=24.5","base64Encoded":false}` |
+| `PATCH /gateway/{id}/position` | `{"latitude":37.5079,"longitude":15.083,"altitude":125}` |
+| `PATCH /gateway/{id}/active` | `{"active":false}` |
+
+```bash
+DEVICE_ID=DEVICE_UUID
+curl -fsS -X PATCH "$BASE/device/$DEVICE_ID/position" \
+  -H 'Content-Type: application/json' \
+  -d '{"latitude":37.5079,"longitude":15.083,"altitude":125}'
+```
+
+## Script de sensor externo
+
+Ejemplo de sensor externo que usa solo la biblioteca estándar de Python. Sustituye los dos UUID, inicia antes la simulación y ejecuta el script: actualiza tres lecturas sin detenerla. El siguiente uplink automático usa el valor nuevo. Esto modifica datos de aplicación; no inyecta un PHYPayload arbitrario en el listener UDP.
+
+```python
+import json
+import time
+from urllib.request import Request, urlopen
+
+BASE = "http://127.0.0.1:8080/api/profiles/PROFILE_UUID"
+DEVICE_ID = "DEVICE_UUID"
+
+for temperature in (23.5, 24.0, 24.5):
+    reading = json.dumps({"temperature": temperature})
+    request = Request(
+        f"{BASE}/device/{DEVICE_ID}/payload",
+        data=json.dumps({"payload": reading, "base64Encoded": False}).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="PATCH",
+    )
+    with urlopen(request, timeout=10) as response:
+        print(response.status)
+    time.sleep(5)
+```
+
+
+La dirección del bridge corresponde a un servicio bridge externo, distinto de la dirección HTTP del backend y del listener UDP del simulador. Para enviar tramas arbitrarias desde un script Python de packet forwarder, sigue el [ejemplo Semtech UDP](/hardware/gateway-bridge). Las actualizaciones HTTP y las tramas radio UDP son interfaces distintas.

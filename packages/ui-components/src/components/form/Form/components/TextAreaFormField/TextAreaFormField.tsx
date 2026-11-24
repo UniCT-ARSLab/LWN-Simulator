@@ -7,6 +7,7 @@ const TextAreaFormField = (props: TextAreaFormFieldProps) => {
     <div className="form-field text-area-form-field">
       <textarea
         className={cn("text-area", props.disabled && "disabled")}
+        id={props.name}
         value={props.value}
         spellCheck={false}
         disabled={props.disabled}

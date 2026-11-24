@@ -30,9 +30,14 @@ export const SimulationDashboardControls = (
           disabled: !props.canStart,
         }}
       />
-      {props.devicesLoaded && !props.hasActiveDevices && !isRunning && !isPaused && (
+      {props.requiresRealtime && (
         <p className="simulation-dashboard__simulation-lock" role="status">
-          Add at least one active device before starting a simulation.
+          External gateway connections use real time. Simulation speed is fixed at 1x.
+        </p>
+      )}
+      {props.hardwareLoaded && !props.hasActiveHardware && !isRunning && !isPaused && (
+        <p className="simulation-dashboard__simulation-lock" role="status">
+          Add at least one active device or gateway before starting a simulation.
         </p>
       )}
       {props.activeSimulationIsElsewhere && (

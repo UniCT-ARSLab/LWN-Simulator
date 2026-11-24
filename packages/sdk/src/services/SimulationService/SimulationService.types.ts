@@ -78,6 +78,12 @@ export interface SimulationServiceContent {
     options?: GetSimulationEventsOptions,
   ) => Promise<SimulationEventsResponse>;
 
+  /** Builds the profile-scoped JSON download URL for a run, or the ZIP URL for all runs. */
+  getLogExportURL: (id?: string) => string;
+
+  /** Builds the URL for one run's telemetry archive or the profile's summary CSV. */
+  getTelemetryExportURL: (id?: string) => string;
+
   /** Retrieves stored simulation runs. */
   getLogs: () => Promise<SimulationRunsResponse>;
 
@@ -119,4 +125,7 @@ export interface SimulationServiceProviderProps extends PropsWithChildren {
 
   /** Profile identifier used to filter realtime simulation events. */
   profileID?: string;
+
+  /** Reports the status returned by a successful simulation control request. */
+  onControlStatus?: (profileID: string | undefined, status: SimulationSnapshot["state"]["status"]) => void;
 }

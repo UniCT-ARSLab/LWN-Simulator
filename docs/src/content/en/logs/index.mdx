@@ -90,6 +90,20 @@ Use the event stream on the right to see the wider sequence around the selected
 object’s events, including gateway, radio, and scheduler activity.
 </Steps>
 
+## Raw LoRa frames
+
+Raw radio events show **Raw LoRa · HEX** followed by the payload bytes in
+hexadecimal, for example `00 DE AD BE EF`. This preserves binary data without
+assuming that it is readable text. You can inspect the same representation in
+the dashboard's **Engine activity** stream.
+
+Use the associated gateway and simulated timestamp to place a raw frame in
+context. A raw frame received over UDP without a device address appears in
+the gateway history and global stream; it cannot automatically appear in a
+particular device's history. It does not imply a successful LoRaWAN join or
+application delivery. Raw bytes are separate from the **Decoded** application
+data produced by a LoRaWAN payload codec.
+
 ## Live run history
 
 The Logs page and the run detail page update automatically while a simulation

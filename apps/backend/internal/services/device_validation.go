@@ -1,6 +1,8 @@
 package services
 
 import (
+	"fmt"
+
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/Giuseppe-Compagnone/lwn-engine"
 )
@@ -11,6 +13,7 @@ func ValidateDeviceRequest(req contracts.CreateDeviceRequest) error {
 	return ValidateDevice(contracts.Device{
 		ID: validationDeviceID, Active: true, Name: req.Name, DevEUI: req.DevEUI,
 		Class: req.Class, Activation: req.Activation, OOTAConfig: req.OOTAConfig,
+		RadioProtocol: req.RadioProtocol, RadioReceiveMode: req.RadioReceiveMode,
 		ABPConfig: req.ABPConfig, LocationConfig: req.LocationConfig,
 		RX1Config: req.RX1Config, RX2Config: req.RX2Config,
 		FrameConfig: req.FrameConfig, PayloadConfig: req.PayloadConfig,
@@ -19,5 +22,11 @@ func ValidateDeviceRequest(req contracts.CreateDeviceRequest) error {
 }
 
 func ValidateDevice(device contracts.Device) error {
+	if device.RadioProtocol != nil && !device.RadioProtocol.Valid() {
+		return fmt.Errorf("unsupported radio protocol %q", *device.RadioProtocol)
+	}
+	if device.RadioReceiveMode != nil && !device.RadioReceiveMode.Valid() {
+		return fmt.Errorf("unsupported radio receive mode %q", *device.RadioReceiveMode)
+	}
 	return engine.ValidateHardware([]contracts.Device{device}, nil)
 }

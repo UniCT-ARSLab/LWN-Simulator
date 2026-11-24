@@ -122,6 +122,15 @@
     }
   }
 
+  @media (width <= 48rem) {
+    .profile-menu-trigger {
+      width: 2.938rem;
+      padding: 0.375rem;
+
+      .profile-menu-name { display: none; }
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .profile-menu-trigger,
     .profile-menu-trigger .expand-icon,

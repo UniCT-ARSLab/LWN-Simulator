@@ -2,7 +2,9 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
@@ -75,6 +77,12 @@ func TestProfileRuntimeManagerIsolatesProfilesAndAllowsOneSimulation(t *testing.
 	if _, err := first.Simulation.Start(ctx, contracts.SimulationConfig{Speed: 1}); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := first.Simulation.Start(ctx, contracts.SimulationConfig{Speed: 1}); !errors.Is(err, apperrors.ErrConflict) {
+		t.Fatalf("duplicate start returned %v", err)
+	}
+	if err := profiles.Delete(defaultProfile.ID); !errors.Is(err, apperrors.ErrConflict) {
+		t.Fatalf("deleting the running profile returned %v", err)
+	}
 	activity, err := manager.ActiveSimulation()
 	if err != nil || !activity.Active || activity.ProfileID == nil || *activity.ProfileID != defaultProfile.ID {
 		t.Fatalf("active simulation activity = %+v, err = %v", activity, err)
@@ -96,6 +104,12 @@ func TestProfileRuntimeManagerIsolatesProfilesAndAllowsOneSimulation(t *testing.
 	}
 	if _, err := second.Simulation.Stop(ctx); err != nil {
 		t.Fatal(err)
+	}
+	if err := profiles.Delete(secondProfile.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := second.Simulation.Start(ctx, contracts.SimulationConfig{Speed: 1}); !errors.Is(err, apperrors.ErrNotFound) {
+		t.Fatalf("start using a deleted profile returned %v", err)
 	}
 }
 
@@ -119,7 +133,7 @@ func TestProfileRuntimeManagerExportsAndImportsAProfileAsANewProfile(t *testing.
 			Id:                    "550e8400-e29b-41d4-a716-446655440100",
 			StartedAtMilliseconds: 100,
 			EndedAtMilliseconds:   int64Pointer(200),
-			Status:                contracts.SimulationRunStatusStopped,
+			Status:                contracts.SimulationRunStatusFailed,
 			EventCount:            1,
 			PacketSuccessRate:     100,
 		},
@@ -140,9 +154,16 @@ func TestProfileRuntimeManagerExportsAndImportsAProfileAsANewProfile(t *testing.
 		t.Fatal(err)
 	}
 
+	renamed, err := profiles.Rename(defaultProfile.ID, strings.Repeat("界", maxProfileNameLength))
+	if err != nil {
+		t.Fatal(err)
+	}
 	archive, err := manager.ExportArchive(defaultProfile.ID)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if archive.Profile != renamed {
+		t.Fatalf("exported stale profile: %+v", archive.Profile)
 	}
 	if len(archive.Logs) != 1 || len(archive.Logs[0].Events) != 1 {
 		t.Fatalf("simulation history was not exported: %+v", archive.Logs)
@@ -160,6 +181,12 @@ func TestProfileRuntimeManagerExportsAndImportsAProfileAsANewProfile(t *testing.
 	importedArchive, err := manager.ExportArchive(imported.ID)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if imported.Name != strings.Repeat("界", maxProfileNameLength-len(" (imported 2)"))+" (imported 2)" {
+		t.Fatalf("unexpected import name: %q", imported.Name)
+	}
+	if len(importedArchive.Logs) != 1 || (importedArchive.Logs[0].Run.Summary.Status != run.Summary.Status || importedArchive.Logs[0].Run.Summary.EventCount != 1) {
+		t.Fatalf("history changed after round trip: %+v", importedArchive.Logs)
 	}
 	if importedArchive.Profile.ID != imported.ID {
 		t.Fatalf("archive kept the source profile id: %+v", importedArchive.Profile)
@@ -188,11 +215,116 @@ func TestProfileRuntimeManagerRejectsInvalidArchiveBeforeCreatingProfile(t *test
 		t.Fatal("invalid archive was accepted")
 	}
 
+	for _, ids := range [][]string{{"not-a-uuid"}, {defaultProfile.ID, defaultProfile.ID}} {
+		archive := contracts.ProfileArchive{Format: profileArchiveFormat, Version: profileArchiveVersion, Profile: defaultProfile}
+		for _, id := range ids {
+			archive.Logs = append(archive.Logs, contracts.ProfileLog{Run: contracts.SimulationRun{Summary: contracts.SimulationRunSummary{Id: id}}})
+		}
+		if _, err := manager.ImportArchive(archive); !errors.Is(err, apperrors.ErrInvalid) {
+			t.Fatalf("archive with ids %v returned %v", ids, err)
+		}
+	}
 	stored, err := profiles.List()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(stored) != 1 || stored[0].ID != defaultProfile.ID {
 		t.Fatalf("invalid import created a profile: %+v", stored)
+	}
+}
+
+func TestProfileArchiveIgnoresRemovedGatewayMACAddress(t *testing.T) {
+	dataDir := t.TempDir()
+	profiles := NewProfileService(repositories.NewProfileRepository(dataDir), dataDir)
+	if _, err := profiles.EnsureDefaultProfile(); err != nil {
+		t.Fatal(err)
+	}
+	manager := NewProfileRuntimeManager(dataDir, profiles, engineTypes.Options{}, nil)
+
+	var archive contracts.ProfileArchive
+	if err := json.Unmarshal([]byte(`{
+		"format":"lwn-simulator-profile","version":1,
+		"profile":{"id":"550e8400-e29b-41d4-a716-446655440001","name":"Legacy profile"},
+		"devices":[],"logs":[],
+		"gateways":[{
+			"id":"550e8400-e29b-41d4-a716-446655440002","active":true,
+			"name":"Legacy gateway","type":"virtual","gatewayEUI":"A840410001000181",
+			"macAddress":"obsolete value","keepAlive":30,"latitude":37.5,"longitude":15.1,"altitude":100
+		}]
+	}`), &archive); err != nil {
+		t.Fatal(err)
+	}
+	profile, err := manager.ImportArchive(archive)
+	if err != nil {
+		t.Fatalf("old profile failed to import: %v", err)
+	}
+	exported, err := manager.ExportArchive(profile.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if exported.Devices == nil {
+		t.Fatal("missing devices must export as an empty array")
+	}
+	if len(exported.Gateways) != 1 || exported.Gateways[0].GatewayEUI != "A840410001000181" {
+		t.Fatalf("the imported gateway identity was not preserved: %+v", exported.Gateways)
+	}
+	data, err := json.Marshal(exported)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), `"macAddress"`) {
+		t.Fatalf("the exported profile included the removed field: %s", data)
+	}
+}
+
+func TestConcurrentStartsChooseOneProfile(t *testing.T) {
+	profiles, dir := newTestProfileService(t)
+	if _, err := profiles.EnsureDefaultProfile(); err != nil {
+		t.Fatal(err)
+	}
+	manager := NewProfileRuntimeManager(dir, profiles, engineTypes.Options{}, nil)
+	start := make(chan struct{})
+	results := make(chan error, 2)
+	var simulations []*ProfileSimulationService
+	for _, name := range []string{"first", "second"} {
+		profile, err := profiles.Create(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		runtime, err := manager.Runtime(profile.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(runtime.Simulation.inner.Close)
+		if err := runtime.Device.ImportDevices([]contracts.Device{validSimulationDevice("a1c6e32b-4f0d-4b50-9fc5-000000000101")}); err != nil {
+			t.Fatal(err)
+		}
+		simulations = append(simulations, runtime.Simulation)
+	}
+	for _, simulation := range simulations {
+		go func() {
+			<-start
+			_, err := simulation.Start(t.Context(), contracts.SimulationConfig{Speed: 1})
+			results <- err
+		}()
+	}
+	close(start)
+	winners := 0
+	for range simulations {
+		if err := <-results; err == nil {
+			winners++
+		} else if !errors.Is(err, apperrors.ErrConflict) {
+			t.Errorf("unexpected start error: %v", err)
+		}
+	}
+	for _, simulation := range simulations {
+		if _, err := simulation.Snapshot(); err == nil {
+			if _, err := simulation.Stop(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if winners != 1 {
+		t.Fatalf("%d simulations started concurrently", winners)
 	}
 }

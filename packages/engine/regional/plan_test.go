@@ -67,3 +67,28 @@ func TestDataRateForModulationIsRegionAware(t *testing.T) {
 		t.Fatal("unexpected mapping for unsupported modulation")
 	}
 }
+
+func TestRegionalFallbackAndDataRateClamping(t *testing.T) {
+	invalid := contracts.DeviceRegion("invalid")
+	if _, ok := Plan(invalid); ok {
+		t.Fatal("invalid region unexpectedly has a plan")
+	}
+	if plan := MustPlan(invalid); plan.Region != contracts.EU868 {
+		t.Fatalf("invalid region should fall back to EU868: %+v", plan)
+	}
+	if got := ClampDataRate(contracts.EU868, -1); got != 0 {
+		t.Fatalf("negative data rate was not clamped: %d", got)
+	}
+	if got := ClampDataRate(contracts.EU868, 99); got != 5 {
+		t.Fatalf("high data rate was not clamped: %d", got)
+	}
+	if got := ClampDataRate(contracts.EU868, 3); got != 3 {
+		t.Fatalf("valid data rate changed: %d", got)
+	}
+	if SupportsUplinkDataRate(contracts.US915, 5) {
+		t.Fatal("US915 downlink-only DR5 was accepted for uplink")
+	}
+	if channels := UplinkChannels(invalid, 0); len(channels) != 3 || channels[0].Frequency != 868_100_000 {
+		t.Fatalf("invalid region did not use the EU868 fallback: %+v", channels)
+	}
+}

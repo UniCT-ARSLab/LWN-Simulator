@@ -22,7 +22,7 @@ import {
   useWebSocketService,
 } from "@lwn-simulator/sdk";
 import { Button, Spinner } from "@lwn-simulator/ui-components";
-import { VirtualEventList, VirtualObjectList } from "@/components/Logs";
+import { LogExportButton, VirtualEventList, VirtualObjectList } from "@/components/Logs";
 import "../logs.scss";
 
 const eventPageSize = 1000;
@@ -332,6 +332,8 @@ const LogDetailsContent = () => {
         </div>
         <div className="logs-page__header-actions">
           <span className={`logs-page__status logs-page__status--${run.summary.status}`}>{formatEventType(run.summary.status)}</span>
+          <LogExportButton runID={run.summary.id} />
+          <LogExportButton telemetry runID={run.summary.id} />
           <Link href="/logs"><Button value="Back" /></Link>
         </div>
       </header>

@@ -6,7 +6,7 @@ import { Callout, Tabs } from "nextra/components";
 
 # Devices
 
-A device represents a LoRaWAN end device participating in the simulation. Its
+A device represents a LoRa or LoRaWAN end device participating in the simulation. Its
 configuration is divided into identity, activation, radio receive windows,
 location, frame handling, payload generation, and advanced radio behavior.
 
@@ -77,6 +77,41 @@ changes the meaning of the session credentials.
   </Tabs.Tab>
 </Tabs>
 
+## LoRaWAN and Raw LoRa
+
+Choose **Radio Protocol** to control what the device transmits:
+
+| Value | Behavior |
+| --- | --- |
+| **LoRaWAN** | Uses LoRaWAN frames and the configured OTAA or ABP session. OTAA devices must join before sending application data. |
+| **Raw LoRa** | Sends the payload bytes directly, without a LoRaWAN header, encryption, MIC, or OTAA join. |
+
+Choose **Radio Receive Mode** separately:
+
+| Value | Behavior |
+| --- | --- |
+| **LoRaWAN** | Accepts LoRaWAN traffic through the normal session checks. |
+| **Raw LoRa** | Accepts raw traffic without interpreting its bytes as LoRaWAN. |
+| **Auto** | Recognizes structurally valid LoRaWAN frames and processes them as LoRaWAN; other payloads are treated as raw frames. |
+
+For a raw-only scenario, select **Raw LoRa** in both fields. Use **Auto** when
+the device should accept both protocols. The transmit protocol and receive
+mode are independent; selecting one does not change the other.
+
+The shared device form still requires its identity, activation credentials,
+class, and other configuration groups. These credentials do not add LoRaWAN
+security or a join exchange to raw transmissions. Configure the payload as text
+or enable **Base64 Encoded** to supply exact binary bytes. Location, antenna
+range, regional radio settings, collisions, and packet loss still affect raw
+transmissions. An inactive device does not transmit or accept raw traffic.
+
+<Callout type="info" emoji="📻">
+  Raw LoRa does not provide LoRaWAN application ports, MAC commands, or
+  confirmed-message acknowledgements. The payload codec described below
+  decodes LoRaWAN application uplinks; raw bytes are shown as hexadecimal data
+  in the event stream and logs.
+</Callout>
+
 ## Receive windows
 
 The RX1 and RX2 groups describe how the device listens for downlinks after an
@@ -117,6 +152,46 @@ with the receive-window behavior expected by the device.
 | `payload` | Application data transmitted by the device. | Required text or encoded data. |
 | `base64Encoded` | Whether `payload` is Base64 encoded. | Toggle. When enabled, the form validates Base64 input. |
 
+### Payload codec
+
+Enable **Payload Codec** when the application payload should also be shown as
+structured data. Paste a JavaScript function named `decodeUplink` into the
+multiline editor:
+
+```js
+function decodeUplink(input) {
+  return {
+    data: {
+      temperature: input.bytes[0],
+      humidity: input.bytes[1],
+    },
+  };
+}
+```
+
+The function receives:
+
+| Property | Meaning |
+| --- | --- |
+| `input.bytes` | The decrypted application payload as an array of byte values. |
+| `input.fPort` | The application port configured for the uplink. |
+
+Return an object with a `data` object containing the values you want to see in
+the event stream. The simulator checks the JavaScript syntax and the presence
+of `decodeUplink` when the device is saved. During a run, the function is
+executed with a short time limit; a codec error is reported on the event and
+does not stop the simulation.
+
+When decoding succeeds, the event stream and the simulation log show the
+result next to the original event as **Decoded** data. The codec is applied to
+application uplinks only, after the LoRaWAN payload has been decrypted.
+
+<Callout type="warning" emoji="⚠️">
+  Treat codec scripts as configuration code. Keep them small, deterministic,
+  and free of external dependencies. The simulator does not provide access to
+  the application, the filesystem, or network services from a codec.
+</Callout>
+
 ## Advanced configuration
 
 | Field | Meaning | Accepted value |
@@ -127,3 +202,38 @@ with the receive-window behavior expected by the device.
 When a device is selected on the map, `antennaRange` is rendered as a white
 dashed coverage circle around the marker. This is a visual indication of the
 configured range, not a guarantee of successful radio delivery.
+
+## Change a payload during a simulation
+
+While this profile's simulation is running or paused, **Edit Device** allows changes to **Active**, **Payload** and **Base64 Encoded**, latitude, longitude and altitude. Other fields are disabled. Use Active to simulate a failure; change Payload to provide new temperature, humidity or other application data. Enable Base64 Encoded for exact binary bytes.
+
+Payload changes apply to the next new application message. A retransmission or remaining fragment of a message already started retains its original bytes. Changing the payload preserves the LoRaWAN session, keys and frame counters. Disabling a device cancels its pending traffic.
+
+A terminal command or external script can make the same update through `PUT /api/profiles/{profileID}/device/update-device/{deviceID}`. Send the full device object in the `device` property, keeping every field unchanged except `active`, `payloadConfig.payload` and `payloadConfig.base64Encoded`, `locationConfig.latitude`, `locationConfig.longitude`, `locationConfig.altitude`. The server rejects other configuration changes while the simulation is running or paused. After stopping it, normal device edits are available again.
+
+This Python 3 example reads the current configuration and updates its payload. Replace `PROFILE_UUID` and `DEVICE_UUID` with the IDs of your profile and device. Repeat with different values to represent changing readings. The JavaScript payload codec decodes received data; this script supplies the data to transmit.
+
+```python
+import json
+from urllib.request import Request, urlopen
+
+BASE = "http://127.0.0.1:8080/api/profiles/PROFILE_UUID"
+DEVICE_ID = "DEVICE_UUID"
+
+with urlopen(f"{BASE}/device/get-device/{DEVICE_ID}") as response:
+    device = json.load(response)["device"]
+
+device["payloadConfig"]["payload"] = json.dumps({
+    "temperature": 23.5,
+    "humidity": 48
+})
+device["payloadConfig"]["base64Encoded"] = False
+request = Request(
+    f"{BASE}/device/update-device/{DEVICE_ID}",
+    data=json.dumps({"device": device}).encode("utf-8"),
+    headers={"Content-Type": "application/json"},
+    method="PUT",
+)
+with urlopen(request) as response:
+    print(response.read().decode("utf-8"))
+```

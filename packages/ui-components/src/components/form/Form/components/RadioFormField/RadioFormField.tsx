@@ -11,7 +11,7 @@ const RadioFormField = (props: RadioFormFieldProps) => {
   useEffect(() => {
     if (disabled) return;
 
-    if (value == "") setValue(null);
+    if (value === "") setValue(null);
   }, [disabled, setValue, value]);
 
   return (
@@ -35,6 +35,7 @@ const RadioFormField = (props: RadioFormFieldProps) => {
             <input
               className="radio-option"
               type="radio"
+              id={`${props.name}-${opt.value}`}
               checked={props.value == opt.value}
               readOnly
               placeholder={props.placeholder}

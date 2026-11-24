@@ -5,7 +5,8 @@ import { FormValue } from "@lwn-simulator/ui-components";
 export interface DeviceFormProps {
   /** Device being edited, or null when creating a device. */
   device: Device | null;
+  /** Disables all edit fields except `Active` while a simulation is running. */
+  simulationActive: boolean;
   /** Receives validated form values for persistence. */
   onSubmit(values: Record<string, FormValue>): void | Promise<void>;
 }
-

@@ -86,9 +86,14 @@ func New(port string) (*gin.Engine, error) {
 
 	profileRepository := repositories.NewProfileRepository(dataDir)
 	profileService := services.NewProfileService(profileRepository, dataDir)
-	defaultProfile, err := profileService.EnsureDefaultProfile()
+	profiles, err := profileService.List()
 	if err != nil {
-		return nil, fmt.Errorf("initialize default profile: %w", err)
+		return nil, fmt.Errorf("load profiles: %w", err)
+	}
+	if len(profiles) == 0 {
+		if _, err := profileService.EnsureDefaultProfile(); err != nil {
+			return nil, fmt.Errorf("initialize default profile: %w", err)
+		}
 	}
 	realtimeHub := realtime.NewHub()
 	udpOptions := gateway.UDPOptions{LocalAddress: os.Getenv("LWN_GATEWAY_UDP_LISTEN_ADDR")}
@@ -99,10 +104,6 @@ func New(port string) (*gin.Engine, error) {
 		realtimeHub,
 	)
 	profileService.SetRealtimePublisher(realtimeHub)
-	defaultRuntime, err := profileRuntimeManager.Runtime(defaultProfile.ID)
-	if err != nil {
-		return nil, fmt.Errorf("initialize default profile runtime: %w", err)
-	}
 	if err := profileRuntimeManager.RestorePersisted(context.Background()); err != nil {
 		return nil, fmt.Errorf("restore persisted simulation: %w", err)
 	}
@@ -110,13 +111,9 @@ func New(port string) (*gin.Engine, error) {
 	registerMiddleware(r)
 
 	registerRoutes(r, port, Services{
-		Device:     defaultRuntime.Device,
-		Gateway:    defaultRuntime.Gateway,
-		Profile:    profileService,
-		ProfileID:  defaultProfile.ID,
-		Simulation: defaultRuntime.Simulation,
-		Profiles:   profileRuntimeManager,
-		Realtime:   handlers.NewRealtimeHandler(realtimeHub),
+		Profile:  profileService,
+		Profiles: profileRuntimeManager,
+		Realtime: handlers.NewRealtimeHandler(realtimeHub),
 	})
 
 	if err := registerFrontend(r); err != nil {

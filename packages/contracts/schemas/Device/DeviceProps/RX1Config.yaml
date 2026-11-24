@@ -4,19 +4,26 @@ type: object
 properties:
   delay:
     type: integer
+    minimum: 1
+    description: Delay before the RX1 receive window opens, in milliseconds.
     x-go-type: "*int"
     x-oapi-codegen-extra-tags:
-      validate: "required,min=0"
+      validate: "required,gt=0"
   duration:
     type: integer
+    minimum: 1
+    description: Duration of the RX1 receive window, in milliseconds.
     x-go-type: "*int"
     x-oapi-codegen-extra-tags:
-      validate: "required,min=0"
+      validate: "required,gt=0"
   dataRateOffset:
     type: integer
+    minimum: 0
+    maximum: 5
+    description: Regional RX1 data-rate offset applied to the uplink data rate.
     x-go-type: "*int"
     x-oapi-codegen-extra-tags:
-      validate: "required,min=0"
+      validate: "required,min=0,max=5"
 
 required:
   - delay

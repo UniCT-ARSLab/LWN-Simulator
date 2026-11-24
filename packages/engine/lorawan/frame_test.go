@@ -81,6 +81,7 @@ func TestDeriveSessionKeysIsDeterministic(t *testing.T) {
 }
 
 func TestBuildJoinAcceptCreatesEncryptedPayload(t *testing.T) {
+	key := make([]byte, 16)
 	frame, err := BuildJoinAccept(JoinAcceptOptions{
 		AppNonce:          1,
 		NetID:             2,
@@ -88,7 +89,7 @@ func TestBuildJoinAcceptCreatesEncryptedPayload(t *testing.T) {
 		RX2DataRate:       5,
 		RX1DataRateOffset: 1,
 		RXDelay:           1,
-		AppKey:            make([]byte, 16),
+		AppKey:            key,
 	})
 	if err != nil {
 		t.Fatalf("build join accept: %v", err)
@@ -98,6 +99,41 @@ func TestBuildJoinAcceptCreatesEncryptedPayload(t *testing.T) {
 	}
 	if string(frame[1:]) == string(make([]byte, 16)) {
 		t.Fatal("join accept payload was not encrypted")
+	}
+	decoded, err := DecodeJoinAccept(frame, key)
+	if err != nil {
+		t.Fatalf("decode join accept: %v", err)
+	}
+	if decoded.AppNonce != 1 || decoded.NetID != 2 || decoded.DevAddr != 0x26011bda ||
+		decoded.RX1DataRateOffset != 1 || decoded.RX2DataRate != 5 || decoded.RXDelay != 1 {
+		t.Fatalf("unexpected decoded join accept: %+v", decoded)
+	}
+	frame[len(frame)-1] ^= 0xff
+	if _, err := DecodeJoinAccept(frame, key); err == nil {
+		t.Fatal("tampered join accept MIC was accepted")
+	}
+}
+
+func TestJoinAcceptRoundTripSupportsCFList(t *testing.T) {
+	key := []byte("0123456789abcdef")
+	cfList := []byte{0x18, 0x4f, 0x84, 0xe8, 0x56, 0x84, 0xb8, 0x5e, 0x84, 0x88, 0x66, 0x84, 0x00, 0x00, 0x00, 0x00}
+	frame, err := BuildJoinAccept(JoinAcceptOptions{
+		AppNonce: 0x010203, NetID: 0x000013, DevAddr: 0x26011bda,
+		RX2DataRate: 0, RX1DataRateOffset: 0, RXDelay: 5,
+		AppKey: key, CFList: cfList,
+	})
+	if err != nil {
+		t.Fatalf("build Join-Accept with CFList: %v", err)
+	}
+	if len(frame) != 33 {
+		t.Fatalf("Join-Accept with CFList has length %d, want 33", len(frame))
+	}
+	decoded, err := DecodeJoinAccept(frame, key)
+	if err != nil {
+		t.Fatalf("decode Join-Accept with CFList: %v", err)
+	}
+	if string(decoded.CFList) != string(cfList) || decoded.RXDelay != 5 {
+		t.Fatalf("decoded Join-Accept did not preserve CFList and RXDelay: %+v", decoded)
 	}
 }
 

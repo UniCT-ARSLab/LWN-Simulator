@@ -6,7 +6,7 @@ import {
   Gateway,
   GatewayType,
 } from "@lwn-simulator/contracts";
-import { useGatewayService } from "@lwn-simulator/sdk";
+import { useGatewayService, useProfileService } from "@lwn-simulator/sdk";
 import {
   FormValue,
   NotificationHandler,
@@ -19,13 +19,18 @@ import { Suspense, useEffect, useState } from "react";
 const NewGatewayPage = () => {
   // Hooks
   const gatewayService = useGatewayService();
+  const profileService = useProfileService();
   const router = useRouter();
   const searchParams = useSearchParams();
   const gatewayId = searchParams.get("gatewayId");
+  const simulationActive = profileService.simulationActivity?.active === true &&
+    (!profileService.simulationActivity.profileID ||
+      profileService.simulationActivity.profileID === profileService.activeProfileID);
 
   // States
   const [editingGateway, setEditingGateway] = useState<Gateway | null>(null);
   const [isLoadingEdit, setIsLoadingEdit] = useState(!!gatewayId);
+  const editLocked = editingGateway !== null && simulationActive;
 
   // Effects
   useEffect(() => {
@@ -48,11 +53,30 @@ const NewGatewayPage = () => {
 
   // Callbacks
   const handleSubmit = async (values: Record<string, FormValue>) => {
+    if (editingGateway && simulationActive) {
+      try {
+        await gatewayService.updateGateway({
+          id: editingGateway.id,
+          gateway: {
+            ...editingGateway,
+            active: values.active as boolean,
+            latitude: Number(values.latitude),
+            longitude: Number(values.longitude),
+            altitude: Number(values.altitude),
+          },
+        });
+        NotificationHandler.instance.success("Gateway updated");
+        router.back();
+      } catch {
+        NotificationHandler.instance.error("Failed to update gateway");
+      }
+      return;
+    }
+
     const type = values.type as GatewayType;
     const req: CreateGatewayRequest = {
       name: values.name as string,
       type,
-      macAddress: values.macAddress as string,
       gatewayEUI: values.gatewayEUI as string,
       latitude: Number(values.latitude),
       longitude: Number(values.longitude),
@@ -69,7 +93,7 @@ const NewGatewayPage = () => {
       if (editingGateway) {
         await gatewayService.updateGateway({
           id: editingGateway.id,
-          gateway: { ...editingGateway, ...req, type: editingGateway.type, macAddress: editingGateway.macAddress, gatewayEUI: editingGateway.gatewayEUI, active: values.active as boolean },
+          gateway: { ...editingGateway, ...req, type: editingGateway.type, gatewayEUI: editingGateway.gatewayEUI, active: values.active as boolean },
         });
         NotificationHandler.instance.success("Gateway updated");
         router.back();
@@ -87,8 +111,19 @@ const NewGatewayPage = () => {
 
   return (
     <div className="page new-device-page new-gateway-page">
-      <PageHeader title={editingGateway ? "Edit Gateway" : "Create new Gateway"} />
-      <GatewayForm gateway={editingGateway} onSubmit={handleSubmit} />
+      <PageHeader
+        title={editingGateway ? "Edit Gateway" : "Create new Gateway"}
+        subTitle={
+          editLocked
+            ? "Simulation is active. You can change the gateway status and position."
+            : undefined
+        }
+      />
+      <GatewayForm
+        gateway={editingGateway}
+        simulationActive={simulationActive}
+        onSubmit={handleSubmit}
+      />
     </div>
   );
 };

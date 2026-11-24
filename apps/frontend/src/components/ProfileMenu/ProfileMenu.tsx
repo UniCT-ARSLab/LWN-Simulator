@@ -10,6 +10,7 @@ import {
   selectField,
   textField,
   usePopup,
+  useOutsideAlerter,
 } from "@lwn-simulator/ui-components";
 import { useProfileService } from "@lwn-simulator/sdk";
 import { useMemo, useRef, useState } from "react";
@@ -38,6 +39,11 @@ const ProfileMenu = () => {
   const [profileDeleteTarget, setProfileDeleteTarget] =
     useState<ProfileDeleteTarget | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  useOutsideAlerter({
+    ref: menuRef,
+    onClickOutside: () => setOpen(false),
+  });
   const profilePopup = usePopup({});
   const deletePopup = usePopup({});
   const notification = NotificationHandler.instance;
@@ -220,7 +226,7 @@ const ProfileMenu = () => {
 
   return (
     <>
-      <div className="profile-menu">
+      <div className="profile-menu" ref={menuRef}>
       <button
         className={`profile-menu-trigger${open ? " is-open" : ""}`}
         type="button"

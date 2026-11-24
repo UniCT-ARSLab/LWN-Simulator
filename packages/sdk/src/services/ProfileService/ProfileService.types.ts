@@ -53,6 +53,9 @@ export interface ProfileServiceContent {
 
   /** Whether shared simulation activity is being loaded. */
   simulationActivityLoading: boolean;
+
+  /** Applies a confirmed simulation status for the originating profile. */
+  updateSimulationStatus: (profileID: string | undefined, status: SimulationActivity["status"]) => void;
 }
 
 /** Properties accepted by the profile service provider. */

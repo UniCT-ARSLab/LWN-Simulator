@@ -23,6 +23,12 @@ properties:
     $ref: "./DeviceProps/RX2Config.yaml"
   activation:
     $ref: "./DeviceProps/DeviceActivation.yaml"
+  radioProtocol:
+    $ref: "./DeviceProps/RadioProtocol.yaml"
+    description: Protocol used when the device transmits a radio frame. Omitted values default to lorawan.
+  radioReceiveMode:
+    $ref: "./DeviceProps/RadioReceiveMode.yaml"
+    description: Protocol accepted while the device listens. Omitted values default to lorawan.
   OOTAConfig:
     $ref: "./DeviceProps/OOTAConfig.yaml"
   ABPConfig:

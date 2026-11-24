@@ -13,6 +13,14 @@ properties:
   activation:
     $ref: "./DeviceProps/DeviceActivation.yaml"
 
+  radioProtocol:
+    $ref: "./DeviceProps/RadioProtocol.yaml"
+    description: Protocol used when the device transmits. Defaults to lorawan.
+
+  radioReceiveMode:
+    $ref: "./DeviceProps/RadioReceiveMode.yaml"
+    description: Protocol accepted while the device listens. Defaults to lorawan.
+
   class:
     $ref: "./DeviceProps/DeviceClass.yaml"
 

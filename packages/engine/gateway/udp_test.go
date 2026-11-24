@@ -48,8 +48,10 @@ func TestUDPAdapterImplementsSemtechIngressAndEgress(t *testing.T) {
 	waitAdapterEvent(t, adapter.Events(), contracts.Connected)
 	waitHeartbeat(t, adapter.Events())
 
+	counter := uint32(491697203)
 	body, err := json.Marshal(pushDataPayload{RXPK: []rxPacket{{
-		Data: base64.StdEncoding.EncodeToString([]byte("uplink")), Frequency: 868.3, DataRate: "SF7BW125",
+		Timestamp: &counter,
+		Data:      base64.StdEncoding.EncodeToString([]byte("uplink")), Frequency: 868.3, DataRate: "SF7BW125",
 		Modulation: "LORA", CodingRate: "4/5", RSSI: -72, SNR: 5.5, Size: 6,
 	}}})
 	if err != nil {
@@ -61,8 +63,13 @@ func TestUDPAdapterImplementsSemtechIngressAndEgress(t *testing.T) {
 		t.Fatalf("send PUSH_DATA: %v", err)
 	}
 	readSemtechPacket(t, gatewaySocket, pushAckType)
+	var receivedPacket types.GatewayPacket
 	select {
 	case packet := <-adapter.Packets():
+		receivedPacket = packet
+		if packet.ConcentratorTimestamp == nil || *packet.ConcentratorTimestamp != counter {
+			t.Fatal("received concentrator timestamp was lost")
+		}
 		if string(packet.Payload) != "uplink" || packet.Frequency != 868300000 || packet.RSSI != -72 || packet.SNR != 5.5 {
 			t.Fatalf("unexpected ingress packet: %+v", packet)
 		}
@@ -118,11 +125,9 @@ func TestUDPAdapterImplementsSemtechIngressAndEgress(t *testing.T) {
 	if err := json.Unmarshal(timedResponse[4:], &timedBody); err != nil {
 		t.Fatalf("decode timed PULL_RESP: %v", err)
 	}
-	if timedBody.TXPK.Immediate || timedBody.TXPK.Time == "" {
-		t.Fatalf("expected timed packet-forwarder transmission: %+v", timedBody.TXPK)
-	}
-	if got, err := time.Parse(time.RFC3339Nano, timedBody.TXPK.Time); err != nil || !got.Equal(target) {
-		t.Fatalf("unexpected timed transmission timestamp: got=%q target=%s err=%v", timedBody.TXPK.Time, target, err)
+	wantTimestamp := counter + uint32(target.Sub(receivedPacket.ReceivedAt).Microseconds())
+	if timedBody.TXPK.Immediate || timedBody.TXPK.Time != "" || timedBody.TXPK.Timestamp == nil || *timedBody.TXPK.Timestamp != wantTimestamp {
+		t.Fatalf("timed transmission did not use the concentrator clock: %+v want=%d", timedBody.TXPK, wantTimestamp)
 	}
 	txAckBody := []byte(`{"txpk_ack":{"error":"TOO_LATE"}}`)
 	// Semtech TX_ACK includes the gateway EUI before its optional JSON body.
@@ -222,6 +227,25 @@ func TestUDPAdapterRejectsUnsupportedOrInconsistentRXPK(t *testing.T) {
 	}
 	if err := rawAdapter.handlePushData(ctx, mismatch); err == nil {
 		t.Fatal("inconsistent RXPK size should be rejected")
+	}
+
+	batch := []byte(`{"rxpk":[null,{"modu":"FSK","datr":50000,"data":"AA=="},
+		{"stat":-1,"modu":"LORA","data":"AA=="},{"stat":1,"modu":"LORA","datr":"SF7BW125","data":"AQI="}]}`)
+	if err := rawAdapter.handlePushData(ctx, batch); err == nil {
+		t.Fatal("invalid packets in the batch should be reported")
+	}
+	select {
+	case packet := <-adapter.Packets():
+		if !equalBytes(packet.Payload, []byte{1, 2}) {
+			t.Fatalf("unexpected packet accepted from mixed batch: %x", packet.Payload)
+		}
+	default:
+		t.Fatal("the valid LoRa packet was lost")
+	}
+	select {
+	case packet := <-adapter.Packets():
+		t.Fatalf("another packet was accepted from the mixed batch: %x", packet.Payload)
+	default:
 	}
 }
 
@@ -548,6 +572,84 @@ func TestUDPFactoryConfiguresGatewayBridgeBeforeStart(t *testing.T) {
 	}
 }
 
+func TestGatewayAndBridgeEndpointParameterMatrix(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		config  contracts.GatewayBridgeConfig
+		wantErr bool
+	}{
+		{"URL address", contracts.GatewayBridgeConfig{Enabled: true, Address: "udp://127.0.0.1", Port: 1700}, false},
+		{"hostname", contracts.GatewayBridgeConfig{Enabled: true, Address: "localhost", Port: 1700}, false},
+		{"missing address", contracts.GatewayBridgeConfig{Enabled: true, Port: 1700}, true},
+		{"unspecified address", contracts.GatewayBridgeConfig{Enabled: true, Address: "0.0.0.0", Port: 1700}, true},
+		{"whitespace", contracts.GatewayBridgeConfig{Enabled: true, Address: "bad host", Port: 1700}, true},
+		{"port below range", contracts.GatewayBridgeConfig{Enabled: true, Address: "127.0.0.1", Port: 0}, true},
+		{"port above range", contracts.GatewayBridgeConfig{Enabled: true, Address: "127.0.0.1", Port: 65536}, true},
+	} {
+		t.Run("bridge "+test.name, func(t *testing.T) {
+			_, err := gatewayBridgeEndpoint(test.config)
+			if test.wantErr && err == nil {
+				t.Fatal("invalid bridge endpoint was accepted")
+			}
+			if !test.wantErr && err != nil {
+				t.Fatalf("valid bridge endpoint was rejected: %v", err)
+			}
+		})
+	}
+
+	factory := NewUDPFactory(UDPOptions{})
+	real := testRealGateway(1700)
+	for _, test := range []struct {
+		name   string
+		mutate func(*contracts.Gateway)
+	}{
+		{"short EUI", func(gateway *contracts.Gateway) { gateway.GatewayEUI = "abcd" }},
+		{"non-hex EUI", func(gateway *contracts.Gateway) { gateway.GatewayEUI = "ZZZZZZZZZZZZZZZZ" }},
+		{"missing IPv4", func(gateway *contracts.Gateway) { gateway.GatewayIPv4 = nil }},
+		{"non-IPv4 endpoint", func(gateway *contracts.Gateway) { gateway.GatewayIPv4 = gatewayStringPtr("::1") }},
+		{"missing port", func(gateway *contracts.Gateway) { gateway.GatewayPort = nil }},
+		{"invalid port", func(gateway *contracts.Gateway) { gateway.GatewayPort = gatewayInt32Ptr(0) }},
+		{"unsupported type", func(gateway *contracts.Gateway) { gateway.Type = contracts.GatewayType("unsupported") }},
+	} {
+		t.Run("gateway "+test.name, func(t *testing.T) {
+			gateway := real
+			test.mutate(&gateway)
+			if _, err := factory.NewGatewayAdapter(gateway); err == nil {
+				t.Fatal("invalid gateway endpoint was accepted")
+			}
+		})
+	}
+	virtual := real
+	virtual.Type = contracts.Virtual
+	virtual.GatewayIPv4 = nil
+	virtual.GatewayPort = nil
+	if _, err := factory.NewGatewayAdapter(virtual); !errors.Is(err, ErrGatewayNotConnected) {
+		t.Fatalf("virtual gateway without bridge returned the wrong error: %v", err)
+	}
+}
+
+func TestUDPFactoryCloseStopsAllAdapters(t *testing.T) {
+	gatewaySocket, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		t.Fatalf("listen fake gateway: %v", err)
+	}
+	defer gatewaySocket.Close()
+	factory := NewUDPFactory(UDPOptions{LocalAddress: "127.0.0.1:0"})
+	adapter, err := factory.NewGatewayAdapter(testRealGateway(gatewaySocket.LocalAddr().(*net.UDPAddr).Port))
+	if err != nil {
+		t.Fatalf("create adapter: %v", err)
+	}
+	if err := adapter.Start(t.Context()); err != nil {
+		t.Fatalf("start adapter: %v", err)
+	}
+	if err := factory.Close(); err != nil {
+		t.Fatalf("close factory: %v", err)
+	}
+	if factory.runtime != nil {
+		t.Fatal("factory retained a closed runtime")
+	}
+}
+
 func TestUDPVirtualGatewaySendsKeepaliveAndUplinkToBridge(t *testing.T) {
 	bridgeSocket, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
 	if err != nil {
@@ -611,6 +713,47 @@ func TestUDPVirtualGatewaySendsKeepaliveAndUplinkToBridge(t *testing.T) {
 	if err != nil || string(decoded) != "uplink" {
 		t.Fatalf("unexpected virtual uplink payload: %q (%v)", decoded, err)
 	}
+
+	for _, signal := range []struct {
+		rssi     float64
+		snr      float64
+		wireRSSI int
+	}{
+		{-103.7, -6.25, -104},
+		{-75.2, 12.5, -75},
+		{-90, 0, -90},
+		{0, 0, 0},
+	} {
+		uplink.RSSI, uplink.SNR = signal.rssi, signal.snr
+		if err := adapter.(types.GatewayUplinkAdapter).SendUplink(ctx, uplink); err != nil {
+			t.Fatalf("send signal metadata: %v", err)
+		}
+		packet := readSemtechPacket(t, bridgeSocket, pushDataType)
+		var wire struct {
+			RXPK []map[string]any `json:"rxpk"`
+		}
+		if err := json.Unmarshal(packet[12:], &wire); err != nil {
+			t.Fatal(err)
+		}
+		if len(wire.RXPK) != 1 || wire.RXPK[0]["rssi"] != float64(signal.wireRSSI) || wire.RXPK[0]["lsnr"] != signal.snr {
+			t.Fatalf("signal metadata lost or replaced for %+v: %+v", signal, wire.RXPK)
+		}
+	}
+
+	downlinkBody := []byte(`{"txpk":{"imme":true,"freq":869.525,"modu":"LORA","datr":"SF9BW125","size":8,"data":"ZG93bmxpbms="}}`)
+	downlink := append(packetHeader([2]byte{0x34, 0x56}, pullResponseType), downlinkBody...)
+	if _, err := bridgeSocket.WriteToUDP(downlink, mustUDPAddr(adapter)); err != nil {
+		t.Fatalf("send bridge downlink to virtual gateway: %v", err)
+	}
+	readSemtechPacket(t, bridgeSocket, txAckType)
+	select {
+	case received := <-adapter.Packets():
+		if received.Kind != types.GatewayPacketDownlink || string(received.Payload) != "downlink" || received.Frequency != 869525000 {
+			t.Fatalf("unexpected virtual bridge downlink: %+v", received)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for virtual bridge downlink")
+	}
 }
 
 func mustUDPAddr(adapter types.GatewayAdapter) *net.UDPAddr {
@@ -662,7 +805,7 @@ func TestUDPFactoryRejectsBridgeReconfigurationWhileRunning(t *testing.T) {
 func testRealGateway(port int) contracts.Gateway {
 	return contracts.Gateway{
 		ID: "6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c01", Active: true, Name: "Real Test Gateway",
-		Type: contracts.Real, MacAddress: "02:00:00:10:00:01", GatewayEUI: "A840410001000101",
+		Type: contracts.Real, GatewayEUI: "A840410001000101",
 		GatewayIPv4: gatewayStringPtr("127.0.0.1"), GatewayPort: gatewayInt32Ptr(int32(port)),
 		Latitude: gatewayFloat32Ptr(37.5), Longitude: gatewayFloat32Ptr(15.1), Altitude: gatewayFloat32Ptr(100),
 	}
@@ -684,15 +827,23 @@ func readSemtechPacket(t *testing.T, socket *net.UDPConn, expectedType byte) []b
 		t.Fatalf("set fake gateway deadline: %v", err)
 	}
 	buffer := make([]byte, 4096)
-	size, _, err := socket.ReadFromUDP(buffer)
-	if err != nil {
-		t.Fatalf("read Semtech packet: %v", err)
+	for {
+		size, _, err := socket.ReadFromUDP(buffer)
+		if err != nil {
+			t.Fatalf("read Semtech packet: %v", err)
+		}
+		packet := buffer[:size]
+		if len(packet) >= 12 && packet[3] == pushDataType {
+			var body pushDataPayload
+			if json.Unmarshal(packet[12:], &body) == nil && body.Stat != nil && len(body.RXPK) == 0 {
+				continue
+			}
+		}
+		if len(packet) < 4 || packet[0] != protocolVersion || packet[3] != expectedType {
+			t.Fatalf("unexpected Semtech packet: %x", packet)
+		}
+		return packet
 	}
-	packet := buffer[:size]
-	if len(packet) < 4 || packet[0] != protocolVersion || packet[3] != expectedType {
-		t.Fatalf("unexpected Semtech packet: %x", packet)
-	}
-	return packet
 }
 
 func readSemtechPacketWithDeadline(socket *net.UDPConn, expectedType byte, timeout time.Duration) ([]byte, error) {
@@ -738,5 +889,46 @@ func waitHeartbeat(t *testing.T, events <-chan types.GatewayAdapterEvent) {
 		case <-deadline:
 			t.Fatal("timed out waiting for gateway heartbeat")
 		}
+	}
+}
+
+func TestVirtualGatewayDecodesConcentratorDownlinkTime(t *testing.T) {
+	for _, delay := range []time.Duration{-5 * time.Second, 5 * time.Second, 6 * time.Second} {
+		t.Run(delay.String(), func(t *testing.T) {
+			adapter := &udpAdapter{virtual: true}
+			target := time.Now().Add(delay)
+			timestamp := uint32(target.UnixMicro())
+			body, err := json.Marshal(struct {
+				TXPK txPacket `json:"txpk"`
+			}{TXPK: txPacket{Timestamp: &timestamp, Data: "AQ==", Size: 1, Modulation: "LORA"}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			packet, _, err := adapter.decodePullResponse(body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if difference := packet.TransmitAt.Sub(target); difference < -time.Microsecond || difference > time.Microsecond {
+				t.Fatalf("wrong concentrator time: got %s, want %s", packet.TransmitAt, target)
+			}
+			if packet.ReceivedAt.IsZero() {
+				t.Fatal("missing reception timestamp")
+			}
+		})
+	}
+}
+
+func TestGatewayConcentratorTimestampDoesNotOverrideImmediateOrPhysicalClock(t *testing.T) {
+	for _, virtual := range []bool{false, true} {
+		adapter := &udpAdapter{virtual: virtual}
+		packet, _, err := adapter.decodePullResponse([]byte(`{"txpk":{"tmst":42,"imme":true,"data":"AQ=="}}`))
+		if err != nil || !packet.TransmitAt.IsZero() {
+			t.Fatalf("immediate packet gained a transmission deadline: %+v %v", packet, err)
+		}
+	}
+	adapter := &udpAdapter{}
+	packet, _, err := adapter.decodePullResponse([]byte(`{"txpk":{"tmst":42,"data":"AQ=="}}`))
+	if err != nil || !packet.TransmitAt.IsZero() {
+		t.Fatalf("physical concentrator clock was interpreted as local wall time: %+v %v", packet, err)
 	}
 }

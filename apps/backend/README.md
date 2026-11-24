@@ -28,6 +28,7 @@ a time, even when several frontend clients or profiles are connected.
 - `internal/database/`: database and development-storage integration;
 - `internal/realtime/` and `internal/websocket/`: fan-out of live updates;
 - `internal/telemetry/`: metrics instrumentation;
+- `internal/mcpserver/`: local MCP tools for inspection and optional simulation control;
 - `dev-db/`: development data used by local workflows.
 
 ## Run locally
@@ -40,6 +41,11 @@ go run ./cmd/server -port 8080
 The server listens on port `8080` by default. From the repository root,
 `yarn dev` starts the backend together with the web frontend.
 
+An MCP client can launch the same executable with `-mcp -port 8080` while the
+HTTP backend is running locally. Tools are read-only by default. See the
+[MCP client guide](../../docs/src/content/en/api/mcp.mdx) for configuration and
+simulation controls.
+
 ## Tests
 
 ```bash
@@ -48,4 +54,5 @@ go test -race ./...
 ```
 
 The backend tests cover handlers, validation, repositories, profile isolation,
-simulation lifecycle, WebSocket delivery and checkpoint/log persistence.
+simulation lifecycle, WebSocket delivery, checkpoint/log persistence and MCP
+tool calls over stdio.

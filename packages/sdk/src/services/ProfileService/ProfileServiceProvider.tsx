@@ -26,7 +26,11 @@ const defaultProfileID = "00000000-0000-4000-8000-000000000001";
 
 const readStoredProfileID = (): string => {
   if (typeof window === "undefined") return defaultProfileID;
-  return window.localStorage.getItem(activeProfileStorageKey) ?? defaultProfileID;
+  try {
+    return window.localStorage.getItem(activeProfileStorageKey) ?? defaultProfileID;
+  } catch {
+    return defaultProfileID;
+  }
 };
 
 const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
@@ -44,7 +48,8 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
   const profilesRef = useRef<Array<Profile>>([]);
   const simulationActivityRef = useRef<SimulationActivity | null>(null);
   const activeProfileIDRef = useRef(activeProfileID);
-  const { subscribe } = useWebSocketService();
+  const { connectionState, subscribe } = useWebSocketService();
+  const websocketConnected = connectionState === "connected";
 
   // Memos
   const service = useMemo(
@@ -66,6 +71,25 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
     [],
   );
 
+  const updateSimulationStatus = useCallback(
+    (profileID: string | undefined, status: SimulationActivity["status"]) => {
+      const active =
+        status !== SimulationStatus.Idle &&
+        status !== SimulationStatus.Stopped &&
+        status !== SimulationStatus.Failed;
+      const current = simulationActivityRef.current;
+      if (active) {
+        commitSimulationActivity({ active, profileID, status });
+      } else if (
+        current?.active &&
+        (!current.profileID || current.profileID === profileID)
+      ) {
+        commitSimulationActivity({ active, status });
+      }
+    },
+    [commitSimulationActivity],
+  );
+
   const upsertProfile = useCallback(
     (nextProfile: Profile) => {
       const nextProfiles = profilesRef.current.some(
@@ -84,7 +108,11 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
     activeProfileIDRef.current = id;
     setActiveProfileID(id);
     if (typeof window !== "undefined") {
-      window.localStorage.setItem(activeProfileStorageKey, id);
+      try {
+        window.localStorage.setItem(activeProfileStorageKey, id);
+      } catch {
+        // The current session still owns its selection when storage is unavailable.
+      }
     }
   }, []);
 
@@ -96,10 +124,17 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
     [persistActiveProfile],
   );
 
-  const getProfiles = useCallback(async () => {
+  const getProfiles = useCallback(async (signal: AbortSignal) => {
+    if (signal.aborted) return;
     setLoading(true);
     try {
-      const nextProfiles = await service.getProfiles();
+      let previousProfiles: Array<Profile>;
+      let nextProfiles: Array<Profile>;
+      do {
+        previousProfiles = profilesRef.current;
+        nextProfiles = await service.getProfiles();
+        if (signal.aborted) return;
+      } while (previousProfiles !== profilesRef.current);
       commitProfiles(nextProfiles);
       const storedID = activeProfileIDRef.current;
       const nextActive = nextProfiles.some((profile) => profile.id === storedID)
@@ -110,33 +145,44 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
       if (nextActive) persistActiveProfile(nextActive);
       setError(null);
     } catch (loadError) {
+      if (signal.aborted) return;
       setError(
         loadError instanceof Error
           ? loadError
           : new Error("Failed to load profiles"),
       );
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
   }, [commitProfiles, persistActiveProfile, service]);
 
   // Effects
   useEffect(() => {
-    void Promise.resolve().then(getProfiles);
-  }, [getProfiles]);
+    const request = new AbortController();
+    void Promise.resolve().then(() => getProfiles(request.signal));
+    return () => request.abort();
+  }, [getProfiles, websocketConnected]);
 
   useEffect(() => {
+    const previousActivity = simulationActivityRef.current;
+    let cancelled = false;
     void service
       .getSimulationActivity()
-      .then(commitSimulationActivity)
-        .catch(() =>
-          commitSimulationActivity({
-            active: false,
-            status: "idle" as SimulationActivity["status"],
-          }),
-        )
-      .finally(() => setSimulationActivityLoading(false));
-  }, [commitSimulationActivity, service]);
+      .then((activity) => {
+        if (!cancelled && simulationActivityRef.current === previousActivity) {
+          commitSimulationActivity(activity);
+        }
+      })
+      .catch(() => {
+        // Preserve the last confirmed activity while the backend is unavailable.
+      })
+      .finally(() => {
+        if (!cancelled) setSimulationActivityLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [commitSimulationActivity, service, websocketConnected]);
 
   const handleRealtimeMessage = useCallback(
     (rawMessage: string) => {
@@ -169,24 +215,7 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
           message.type === RealtimeWebSocketMessageType.SimulationSnapshot &&
           message.snapshot
         ) {
-          const status = message.snapshot.state.status;
-          const active =
-            status !== SimulationStatus.Idle &&
-            status !== SimulationStatus.Stopped &&
-            status !== SimulationStatus.Failed;
-          const currentActivity = simulationActivityRef.current;
-          if (active) {
-            commitSimulationActivity({
-              active: true,
-              profileID: message.profileID,
-              status,
-            });
-          } else if (
-            currentActivity?.active &&
-            currentActivity.profileID === message.profileID
-          ) {
-            commitSimulationActivity({ active: false, status });
-          }
+          updateSimulationStatus(message.profileID, message.snapshot.state.status);
         }
       } catch {
         return;
@@ -194,8 +223,8 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
     },
     [
       commitProfiles,
-      commitSimulationActivity,
       persistActiveProfile,
+      updateSimulationStatus,
       upsertProfile,
     ],
   );
@@ -310,6 +339,7 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
       importProfile,
       simulationActivity,
       simulationActivityLoading,
+      updateSimulationStatus,
     }),
     [
       profiles,
@@ -327,6 +357,7 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
       importProfile,
       simulationActivity,
       simulationActivityLoading,
+      updateSimulationStatus,
     ],
   );
 

@@ -469,9 +469,6 @@ const SensorMap = (props: SensorMapProps) => {
                         {formatEnumValue(selectedEntity.entity.type)}
                       </strong>
                     </span>
-                    <span>
-                      MAC <strong>{selectedEntity.entity.macAddress}</strong>
-                    </span>
                   </>
                 )}
               </div>

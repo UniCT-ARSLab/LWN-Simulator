@@ -6,6 +6,25 @@ title: Protokolle und Historie
 
 Die Protokollseite speichert beendete und laufende Simulationen. Wählen Sie einen Lauf, um Dauer, Ereignisse, Geräte, Gateways und Packet Success zu sehen.
 
-Die Detailseite trennt die Objektliste von der Historie des ausgewählten Objekts. Ereignisse erscheinen vom neuesten zum ältesten und umfassen Registrierung, Join, Übertragungen, Kollisionen, Verluste, RX-Fenster, Downlinks und MAC-Befehle.
+Die Detailseite trennt die Objektliste von der Historie des ausgewählten
+Objekts. Läufe erscheinen vom neuesten zum ältesten; innerhalb eines Laufs
+stehen die Ereignisse chronologisch vom ältesten zum neuesten. Dazu gehören
+Registrierung, Join, Übertragungen, Kollisionen, Verluste, RX-Fenster, Downlinks
+und MAC-Befehle.
 
 Während einer Simulation werden neue Einträge in Echtzeit angezeigt. Automatisch zum Ende gescrollt wird nur, wenn Sie bereits nahe am Ende waren.
+
+## Raw-LoRa-Frames
+
+Raw-Funkereignisse zeigen **Raw LoRa · HEX** gefolgt von den Payload-Bytes in
+hexadezimaler Form, etwa `00 DE AD BE EF`. So lassen sich Binärdaten ansehen,
+ohne sie als Text zu interpretieren. Dieselbe Darstellung finden Sie unter
+**Engine activity** im Dashboard.
+
+Ordnen Sie den Frame anhand des zugehörigen Gateways und des simulierten
+Zeitstempels ein. Ein über UDP empfangener Raw-Frame ohne Geräteadresse
+erscheint in der Gateway-Historie und im globalen Ereignisstrom; er kann nicht
+automatisch der Historie eines bestimmten Geräts zugeordnet werden. Er belegt
+weder einen erfolgreichen LoRaWAN-Join noch die Zustellung an eine Anwendung.
+Raw-Bytes sind von den **Decoded**-Anwendungsdaten des LoRaWAN-Payload-Codecs
+zu unterscheiden.

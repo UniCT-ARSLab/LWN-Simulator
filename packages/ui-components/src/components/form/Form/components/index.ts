@@ -1,6 +1,7 @@
 export * from "./TextFormField";
 export * from "./RangeFormField";
 export * from "./TextAreaFormField";
+export * from "./CodeEditorFormField";
 export * from "./SelectFormField";
 export * from "./RadioFormField";
 export * from "./CheckboxFormField";

@@ -6,4 +6,4 @@ title: Solución de problemas
 
 Si el servidor no responde, comprueba la dirección, el puerto, el firewall y que el backend esté activo. Solo se permite una simulación por backend: detén la simulación de otro perfil antes de iniciar una nueva.
 
-Si el bridge no recibe tráfico, verifica que esté habilitado y que la dirección y el puerto coincidan con el packet forwarder. Si los registros no se actualizan, comprueba la conexión y recarga la página.
+Para gateways Virtual, la dirección y el puerto en **Hardware → Gateway Bridge** identifican el servicio bridge externo que recibe el tráfico. Para gateways Real, el packet forwarder envía al listener UDP del backend (puerto 1700 por defecto). Son direcciones diferentes: consulta los [ejemplos de conexión](../hardware/gateway-bridge). Si los registros no se actualizan, comprueba la conexión y recarga la página.

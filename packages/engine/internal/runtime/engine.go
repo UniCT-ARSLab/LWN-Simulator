@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"math/rand"
@@ -17,6 +18,7 @@ import (
 )
 
 const runtimeEventLogLimit = 10_000
+const telemetrySampleInterval = 10 * time.Second
 
 type Engine struct {
 	mu sync.RWMutex
@@ -37,8 +39,9 @@ type Engine struct {
 	eventLog  []contracts.SimulationEvent
 	sink      types.EventSink
 
-	state   contracts.SimulationState
-	metrics contracts.SimulationMetrics
+	state                 contracts.SimulationState
+	metrics               contracts.SimulationMetrics
+	lastTelemetrySampleAt int64
 
 	runCancel    context.CancelFunc
 	runContext   context.Context
@@ -73,9 +76,20 @@ func New(
 		return nil, fmt.Errorf("validate runtime registry: %w", err)
 	}
 
+	if requiresRealtimeTransport(registry.Gateways(), options.GatewayAdapterFactory) {
+		config.Speed = 1
+	}
+
 	clock := options.Clock
 	if clock == nil {
 		clock = types.NewRealClock(config.Speed)
+	}
+	if requiresRealtimeTransport(registry.Gateways(), options.GatewayAdapterFactory) {
+		if speedClock, ok := clock.(interface{ SetSpeed(float64) error }); ok {
+			if err := speedClock.SetSpeed(1); err != nil {
+				return nil, fmt.Errorf("set external transport clock speed: %w", err)
+			}
+		}
 	}
 
 	bufferSize := options.EventBuffer
@@ -90,8 +104,17 @@ func New(
 	}
 	sessions := make(map[string]*types.DeviceSession, len(devices))
 	gatewayRuntime := make(map[string]*types.GatewayRuntime, len(gateways))
+	externalVirtualTransport := false
+	if factory, ok := options.GatewayAdapterFactory.(types.VirtualGatewayAdapterFactory); ok {
+		externalVirtualTransport = factory.SupportsVirtualGateways()
+	}
 	for _, device := range registry.Devices() {
-		sessions[device.ID] = newDeviceSession(device)
+		session := newDeviceSession(device)
+		if externalVirtualTransport && device.OOTAConfig != nil {
+			identifier := uuid.New()
+			session.DevNonce = binary.BigEndian.Uint16(identifier[:2])
+		}
+		sessions[device.ID] = session
 	}
 	for _, gateway := range registry.Gateways() {
 		state := contracts.Connected
@@ -143,7 +166,10 @@ func (e *Engine) restoreCheckpoint(checkpoint *types.EngineCheckpoint) error {
 	}
 	if checkpoint.Config.Speed > 0 {
 		e.config = checkpoint.Config
-		e.state.Speed = checkpoint.Config.Speed
+		if requiresRealtimeTransport(e.registry.Gateways(), e.gatewayAdapterFactory) {
+			e.config.Speed = 1
+		}
+		e.state.Speed = e.config.Speed
 		e.state.Seed = checkpoint.Config.Seed
 	}
 	if checkpoint.State.EventSequence > 0 || checkpoint.State.ElapsedMilliseconds > 0 {
@@ -162,6 +188,8 @@ func (e *Engine) restoreCheckpoint(checkpoint *types.EngineCheckpoint) error {
 			if session.PendingUplink != nil {
 				pending := *session.PendingUplink
 				pending.GatewayIDs = append([]string(nil), pending.GatewayIDs...)
+				pending.PayloadConfig = cloneRuntimePointer(pending.PayloadConfig)
+				pending.WirePayload = append([]byte(nil), pending.WirePayload...)
 				copySession.PendingUplink = &pending
 			}
 			if session.PendingJoinRequest != nil {
@@ -173,6 +201,9 @@ func (e *Engine) restoreCheckpoint(checkpoint *types.EngineCheckpoint) error {
 			copySession.PendingClassADownlinks = cloneDownlinks(session.PendingClassADownlinks)
 			copySession.PendingClassCDownlinks = cloneDownlinks(session.PendingClassCDownlinks)
 			copySession.AdditionalChannels = append([]types.RadioChannel(nil), session.AdditionalChannels...)
+			copySession.PendingMACResponses = cloneMACResponses(session.PendingMACResponses)
+			copySession.NetworkChannels = cloneSessionMap(session.NetworkChannels)
+			copySession.DisabledChannels = cloneSessionMap(session.DisabledChannels)
 			copySession.NwkSKey = append([]byte(nil), session.NwkSKey...)
 			copySession.AppSKey = append([]byte(nil), session.AppSKey...)
 			e.sessions[deviceID] = &copySession
@@ -279,24 +310,10 @@ func (e *Engine) Start(ctx context.Context) error {
 		}
 		for _, device := range activeDevices {
 			session := e.sessions[device.ID]
-			kind := types.ScheduledEventDeviceUplink
-			scheduledType := contracts.DeviceUplinkTransmitted
-			scheduledMessage := "device uplink scheduled"
+			scheduled := initialDeviceEvent(device, session, e.initialTransmissionDelay(device, len(activeDevices)))
 			scheduledLogType := contracts.DeviceUplinkScheduled
-			if !session.Joined {
-				kind = types.ScheduledEventJoinRequest
-				scheduledType = contracts.DeviceJoinRequestTransmitted
-				scheduledMessage = "device join request scheduled"
+			if scheduled.Kind == types.ScheduledEventJoinRequest {
 				scheduledLogType = contracts.DeviceJoinRequestScheduled
-			}
-			scheduled := types.ScheduledEvent{
-				ID:       uuid.NewString(),
-				At:       e.initialTransmissionDelay(device, len(activeDevices)),
-				Type:     scheduledType,
-				Message:  scheduledMessage,
-				DeviceID: device.ID,
-				Kind:     kind,
-				Attempt:  1,
 			}
 			if err := e.scheduler.Schedule(scheduled); err != nil {
 				e.state.Status = contracts.SimulationStatusFailed
@@ -306,7 +323,7 @@ func (e *Engine) Start(ctx context.Context) error {
 			}
 			events = append(events, e.newEventLocked(
 				scheduledLogType,
-				scheduledMessage,
+				scheduled.Message,
 				device.ID,
 				"",
 				scheduled.ID,
@@ -507,6 +524,10 @@ func (e *Engine) QueueDownlink(downlink types.Downlink) (string, error) {
 		e.mu.Unlock()
 		return "", fmt.Errorf("device %s has an unsupported class", downlink.DeviceID)
 	}
+	if deviceRadioProtocol(device) == contracts.RawLoRa && len(downlink.MACCommands) > 0 {
+		e.mu.Unlock()
+		return "", fmt.Errorf("raw LoRa downlinks cannot contain LoRaWAN MAC commands")
+	}
 	if !device.Active {
 		e.mu.Unlock()
 		return "", fmt.Errorf("device %s is inactive", downlink.DeviceID)
@@ -515,12 +536,19 @@ func (e *Engine) QueueDownlink(downlink types.Downlink) (string, error) {
 		e.mu.Unlock()
 		return "", fmt.Errorf("%w: cannot queue Class B downlink from %q", ErrInvalidTransition, e.state.Status)
 	}
-	if downlink.FPort == 0 && len(downlink.Payload) > 0 {
-		downlink.FPort = device.FrameConfig.FPort
-	}
-	if len(downlink.Payload) > 0 && (downlink.FPort < 1 || downlink.FPort > 223) {
-		e.mu.Unlock()
-		return "", fmt.Errorf("downlink FPort must be between 1 and 223")
+	if deviceRadioProtocol(device) == contracts.RawLoRa {
+		downlink.FPort = 0
+		downlink.Confirmed = false
+		downlink.ACK = false
+		downlink.FPending = false
+	} else {
+		if downlink.FPort == 0 && len(downlink.Payload) > 0 {
+			downlink.FPort = device.FrameConfig.FPort
+		}
+		if len(downlink.Payload) > 0 && (downlink.FPort < 1 || downlink.FPort > 223) {
+			e.mu.Unlock()
+			return "", fmt.Errorf("downlink FPort must be between 1 and 223")
+		}
 	}
 	for index, command := range downlink.MACCommands {
 		if err := validateMACCommand(device.LocationConfig.Region, command); err != nil {
@@ -528,7 +556,7 @@ func (e *Engine) QueueDownlink(downlink types.Downlink) (string, error) {
 			return "", fmt.Errorf("validate MAC command %d: %w", index, err)
 		}
 	}
-	if _, err := lorawan.EncodeMACCommands(downlink.MACCommands); err != nil {
+	if _, err := lorawanHandler.EncodeMACCommands(downlink.MACCommands); err != nil {
 		e.mu.Unlock()
 		return "", fmt.Errorf("encode MAC commands: %w", err)
 	}
@@ -579,6 +607,7 @@ func (e *Engine) QueueDownlink(downlink types.Downlink) (string, error) {
 		if scheduleEvent != nil {
 			deferredScheduleEvent := *scheduleEvent
 			e.mu.Unlock()
+			e.signalWake()
 			e.publish(deferredScheduleEvent)
 			e.publish(event)
 			return downlink.ID, nil
@@ -588,6 +617,7 @@ func (e *Engine) QueueDownlink(downlink types.Downlink) (string, error) {
 		if scheduled := e.scheduleClassCDownlinkLocked(device, session, e.eventTimestampLocked()); scheduled != nil {
 			deferredScheduleEvent := *scheduled
 			e.mu.Unlock()
+			e.signalWake()
 			e.publish(deferredScheduleEvent)
 			e.publish(event)
 			return downlink.ID, nil
@@ -598,12 +628,27 @@ func (e *Engine) QueueDownlink(downlink types.Downlink) (string, error) {
 	return downlink.ID, nil
 }
 
+// StateAndMetrics returns the current counters without building the hardware view.
+func (e *Engine) StateAndMetrics() (contracts.SimulationState, contracts.SimulationMetrics) {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	return e.currentStateLocked(), e.metrics
+}
+
+func (e *Engine) currentStateLocked() contracts.SimulationState {
+	state := e.state
+	if elapsed := e.clock.Now().Milliseconds(); elapsed > state.ElapsedMilliseconds {
+		state.ElapsedMilliseconds = elapsed
+	}
+	return state
+}
+
 func (e *Engine) Snapshot() contracts.SimulationSnapshot {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 
 	snapshot := e.registry.Snapshot()
-	snapshot.State = e.state
+	snapshot.State = e.currentStateLocked()
 	snapshot.Metrics = e.metrics
 	for index, device := range e.registry.Devices() {
 		if session := e.sessions[device.ID]; session != nil {
@@ -637,9 +682,6 @@ func (e *Engine) Snapshot() contracts.SimulationSnapshot {
 			snapshot.Gateways[index].EgressPackets = runtime.EgressPackets
 		}
 	}
-	if elapsed := e.clock.Now().Milliseconds(); elapsed > snapshot.State.ElapsedMilliseconds {
-		snapshot.State.ElapsedMilliseconds = elapsed
-	}
 	return snapshot
 }
 
@@ -649,15 +691,11 @@ func (e *Engine) Checkpoint() types.EngineCheckpoint {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 
-	state := e.state
-	if elapsed := e.clock.Now().Milliseconds(); elapsed > state.ElapsedMilliseconds {
-		state.ElapsedMilliseconds = elapsed
-	}
 	checkpoint := types.EngineCheckpoint{
 		Config:         e.config,
 		Devices:        e.registry.Devices(),
 		Gateways:       e.registry.Gateways(),
-		State:          state,
+		State:          e.currentStateLocked(),
 		Metrics:        e.metrics,
 		Sessions:       make(map[string]types.DeviceSession, len(e.sessions)),
 		Radio:          make(map[string]types.RadioTransmission, len(e.radio)),
@@ -673,6 +711,8 @@ func (e *Engine) Checkpoint() types.EngineCheckpoint {
 		if session.PendingUplink != nil {
 			pending := *session.PendingUplink
 			pending.GatewayIDs = append([]string(nil), pending.GatewayIDs...)
+			pending.PayloadConfig = cloneRuntimePointer(pending.PayloadConfig)
+			pending.WirePayload = append([]byte(nil), pending.WirePayload...)
 			copySession.PendingUplink = &pending
 		}
 		if session.PendingJoinRequest != nil {
@@ -684,6 +724,9 @@ func (e *Engine) Checkpoint() types.EngineCheckpoint {
 		copySession.PendingClassADownlinks = cloneDownlinks(session.PendingClassADownlinks)
 		copySession.PendingClassCDownlinks = cloneDownlinks(session.PendingClassCDownlinks)
 		copySession.AdditionalChannels = append([]types.RadioChannel(nil), session.AdditionalChannels...)
+		copySession.PendingMACResponses = cloneMACResponses(session.PendingMACResponses)
+		copySession.NetworkChannels = cloneSessionMap(session.NetworkChannels)
+		copySession.DisabledChannels = cloneSessionMap(session.DisabledChannels)
 		copySession.NwkSKey = append([]byte(nil), session.NwkSKey...)
 		copySession.AppSKey = append([]byte(nil), session.AppSKey...)
 		checkpoint.Sessions[deviceID] = copySession
@@ -838,7 +881,7 @@ func newDeviceSession(device contracts.Device) *types.DeviceSession {
 		RX1DataRateOffset:      intValue(device.RX1Config.DataRateOffset),
 		RX2DataRate:            intValue(device.RX2Config.DataRate),
 		RX2Frequency:           int64(device.RX2Config.ChannelFrequency),
-		ReceiveDelay:           durationSeconds(device.RX1Config.Delay),
+		ReceiveDelay:           durationMilliseconds(device.RX1Config.Delay),
 		MaximumEIRP:            int(radioTransmitPowerDBm),
 		PingSlotDataRate:       plan.PingSlotDataRate,
 		PingSlotFrequency:      plan.PingSlotFrequency,
@@ -910,6 +953,7 @@ func cloneGatewayPackets(packets []types.GatewayPacket) []types.GatewayPacket {
 	for index, packet := range packets {
 		cloned[index] = packet
 		cloned[index].Payload = append([]byte(nil), packet.Payload...)
+		cloned[index].ConcentratorTimestamp = cloneRuntimePointer(packet.ConcentratorTimestamp)
 	}
 	return cloned
 }
@@ -999,11 +1043,47 @@ func (e *Engine) newEventLocked(
 	if scheduledEventID != "" {
 		event.ScheduledEventID = &scheduledEventID
 	}
+	switch event.Type {
+	case contracts.SimulationStarted, contracts.SimulationStopped, contracts.SimulationFailed,
+		contracts.SimulationPaused, contracts.SimulationResumed, contracts.SimulationRecovered:
+		e.sampleTelemetryLocked(&event)
+	default:
+		if event.TimestampMilliseconds-e.lastTelemetrySampleAt >= telemetrySampleInterval.Milliseconds() {
+			e.sampleTelemetryLocked(&event)
+		}
+	}
 	e.eventLog = append(e.eventLog, event)
 	if len(e.eventLog) >= runtimeEventLogLimit*2 {
 		e.eventLog = recentSimulationEvents(e.eventLog, runtimeEventLogLimit)
 	}
 	return event
+}
+
+func (e *Engine) sampleTelemetryLocked(event *contracts.SimulationEvent) {
+	var connectedGateways int64
+	for _, gateway := range e.gatewayRuntime {
+		if gateway.State == contracts.Connected {
+			connectedGateways++
+		}
+	}
+	e.lastTelemetrySampleAt = event.TimestampMilliseconds
+	event.Telemetry = &contracts.SimulationTelemetry{
+		ElapsedMilliseconds: event.TimestampMilliseconds,
+		Sequence:            event.Sequence,
+		Metrics:             e.metrics,
+		ConnectedGateways:   connectedGateways,
+	}
+}
+
+func (e *Engine) newUplinkOutcomeEventLocked(eventType contracts.SimulationEventType, message, deviceID, gatewayID, scheduledID, packetID string, outcome contracts.SimulationEventUplinkOutcome) contracts.SimulationEvent {
+	event := e.newPacketEventLocked(eventType, message, deviceID, gatewayID, scheduledID, packetID)
+	e.setUplinkOutcomeLocked(&event, outcome)
+	return event
+}
+
+func (e *Engine) setUplinkOutcomeLocked(event *contracts.SimulationEvent, outcome contracts.SimulationEventUplinkOutcome) {
+	event.UplinkOutcome = &outcome
+	e.eventLog[len(e.eventLog)-1] = *event
 }
 
 func recentSimulationEvents(events []contracts.SimulationEvent, limit int) []contracts.SimulationEvent {
@@ -1056,4 +1136,25 @@ func (e *Engine) signalWake() {
 	case e.wake <- struct{}{}:
 	default:
 	}
+}
+
+func cloneMACResponses(responses [][]byte) [][]byte {
+	if responses == nil {
+		return nil
+	}
+	result := make([][]byte, len(responses))
+	for i, r := range responses {
+		result[i] = append([]byte(nil), r...)
+	}
+	return result
+}
+func cloneSessionMap[V any](source map[int]V) map[int]V {
+	if source == nil {
+		return nil
+	}
+	result := make(map[int]V, len(source))
+	for k, v := range source {
+		result[k] = v
+	}
+	return result
 }

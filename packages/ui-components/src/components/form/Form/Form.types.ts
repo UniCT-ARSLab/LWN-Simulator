@@ -39,9 +39,11 @@ export interface FormFieldProps extends Omit<FormField, "render"> {
  */
 export interface FormValidation {
   /**
-   * Regular expression used to validate the field value.
+   * Rule used to validate the field value. Predicate rules are useful for
+   * structured values whose validity cannot be expressed reliably with a
+   * regular expression.
    */
-  rule: RegExp;
+  rule: RegExp | ((value: FormValue) => boolean);
 
   /**
    * Error message displayed when validation fails.

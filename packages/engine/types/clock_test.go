@@ -113,3 +113,45 @@ func TestRealClockChangesSpeedWithoutResettingElapsedTime(t *testing.T) {
 		t.Fatalf("clock did not advance after changing speed: before=%s after=%s", pausedElapsed, got)
 	}
 }
+
+func TestRealClockRestoresElapsedTimeAndRejectsInvalidSpeed(t *testing.T) {
+	clock := NewRealClock(1)
+	clock.SetElapsed(42 * time.Second)
+	if got := clock.Now(); got != 42*time.Second {
+		t.Fatalf("restored elapsed time is %s", got)
+	}
+	clock.Start()
+	clock.SetElapsed(3 * time.Second)
+	if got := clock.Now(); got < 3*time.Second || got > 3100*time.Millisecond {
+		t.Fatalf("running clock did not reset around restored elapsed time: %s", got)
+	}
+	if err := clock.SetSpeed(0); err == nil {
+		t.Fatal("zero speed was accepted")
+	}
+	if err := clock.SetSpeed(-1); err == nil {
+		t.Fatal("negative speed was accepted")
+	}
+}
+
+func TestClockWaitCancellationAndImmediateTargets(t *testing.T) {
+	manual := NewManualClock(time.Second)
+	if err := manual.WaitUntil(context.Background(), time.Second, 1, nil); err != nil {
+		t.Fatalf("manual clock should immediately satisfy past target: %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := manual.WaitUntil(ctx, 2*time.Second, 1, nil); err == nil {
+		t.Fatal("manual clock ignored cancellation")
+	}
+
+	real := NewRealClock(1)
+	real.Start()
+	if err := real.WaitUntil(context.Background(), 0, 1, nil); err != nil {
+		t.Fatalf("real clock should immediately satisfy past target: %v", err)
+	}
+	ctx, cancel = context.WithCancel(context.Background())
+	cancel()
+	if err := real.WaitUntil(ctx, time.Hour, 1, nil); err == nil {
+		t.Fatal("real clock ignored cancellation")
+	}
+}

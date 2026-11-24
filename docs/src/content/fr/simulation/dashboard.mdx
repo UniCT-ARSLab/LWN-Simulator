@@ -6,6 +6,27 @@ title: Tableau de bord et console
 
 Le tableau de bord regroupe carte, métriques, état runtime et flux d'événements.
 
-Dans **Uplink**, programmez un message pour l'appareil choisi. Dans **Downlink**, envoyez un payload UTF-8 ou Base64, choisissez un FPort de 1 à 223, le data rate et les options confirmed et ACK. Dans **MAC command**, choisissez une commande et ses paramètres.
+Dans **Uplink**, programmez un message pour l'appareil choisi. Un appareil
+LoRaWAN OTAA sans session effectue d'abord le join ; un appareil **Raw LoRa**
+transmet directement les octets du payload, sans join.
+
+Dans **Downlink**, envoyez un payload UTF-8 ou Base64 et choisissez **Data
+rate**, avec **Auto** comme valeur initiale. Pour LoRaWAN, **FPort** de 1 à 223,
+**Confirmed** et **ACK** sont également disponibles. Ces trois champs sont
+masqués pour un destinataire Raw LoRa. Réglez **Radio Receive Mode** sur **Raw
+LoRa** ou **Auto** si l'appareil doit accepter le trafic raw. La mise en file
+ne garantit pas la livraison : une passerelle adaptée et une occasion de
+réception restent nécessaires.
+
+Dans **MAC command**, choisissez une commande LoRaWAN et ses paramètres. Les
+appareils Raw LoRa sont exclus ; si aucun appareil LoRaWAN actif n'est
+disponible, l'envoi est désactivé.
+
+## Consulter les trames raw
+
+**Engine activity** affiche les octets raw en hexadécimal à côté de **Raw LoRa
+· HEX**. Ces informations sont conservées dans les [journaux de
+simulation](/logs). Les payloads raw ne sont pas interprétés comme
+des données applicatives LoRaWAN ni traités par leur codec de payload.
 
 Les LinkMarker représentent les communications récentes et valides. La position initiale de la carte est conservée pendant l'arrivée de nouveaux événements.

@@ -39,7 +39,7 @@ sure the client can reach the server’s network address.
 
 Check that:
 
-- at least one device and one gateway are active;
+- at least one device or gateway is active;
 - the current profile is the one you intend to run;
 - no simulation is already active in another profile or browser tab;
 - the seed, speed, and hardware fields pass validation;
@@ -73,8 +73,9 @@ Start with the geometry, then check the radio and protocol settings:
 
 <Tabs items={["Bridge", "Gateway record", "Traffic"]}>
   <Tabs.Tab>
-    In **Hardware → Gateway Bridge**, enable the bridge, save the address and
-    UDP port, and make sure no other process is using that port.
+    For Virtual gateways forwarding traffic to an external bridge, enable the
+    bridge in **Hardware → Gateway Bridge** and save the external service’s
+    destination address and UDP port. Make sure that service is listening there.
   </Tabs.Tab>
   <Tabs.Tab>
     In **Hardware → Gateways**, use type **Real**, configure the gateway’s
@@ -82,9 +83,12 @@ Start with the geometry, then check the radio and protocol settings:
     identifier announced by the packet forwarder.
   </Tabs.Tab>
   <Tabs.Tab>
-    Point the packet forwarder or ChirpStack Gateway Bridge at the simulator’s
-    bridge endpoint. Then start the simulation and check heartbeats and packet
-    ingress in **Connectivity** and **Engine activity**.
+    A Real gateway’s packet forwarder sends traffic to the backend’s UDP listener
+    (port 1700 by default), not to the external bridge destination. Virtual
+    gateways send traffic in the opposite direction, to the external bridge.
+    Start the simulation and check heartbeats and packet ingress in
+    **Connectivity** and **Engine activity**. See the
+    [connection examples](../hardware/gateway-bridge) for both directions.
   </Tabs.Tab>
 </Tabs>
 

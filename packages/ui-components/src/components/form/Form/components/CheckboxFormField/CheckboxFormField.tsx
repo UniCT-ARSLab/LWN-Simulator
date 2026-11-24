@@ -43,6 +43,7 @@ const CheckboxFormField = (props: CheckboxFormFieldProps) => {
             <input
               className="checkbox-option"
               type="checkbox"
+              id={`${props.name}-${opt.value}`}
               checked={
                 Array.isArray(props.value) && props.value.includes(opt.value)
               }

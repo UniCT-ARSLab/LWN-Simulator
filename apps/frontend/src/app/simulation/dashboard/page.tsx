@@ -28,7 +28,6 @@ import {
   SensorMapLink,
   useSensorMap,
 } from "@/components";
-import { defaultGatewayBridgeConfig } from "@/utils/gatewayBridge";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 const formatEventType = (value: string): string =>
@@ -85,12 +84,21 @@ const SimulationDashboardPage = () => {
     () => deviceService.devices ?? [],
     [deviceService.devices],
   );
-  const devicesLoaded = deviceService.devices !== null;
-  const hasActiveDevices = devices.some((device) => device.active);
+  const deviceProtocols = useMemo(
+    () => Object.fromEntries(devices.map((device) => [device.id, device.radioProtocol])),
+    [devices],
+  );
   const gateways = useMemo(
     () => gatewayService.gateways ?? [],
     [gatewayService.gateways],
   );
+  const hardwareLoaded = deviceService.devices !== null && gatewayService.gateways !== null;
+  const hasActiveHardware =
+    devices.some((device) => device.active) ||
+    gateways.some((gateway) => gateway.active);
+  const requiresRealtime =
+    profileConfiguration.gatewayBridgeConfig?.enabled === true ||
+    gateways.some((gateway) => gateway.type === GatewayType.Real);
   const mapLogic = useSensorMap({});
   const [controlError, setControlError] = useState<string | null>(null);
   const [isLoadingSnapshot, setIsLoadingSnapshot] = useState(true);
@@ -128,8 +136,8 @@ const SimulationDashboardPage = () => {
       profileService.activeProfileID;
   const canStart =
     canStartFromCurrentProfile &&
-    devicesLoaded &&
-    hasActiveDevices &&
+    hardwareLoaded &&
+    hasActiveHardware &&
     !profileService.simulationActivityLoading &&
     !hasActiveSimulation;
   const activeSimulationProfile = profileService.profiles.find(
@@ -255,12 +263,9 @@ const SimulationDashboardPage = () => {
 
     return runControl(
       async () => {
-        const gatewayBridge =
-          await profileConfiguration.getGatewayBridge().catch(() =>
-            profileConfiguration.gatewayBridgeConfig ?? defaultGatewayBridgeConfig,
-          );
+        const gatewayBridge = await profileConfiguration.getGatewayBridge();
         await simulation.start({
-          speed,
+          speed: gatewayBridge.enabled || gateways.some((gateway) => gateway.type === GatewayType.Real) ? 1 : speed,
           ...(seed ? { seed: Number(seed) } : {}),
           gatewayBridge,
         });
@@ -296,6 +301,7 @@ const SimulationDashboardPage = () => {
         min: 0.1,
         max: 10,
         step: 0.1,
+        disabled: requiresRealtime,
         formatValue: (value: string) => `${Number(value).toFixed(1)}x`,
         onChange: (logic) => {
           const value = Number(logic.fieldsState.speed.value);
@@ -315,7 +321,7 @@ const SimulationDashboardPage = () => {
         format: (raw: string) => raw.replace(/[^0-9]/g, ""),
       }),
     ],
-    [canStart, isPaused, isRunning, updateSpeed],
+    [canStart, isPaused, isRunning, requiresRealtime, updateSpeed],
   );
 
   return (
@@ -345,8 +351,9 @@ const SimulationDashboardPage = () => {
         fields={controlFields}
         status={status}
         canStart={canStart}
-        devicesLoaded={devicesLoaded}
-        hasActiveDevices={hasActiveDevices}
+        requiresRealtime={requiresRealtime}
+        hardwareLoaded={hardwareLoaded}
+        hasActiveHardware={hasActiveHardware}
         activeSimulationIsElsewhere={activeSimulationIsElsewhere}
         activeSimulationProfileName={activeSimulationProfile?.name}
         onStart={start}
@@ -381,6 +388,7 @@ const SimulationDashboardPage = () => {
 
       <SimulationDashboardRuntime
         devices={snapshot?.devices ?? []}
+        deviceProtocols={deviceProtocols}
         gateways={snapshot?.gateways ?? []}
         formatState={formatEventType}
       />

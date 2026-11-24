@@ -4,18 +4,15 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 
+	"lwn-simulator-backend/internal/database"
 	"lwn-simulator-backend/internal/handlers"
 	"lwn-simulator-backend/internal/services"
 )
 
 type Services struct {
-	Device     handlers.DeviceService
-	Gateway    handlers.GatewayService
-	Profile    *services.ProfileService
-	ProfileID  string
-	Simulation handlers.SimulationService
-	Profiles   *services.ProfileRuntimeManager
-	Realtime   *handlers.RealtimeHandler
+	Profile  *services.ProfileService
+	Profiles *services.ProfileRuntimeManager
+	Realtime *handlers.RealtimeHandler
 }
 
 func registerRoutes(r *gin.Engine, port string, services Services) {
@@ -31,26 +28,6 @@ func registerRoutes(r *gin.Engine, port string, services Services) {
 	appInfo.GET("/info", appInfoHandler.Info)
 	appInfo.GET("/status", appInfoHandler.Status(port))
 
-	device := api.Group("/device")
-
-	deviceHandler := handlers.NewDeviceHandler(services.Device, validator)
-
-	device.POST("/create-device", deviceHandler.CreateDevice)
-	device.GET("/get-device/:id", deviceHandler.GetDevice)
-	device.GET("/get-devices", deviceHandler.GetDevices)
-	device.PUT("/update-device/:id", deviceHandler.UpdateDevice)
-	device.DELETE("/delete-device/:id", deviceHandler.DeleteDevice)
-
-	gateway := api.Group("/gateway")
-
-	gatewayHandler := handlers.NewGatewayHandler(services.Gateway, validator)
-
-	gateway.POST("/create-gateway", gatewayHandler.CreateGateway)
-	gateway.GET("/get-gateway/:id", gatewayHandler.GetGateway)
-	gateway.GET("/get-gateways", gatewayHandler.GetGateways)
-	gateway.PUT("/update-gateway/:id", gatewayHandler.UpdateGateway)
-	gateway.DELETE("/delete-gateway/:id", gatewayHandler.DeleteGateway)
-
 	profile := api.Group("/profile")
 	profileHandler := handlers.NewProfileHandler(services.Profile, validator, services.Profiles)
 	profile.GET("/get-profiles", profileHandler.GetProfiles)
@@ -61,60 +38,50 @@ func registerRoutes(r *gin.Engine, port string, services Services) {
 	profile.GET("/export-profile/:id", profileHandler.ExportProfile)
 	profile.POST("/import-profile", profileHandler.ImportProfile)
 
-	simulation := api.Group("/simulation")
-	simulationHandler := handlers.NewSimulationHandlerForProfile(services.Simulation, validator, services.ProfileID)
-	if services.Profiles != nil {
-		simulation.GET("/activity", handlers.NewSimulationActivityHandler(services.Profiles).Get)
-	}
-	simulation.POST("/start", simulationHandler.Start)
-	simulation.POST("/speed", simulationHandler.SetSpeed)
-	simulation.POST("/pause", simulationHandler.Pause)
-	simulation.POST("/resume", simulationHandler.Resume)
-	simulation.POST("/stop", simulationHandler.Stop)
-	simulation.GET("/snapshot", simulationHandler.Snapshot)
-	simulation.GET("/events", simulationHandler.Events)
-	simulation.GET("/logs", simulationHandler.Logs)
-	simulation.GET("/logs/:id", simulationHandler.Log)
-	simulation.GET("/logs/:id/events", simulationHandler.LogEvents)
-	simulation.GET("/metrics", simulationHandler.Metrics)
-	simulation.POST("/uplinks", simulationHandler.QueueUplink)
-	simulation.POST("/downlinks", simulationHandler.QueueDownlink)
-	simulation.POST("/mac-commands", simulationHandler.QueueMACCommand)
-	simulation.GET("/ws", simulationHandler.WebSocket)
 	api.GET("/ws", services.Realtime.WebSocket)
+	api.GET("/simulation/activity", handlers.NewSimulationActivityHandler(services.Profiles).Get)
+	handler := handlers.NewProfileScopedHandler(services.Profiles, validator)
+	legacy := api.Group("", func(c *gin.Context) { c.AddParam("profileID", database.DefaultProfileID) })
+	registerHardwareAndSimulation(legacy, handler)
+	routes := api.Group("/profiles/:profileID")
+	registerHardwareAndSimulation(routes, handler)
+	routes.PATCH("/device/:id/position", handler.UpdateDevicePosition)
+	routes.PATCH("/device/:id/active", handler.UpdateDeviceActive)
+	routes.PATCH("/device/:id/payload", handler.UpdateDevicePayload)
+	routes.PATCH("/gateway/:id/position", handler.UpdateGatewayPosition)
+	routes.PATCH("/gateway/:id/active", handler.UpdateGatewayActive)
+	routes.GET("/configuration/gateway-bridge", handler.GetGatewayBridge)
+	routes.PUT("/configuration/gateway-bridge", handler.UpdateGatewayBridge)
+}
 
-	if services.Profiles != nil {
-		profileScoped := api.Group("/profiles/:profileID")
-		profileScopedHandler := handlers.NewProfileScopedHandler(services.Profiles, validator)
-
-		profileScoped.POST("/device/create-device", profileScopedHandler.CreateDevice)
-		profileScoped.GET("/device/get-device/:id", profileScopedHandler.GetDevice)
-		profileScoped.GET("/device/get-devices", profileScopedHandler.GetDevices)
-		profileScoped.PUT("/device/update-device/:id", profileScopedHandler.UpdateDevice)
-		profileScoped.DELETE("/device/delete-device/:id", profileScopedHandler.DeleteDevice)
-
-		profileScoped.POST("/gateway/create-gateway", profileScopedHandler.CreateGateway)
-		profileScoped.GET("/gateway/get-gateway/:id", profileScopedHandler.GetGateway)
-		profileScoped.GET("/gateway/get-gateways", profileScopedHandler.GetGateways)
-		profileScoped.PUT("/gateway/update-gateway/:id", profileScopedHandler.UpdateGateway)
-		profileScoped.DELETE("/gateway/delete-gateway/:id", profileScopedHandler.DeleteGateway)
-		profileScoped.GET("/configuration/gateway-bridge", profileScopedHandler.GetGatewayBridge)
-		profileScoped.PUT("/configuration/gateway-bridge", profileScopedHandler.UpdateGatewayBridge)
-
-		profileScoped.POST("/simulation/start", profileScopedHandler.StartSimulation)
-		profileScoped.POST("/simulation/speed", profileScopedHandler.SetSimulationSpeed)
-		profileScoped.POST("/simulation/pause", profileScopedHandler.PauseSimulation)
-		profileScoped.POST("/simulation/resume", profileScopedHandler.ResumeSimulation)
-		profileScoped.POST("/simulation/stop", profileScopedHandler.StopSimulation)
-		profileScoped.GET("/simulation/snapshot", profileScopedHandler.SimulationSnapshot)
-		profileScoped.GET("/simulation/events", profileScopedHandler.SimulationEvents)
-		profileScoped.GET("/simulation/logs", profileScopedHandler.SimulationLogs)
-		profileScoped.GET("/simulation/logs/:id", profileScopedHandler.SimulationLog)
-		profileScoped.GET("/simulation/logs/:id/events", profileScopedHandler.SimulationLogEvents)
-		profileScoped.GET("/simulation/metrics", profileScopedHandler.SimulationMetrics)
-		profileScoped.POST("/simulation/uplinks", profileScopedHandler.QueueUplink)
-		profileScoped.POST("/simulation/downlinks", profileScopedHandler.QueueDownlink)
-		profileScoped.POST("/simulation/mac-commands", profileScopedHandler.QueueMACCommand)
-		profileScoped.GET("/simulation/ws", profileScopedHandler.SimulationWebSocket)
-	}
+func registerHardwareAndSimulation(routes *gin.RouterGroup, handler *handlers.ProfileScopedHandler) {
+	routes.POST("/device/create-device", handler.CreateDevice)
+	routes.GET("/device/get-device/:id", handler.GetDevice)
+	routes.GET("/device/get-devices", handler.GetDevices)
+	routes.PUT("/device/update-device/:id", handler.UpdateDevice)
+	routes.DELETE("/device/delete-device/:id", handler.DeleteDevice)
+	routes.POST("/gateway/create-gateway", handler.CreateGateway)
+	routes.GET("/gateway/get-gateway/:id", handler.GetGateway)
+	routes.GET("/gateway/get-gateways", handler.GetGateways)
+	routes.PUT("/gateway/update-gateway/:id", handler.UpdateGateway)
+	routes.DELETE("/gateway/delete-gateway/:id", handler.DeleteGateway)
+	routes.POST("/simulation/start", handler.StartSimulation)
+	routes.POST("/simulation/speed", handler.SetSimulationSpeed)
+	routes.POST("/simulation/pause", handler.PauseSimulation)
+	routes.POST("/simulation/resume", handler.ResumeSimulation)
+	routes.POST("/simulation/stop", handler.StopSimulation)
+	routes.GET("/simulation/snapshot", handler.SimulationSnapshot)
+	routes.GET("/simulation/events", handler.SimulationEvents)
+	routes.GET("/simulation/logs", handler.SimulationLogs)
+	routes.GET("/simulation/logs/export", handler.ExportSimulationLogs)
+	routes.GET("/simulation/logs/:id/export", handler.ExportSimulationLogs)
+	routes.GET("/simulation/logs/telemetry", handler.ExportSimulationTelemetry)
+	routes.GET("/simulation/logs/:id/telemetry", handler.ExportSimulationTelemetry)
+	routes.GET("/simulation/logs/:id", handler.SimulationLog)
+	routes.GET("/simulation/logs/:id/events", handler.SimulationLogEvents)
+	routes.GET("/simulation/metrics", handler.SimulationMetrics)
+	routes.POST("/simulation/uplinks", handler.QueueUplink)
+	routes.POST("/simulation/downlinks", handler.QueueDownlink)
+	routes.POST("/simulation/mac-commands", handler.QueueMACCommand)
+	routes.GET("/simulation/ws", handler.SimulationWebSocket)
 }

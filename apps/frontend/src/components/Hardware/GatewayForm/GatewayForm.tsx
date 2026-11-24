@@ -6,7 +6,6 @@ import {
   latValidation,
   lngValidation,
   randomGatewayEUI,
-  randomMacAddress,
 } from "@/utils";
 import { Gateway, GatewayType } from "@lwn-simulator/contracts";
 import {
@@ -22,22 +21,32 @@ import {
   radioField,
   textField,
 } from "@lwn-simulator/ui-components";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { GatewayFormProps } from "./GatewayForm.types";
+
+const lockFieldsDuringSimulation = (
+  fields: Array<FormField>,
+  locked: boolean,
+): Array<FormField> =>
+  fields.map((field) =>
+    locked && !["active", "latitude", "longitude", "altitude"].includes(field.name)
+      ? { ...field, disabled: true, toolbar: undefined }
+      : field,
+  );
 
 export const GatewayForm = (props: GatewayFormProps) => {
   // Hooks
   const formLogicRef = useRef<FormLogic | null>(null);
   const hydratedGatewayIdRef = useRef<string | null>(null);
   const mapLogic = useSensorMap({ mode: SensorMapMode.Coords });
+  const { updatePos } = mapLogic;
 
   // Callbacks
-  const hydrateForm = (logic: FormLogic, gateway: Gateway) => {
+  const hydrateForm = useCallback((logic: FormLogic, gateway: Gateway) => {
     const values: Record<string, FormValue> = {
       active: gateway.active,
       name: gateway.name,
       type: gateway.type,
-      macAddress: gateway.macAddress,
       gatewayEUI: gateway.gatewayEUI,
       keepAlive: gateway.keepAlive?.toString() ?? "",
       gatewayIPv4: gateway.gatewayIPv4 ?? "",
@@ -47,7 +56,9 @@ export const GatewayForm = (props: GatewayFormProps) => {
       altitude: gateway.altitude.toString(),
     };
     Object.entries(values).forEach(([name, value]) => logic.setValue(name, value));
-  };
+
+    updatePos(gateway.latitude, gateway.longitude);
+  }, [updatePos]);
 
   const coordinateFormat = (raw: string) =>
     raw
@@ -79,7 +90,7 @@ export const GatewayForm = (props: GatewayFormProps) => {
       hydrateForm(formLogicRef.current, props.gateway);
       hydratedGatewayIdRef.current = props.gateway.id;
     }
-  }, [props.gateway]);
+  }, [hydrateForm, props.gateway]);
 
   useEffect(() => {
     if (formLogicRef.current && mapLogic.selectedPos) {
@@ -118,7 +129,7 @@ export const GatewayForm = (props: GatewayFormProps) => {
               hydratedGatewayIdRef.current = props.gateway.id;
             }
           }}
-          fields={[
+          fields={lockFieldsDuringSimulation([
             booleanCheckboxField({
               value: props.gateway?.active ?? false,
               name: "active",
@@ -153,42 +164,6 @@ export const GatewayForm = (props: GatewayFormProps) => {
               },
               required: true,
               disabled: !!props.gateway,
-            }),
-            textField({
-              name: "macAddress",
-              label: "MAC Address",
-              value: "",
-              placeholder: "02:00:00:00:00:01",
-              format: (raw: string) =>
-                raw
-                  .replace(/[^0-9A-Fa-f:]/g, "")
-                  .slice(0, 17)
-                  .toUpperCase(),
-              info: {
-                default: "Unique hardware network address of the gateway interface",
-              },
-              validations: [
-                {
-                  rule: /^(?:[0-9A-F]{2}:){5}[0-9A-F]{2}$/,
-                  error: "Invalid MAC Address",
-                },
-              ],
-              error: null,
-              required: true,
-              disabled: !!props.gateway,
-              toolbar: props.gateway ? undefined : (
-                <Button
-                  value={<span className="material-symbols-outlined">cached</span>}
-                  layout={ButtonLayout.Icon}
-                  type={ButtonType.Outlined}
-                  onClick={() =>
-                    formLogicRef.current?.setValue(
-                      "macAddress",
-                      randomMacAddress(),
-                    )
-                  }
-                />
-              ),
             }),
             textField({
               name: "gatewayEUI",
@@ -356,7 +331,7 @@ export const GatewayForm = (props: GatewayFormProps) => {
                 />
               ),
             }),
-          ]}
+          ], !!props.gateway && props.simulationActive)}
         />
       </div>
       <SensorMap logic={mapLogic} mode={SensorMapMode.Coords} />

@@ -1,7 +1,25 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FormField, FormLogic, FormValue, UseFormProps } from "./Form.types";
+import {
+  FormField,
+  FormLogic,
+  FormValidation,
+  FormValue,
+  UseFormProps,
+} from "./Form.types";
+
+const passesValidation = (
+  validation: FormValidation,
+  value: FormValue,
+): boolean => {
+  if (typeof validation.rule === "function") {
+    return validation.rule(value);
+  }
+
+  validation.rule.lastIndex = 0;
+  return validation.rule.test(String(value));
+};
 
 export const useForm = (props: UseFormProps): FormLogic => {
   // States
@@ -33,7 +51,7 @@ export const useForm = (props: UseFormProps): FormLogic => {
       for (const validation of updatedField.validations) {
         if (!validation.realtime) continue;
 
-        const isValid = validation.rule.test(updatedField.value as string);
+        const isValid = passesValidation(validation, updatedField.value);
 
         if (!isValid) {
           updatedField.error = validation.error;
@@ -124,11 +142,25 @@ export const useForm = (props: UseFormProps): FormLogic => {
       const nextState = Object.fromEntries(
         props.fields.map((field) => {
           const currentField = currentState[field.name];
+          const currentOptions = (
+            currentField as FormField & { options?: Array<unknown> } | undefined
+          )?.options;
+          const configuredOptions = (
+            field as FormField & { options?: Array<unknown> }
+          ).options;
+          const shouldPreserveRuntimeOptions =
+            Array.isArray(currentOptions) &&
+            currentOptions.length > 0 &&
+            Array.isArray(configuredOptions) &&
+            configuredOptions.length === 0;
 
           return [
             field.name,
             {
               ...field,
+              ...(shouldPreserveRuntimeOptions
+                ? { options: currentOptions }
+                : {}),
               value: currentField?.value ?? field.value,
               error: currentField?.error ?? field.error,
             },
@@ -157,7 +189,12 @@ export const useForm = (props: UseFormProps): FormLogic => {
       ) {
         let fieldIsValid = true;
 
-        if (field.required && !field.value) {
+        const isEmpty =
+          field.value === null ||
+          field.value === undefined ||
+          field.value === "";
+
+        if (field.required && isEmpty) {
           fieldIsValid = false;
           field.error = "This field is required";
         }
@@ -166,7 +203,7 @@ export const useForm = (props: UseFormProps): FormLogic => {
           for (let i = 0; i < field.validations.length; i++) {
             const validation = field.validations[i];
 
-            fieldIsValid = validation.rule.test((field.value as string) || "");
+            fieldIsValid = passesValidation(validation, field.value);
             if (!fieldIsValid) {
               field.error = validation.error;
               break;

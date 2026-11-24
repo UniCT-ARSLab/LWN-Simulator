@@ -1,0 +1,40 @@
+---
+title: Connecter un client MCP
+---
+
+# Connecter un client MCP
+
+Utilisez le serveur local Model Context Protocol (MCP) pour consulter les simulations depuis un client d’IA. Il utilise le même serveur local que le tableau de bord, avec les mêmes profils, exécutions et métriques.
+
+Lancez le simulateur avec un serveur local. Repérez le chemin absolu de `lwn-server` (`lwn-server.exe` sous Windows), disponible séparément ou fourni avec l’application de bureau. Enregistrez-le comme serveur **stdio** dans le client MCP. L’emplacement des paramètres dépend du client.
+
+```json
+{
+  "mcpServers": {
+    "lwn-simulator": {
+      "command": "/absolute/path/to/lwn-server",
+      "args": ["-mcp", "-port", "8080"]
+    }
+  }
+}
+```
+
+Utilisez le port du serveur indiqué dans l’application. Le port par défaut est `8080`. Le processus MCP se connecte à `127.0.0.1` sur ce port. Laissez le serveur actif pendant l’utilisation du client.
+
+## Consulter une simulation
+
+1. Appelez `list_profiles` pour trouver l’identifiant du profil. Transmettez-le comme `profileID` dans les appels propres à ce profil.
+
+2. Consultez le réseau avec `list_devices` et `list_gateways`. `get_simulation_activity` indique quel profil a une simulation en cours ou en pause. `get_simulation_status` donne le temps simulé et les métriques.
+
+3. Utilisez `list_simulation_runs` pour les exécutions enregistrées et `list_simulation_events` pour leurs événements. Indiquez `runID` pour une exécution enregistrée ou omettez-le pour consulter l’exécution en cours. Pour poursuivre la lecture, transmettez `nextAfterSequence` comme `afterSequence`. Pour les autres listes, utilisez `nextOffset` comme `offset` lorsque cette valeur est présente.
+
+Les résultats contiennent des métadonnées comme les identifiants et les mesures radio. Les clés des appareils, les codecs et les octets des données utiles restent exclus.
+
+## Autoriser le pilotage des simulations
+
+L’accès est en lecture seule par défaut. Ajoutez `"-mcp-write"` à `args` pour activer `start_simulation`, `control_simulation` (mettre en pause, reprendre ou arrêter), `queue_uplink` et `queue_downlink`. Indiquez l’identifiant du profil pour chaque action. Reconnectez le client après toute modification de la configuration.
+
+Le démarrage utilise les paramètres enregistrés du Gateway Bridge. Utilisez la vitesse `1` avec une passerelle externe. Une seule simulation peut être active, tous profils confondus. Pour un downlink, fournissez du texte UTF-8 ou utilisez `base64Encoded` pour le Base64 standard. Indiquez `fPort` pour LoRaWAN et omettez-le pour LoRa raw. La réponse confirme la mise en file. Consultez les événements pour connaître le résultat.
+
+Vérifiez le profil et l’action dans le client avant d’autoriser une écriture.

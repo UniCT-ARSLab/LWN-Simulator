@@ -1,0 +1,40 @@
+---
+title: Einen MCP-Client verbinden
+---
+
+# Einen MCP-Client verbinden
+
+Mit dem lokalen Model Context Protocol (MCP) kannst du Simulationen aus einem KI-Client untersuchen. Der MCP-Server verwendet dasselbe laufende Backend wie das Dashboard. Profile, Läufe und Messwerte sind damit in beiden Ansichten verfügbar.
+
+Starte den Simulator mit einem lokalen Backend. Verwende den absoluten Pfad zur eigenständigen oder mit der Desktop-App ausgelieferten Datei `lwn-server` (`lwn-server.exe` unter Windows). Registriere sie im MCP-Client als **stdio**-Server. Der Ort der Einstellungen hängt vom Client ab.
+
+```json
+{
+  "mcpServers": {
+    "lwn-simulator": {
+      "command": "/absolute/path/to/lwn-server",
+      "args": ["-mcp", "-port", "8080"]
+    }
+  }
+}
+```
+
+Verwende den Backend-Port aus der App. Der Standard ist `8080`. Der MCP-Prozess verbindet sich über diesen Port mit `127.0.0.1`. Das Backend muss während der Nutzung laufen.
+
+## Simulation untersuchen
+
+1. Ermittle die Profil-ID mit `list_profiles` und übergib sie bei profilspezifischen Aufrufen als `profileID`.
+
+2. Prüfe das Netzwerk mit `list_devices` und `list_gateways`. `get_simulation_activity` zeigt, welches Profil eine laufende oder pausierte Simulation hat. `get_simulation_status` liefert die Simulationszeit und Messwerte.
+
+3. `list_simulation_runs` zeigt gespeicherte Läufe. `list_simulation_events` liest mit `runID` die Ereignisse eines gespeicherten Laufs und ohne `runID` die des aktuellen Laufs. Übergib `nextAfterSequence` als `afterSequence`, um weiterzulesen. Verwende für die anderen Listen `nextOffset` als `offset`, wenn der Wert vorhanden ist.
+
+Die Ergebnisse enthalten Metadaten wie Kennungen und Funkmesswerte. Geräteschlüssel, Codecs und Nutzdaten sind ausgeschlossen.
+
+## Simulationssteuerung erlauben
+
+Der Server gewährt standardmäßig nur Lesezugriff. Ergänze `args` um `"-mcp-write"`, um `start_simulation`, `control_simulation` (pausieren, fortsetzen oder stoppen), `queue_uplink` und `queue_downlink` zu aktivieren. Gib für jede Aktion die Profil-ID an. Verbinde den Client nach der Änderung erneut.
+
+Der Start verwendet die gespeicherten Gateway-Bridge-Einstellungen. Verwende bei externen Gateways Geschwindigkeit `1`. Über alle Profile hinweg ist nur eine Simulation aktiv. Übermittle Downlinks als UTF-8-Text oder verwende `base64Encoded` für Standard-Base64. Verwende `fPort` für LoRaWAN und lasse ihn für Raw LoRa weg. Die Antwort bestätigt die Aufnahme in die Warteschlange. Das Ergebnis steht in den Ereignissen.
+
+Prüfe Profil und Aktion im Client, bevor du einen Schreibzugriff bestätigst.

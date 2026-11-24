@@ -1,7 +1,9 @@
 "use client";
 
+import { SimulationEvent } from "@lwn-simulator/contracts";
 import { CSSProperties, UIEvent, useEffect, useRef, useState } from "react";
 import { VirtualEventListProps } from "./VirtualEventList.types";
+import { formatRawRadioPayload } from "@/utils/radioFrame";
 
 const eventRowHeight = 76;
 const virtualOverscan = 5;
@@ -12,6 +14,17 @@ const formatEventType = (value: string): string =>
 const formatSimulationTime = (milliseconds: number): string => {
   const totalSeconds = Math.max(0, milliseconds) / 1000;
   return `t+${totalSeconds.toFixed(totalSeconds >= 100 ? 0 : 1)}s`;
+};
+
+const formatDecodedPayload = (
+  payload: SimulationEvent["decodedPayload"],
+): string | null => {
+  if (!payload) return null;
+  try {
+    return JSON.stringify(payload);
+  } catch {
+    return null;
+  }
 };
 
 export const VirtualEventList = (props: VirtualEventListProps) => {
@@ -70,6 +83,8 @@ export const VirtualEventList = (props: VirtualEventListProps) => {
       >
         {props.events.slice(start, end).map((event, offset) => {
           const index = start + offset;
+          const decodedPayload = formatDecodedPayload(event.decodedPayload);
+          const rawPayload = formatRawRadioPayload(event.radioFrame);
           const style: CSSProperties = {
             height: eventRowHeight,
             transform: `translateY(${index * eventRowHeight}px)`,
@@ -82,8 +97,11 @@ export const VirtualEventList = (props: VirtualEventListProps) => {
                 <small>{formatSimulationTime(event.timestampMilliseconds)}</small>
               </time>
               <span>{formatEventType(event.type)}</span>
-              <small>
+              <small title={[event.message, decodedPayload ? `Decoded ${decodedPayload}` : null, rawPayload, event.error ? `Error: ${event.error}` : null].filter(Boolean).join(" · ")}>
                 {event.message}
+                {decodedPayload ? ` · Decoded ${decodedPayload}` : ""}
+                {rawPayload ? ` · ${rawPayload}` : ""}
+                {event.error ? ` · Error: ${event.error}` : ""}
                 {event.gatewayID ? ` · Gateway ${event.gatewayID}` : ""}
                 {event.deviceID ? ` · Device ${event.deviceID}` : ""}
               </small>

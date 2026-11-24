@@ -1,0 +1,43 @@
+---
+title: "Profili"
+---
+
+# Profili
+
+Imposta `SERVER` e `BASE` come indicato in [Connessione e prima richiesta](/api) prima di eseguire questi comandi.
+
+Tutti i percorsi seguenti iniziano con `/api/profile`. Ogni profilo possiede hardware, configurazione del bridge e storico delle simulazioni. Creazione e rinomina richiedono un nome di massimo 100 caratteri. L’import crea sempre un nuovo profilo con un nuovo UUID interno, senza sovrascrivere quelli esistenti. Non eliminare l’ultimo profilo o quello con una simulazione attiva.
+
+I nomi dei profili devono essere univoci, senza distinzione tra maiuscole e minuscole.
+
+| Metodo | Percorso | Richiesta / risultato |
+| --- | --- | --- |
+| GET | `/api/profile/get-profiles` | Elenco → `{profiles,total}`. |
+| GET | `/api/profile/get-profile/{id}` | Lettura → `{profile}`. |
+| POST | `/api/profile/create-profile` | `{"name":"External test"}` → `201 {profile}`. |
+| PUT | `/api/profile/update-profile/{id}` | `{"name":"New name"}` → `{profile}`. |
+| DELETE | `/api/profile/delete-profile/{id}` | Eliminazione del profilo e dei suoi dati → `204`, senza JSON. |
+| GET | `/api/profile/export-profile/{id}` | Archivio completo del profilo in JSON; `?download=1` aggiunge gli header di download. |
+| POST | `/api/profile/import-profile` | `{"archive": ...}` → `201 {profile}`. Usa l’archivio esportato completo, inclusi metadati e log. |
+
+
+```bash
+curl -fsS "$SERVER/api/profile/create-profile" \
+  -H 'Content-Type: application/json' -d '{"name":"External test"}'
+curl -fsS -X PUT "$SERVER/api/profile/update-profile/$PROFILE_ID" \
+  -H 'Content-Type: application/json' -d '{"name":"Sensor experiment"}'
+```
+
+
+## Esportazione e importazione
+
+Esempio di esportazione e importazione. Il corpo dell’import racchiude il documento esportato in `archive`: è JSON, non un caricamento multipart.
+
+```bash
+curl -fsS "$SERVER/api/profile/export-profile/$PROFILE_ID?download=1" -o profile.json
+jq '{archive: .}' profile.json > import.json
+curl -fsS "$SERVER/api/profile/import-profile" \
+  -H 'Content-Type: application/json' --data-binary @import.json
+```
+
+[Creare profili con script o AI](/profiles)

@@ -7,6 +7,7 @@ const RangeFormField = (props: RangeFormFieldProps) => {
       <input
         aria-label={props.label}
         className={cn("form-field range-form-field", props.disabled && "disabled")}
+        id={props.name}
         type="range"
         min={props.min}
         max={props.max}

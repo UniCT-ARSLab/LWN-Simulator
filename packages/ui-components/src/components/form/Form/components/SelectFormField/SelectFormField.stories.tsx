@@ -31,11 +31,13 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 const StatefulSelect = (props: {
-  initialValue: string | null;
+  initialValue: string | number | null;
   options: typeof options;
   disabled?: boolean;
 }) => {
-  const [value, setValue] = useState<string | null>(props.initialValue);
+  const [value, setValue] = useState<string | number | null>(
+    props.initialValue,
+  );
 
   return (
     <SelectFormField

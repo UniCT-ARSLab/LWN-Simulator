@@ -6,4 +6,4 @@ title: Dépannage
 
 Si le serveur est inaccessible, vérifiez l'adresse, le port, le pare-feu et l'état du backend. Une seule simulation peut fonctionner par backend : arrêtez celle d'un autre profil avant d'en lancer une nouvelle.
 
-Si le bridge ne reçoit rien, vérifiez qu'il est activé et que son adresse et son port correspondent au packet forwarder. Si les journaux ne se mettent pas à jour, vérifiez la connexion et rechargez la page.
+Pour les gateways Virtual, l'adresse et le port dans **Hardware → Gateway Bridge** désignent le service bridge externe destinataire du trafic. Pour les gateways Real, le packet forwarder envoie au listener UDP du backend (port 1700 par défaut). Ces deux directions sont différentes : consultez les [exemples de connexion](../hardware/gateway-bridge). Si les journaux ne se mettent pas à jour, vérifiez la connexion et rechargez la page.

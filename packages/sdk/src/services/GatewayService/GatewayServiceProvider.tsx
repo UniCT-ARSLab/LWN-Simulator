@@ -35,7 +35,17 @@ const GatewayServiceProvider = (props: GatewayServiceProviderProps) => {
   const createGateway = useCallback(
     async (req: CreateGatewayRequest): Promise<Gateway> => {
       const res = await service.createGateway(req);
-      setGateways((previous) => (previous ? [...previous, res] : [res]));
+      setGateways((previous) => {
+        if (!previous) return [res];
+        const existingIndex = previous.findIndex(
+          (gateway) => gateway.id === res.id,
+        );
+        if (existingIndex === -1) return [...previous, res];
+
+        return previous.map((gateway, index) =>
+          index === existingIndex ? res : gateway,
+        );
+      });
       setError(null);
       return res;
     },

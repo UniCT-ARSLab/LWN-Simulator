@@ -97,3 +97,31 @@ func TestProfileServiceRejectsInvalidNames(t *testing.T) {
 }
 
 var _ contracts.Profile
+
+func TestFailedProfilePopulationIsNeverPublished(t *testing.T) {
+	service, dir := newTestProfileService(t)
+	if _, err := service.EnsureDefaultProfile(); err != nil {
+		t.Fatal(err)
+	}
+	publisher := &recordingRealtimePublisher{messages: make(chan contracts.RealtimeWebSocketMessage, 2)}
+	service.SetRealtimePublisher(publisher)
+	failure := errors.New("archive write failed")
+	var partial string
+	_, err := service.create("Import", func(storage database.ProfileStorage) error {
+		partial = storage.Directory()
+		all, err := repositories.NewProfileRepository(dir).GetAll()
+		if err != nil || len(all) != 1 {
+			t.Fatalf("visible incomplete profile: %v %v", all, err)
+		}
+		return failure
+	})
+	if !errors.Is(err, failure) {
+		t.Fatalf("unexpected import error: %v", err)
+	}
+	if _, err := os.Stat(partial); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("partial storage: %v", err)
+	}
+	if len(publisher.messages) != 0 {
+		t.Fatal("notified clients of failed import")
+	}
+}

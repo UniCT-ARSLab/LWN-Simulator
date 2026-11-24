@@ -119,6 +119,8 @@ func validCreateDeviceJSON() string {
 		"devEUI": "0102030405060708",
 		"name": "test-device",
 		"activation": "oota",
+		"radioProtocol": "lorawan",
+		"radioReceiveMode": "lorawan",
 		"active": true,
 		"class": "class-a",
 		"OOTAConfig": {
@@ -135,16 +137,16 @@ func validCreateDeviceJSON() string {
 
 		"RX1Config": {
 			"dataRateOffset": 0,
-			"delay": 1,
-			"duration": 1
+			"delay": 1000,
+			"duration": 3000
 		},
 
 		"RX2Config": {
 			"ACKTimeout": 1000,
 			"channelFrequency": 869525000,
 			"dataRate": 0,
-			"delay": 1,
-			"duration": 1
+			"delay": 2000,
+			"duration": 3000
 		},
 
 		"advancedConfig": {
@@ -195,16 +197,16 @@ func validDeviceJSON(id string) string {
 
 		"RX1Config": {
 			"dataRateOffset": 0,
-			"delay": 1,
-			"duration": 1
+			"delay": 1000,
+			"duration": 3000
 		},
 
 		"RX2Config": {
 			"ACKTimeout": 1000,
 			"channelFrequency": 869525000,
 			"dataRate": 0,
-			"delay": 1,
-			"duration": 1
+			"delay": 2000,
+			"duration": 3000
 		},
 
 		"advancedConfig": {
@@ -239,6 +241,8 @@ func validUpdateDeviceJSON(id, devEUI, name string, active bool) string {
 			"devEUI": "%s",
 			"name": "%s",
 			"activation": "oota",
+			"radioProtocol": "raw-lora",
+			"radioReceiveMode": "auto",
 			"active": %t,
 			"class": "class-a",
 			"OOTAConfig": {
@@ -255,16 +259,16 @@ func validUpdateDeviceJSON(id, devEUI, name string, active bool) string {
 
 			"RX1Config": {
 				"dataRateOffset": 0,
-				"delay": 1,
-				"duration": 1
+				"delay": 1000,
+				"duration": 3000
 			},
 
 			"RX2Config": {
 				"ACKTimeout": 1000,
 				"channelFrequency": 869525000,
 				"dataRate": 0,
-				"delay": 1,
-				"duration": 1
+				"delay": 2000,
+				"duration": 3000
 			},
 
 			"advancedConfig": {
@@ -376,6 +380,85 @@ func TestDeviceHandler_CreateDevice(t *testing.T) {
 			wantCalls:      0,
 		},
 		{
+			name:           "returns bad request for a zero RX1 delay",
+			body:           strings.Replace(validCreateDeviceJSON(), `"delay": 1000`, `"delay": 0`, 1),
+			service:        &mockDeviceService{},
+			wantStatusCode: http.StatusBadRequest,
+			wantCalls:      0,
+		},
+		{
+			name:           "returns bad request for a zero RX1 duration",
+			body:           strings.Replace(validCreateDeviceJSON(), `"duration": 3000`, `"duration": 0`, 1),
+			service:        &mockDeviceService{},
+			wantStatusCode: http.StatusBadRequest,
+			wantCalls:      0,
+		},
+		{
+			name:           "returns bad request for an out of range RX1 data rate offset",
+			body:           strings.Replace(validCreateDeviceJSON(), `"dataRateOffset": 0`, `"dataRateOffset": 6`, 1),
+			service:        &mockDeviceService{},
+			wantStatusCode: http.StatusBadRequest,
+			wantCalls:      0,
+		},
+		{
+			name:           "returns bad request for a zero RX2 delay",
+			body:           strings.Replace(validCreateDeviceJSON(), `"delay": 2000`, `"delay": 0`, 1),
+			service:        &mockDeviceService{},
+			wantStatusCode: http.StatusBadRequest,
+			wantCalls:      0,
+		},
+		{
+			name: "returns bad request for a zero RX2 duration",
+			body: strings.Replace(validCreateDeviceJSON(), `"delay": 2000,
+			"duration": 3000`, `"delay": 2000,
+			"duration": 0`, 1),
+			service:        &mockDeviceService{},
+			wantStatusCode: http.StatusBadRequest,
+			wantCalls:      0,
+		},
+		{
+			name:           "returns bad request for a zero RX2 frequency",
+			body:           strings.Replace(validCreateDeviceJSON(), `"channelFrequency": 869525000`, `"channelFrequency": 0`, 1),
+			service:        &mockDeviceService{},
+			wantStatusCode: http.StatusBadRequest,
+			wantCalls:      0,
+		},
+		{
+			name:           "returns bad request for an out of range RX2 data rate",
+			body:           strings.Replace(validCreateDeviceJSON(), `"dataRate": 0`, `"dataRate": 16`, 1),
+			service:        &mockDeviceService{},
+			wantStatusCode: http.StatusBadRequest,
+			wantCalls:      0,
+		},
+		{
+			name:           "returns bad request for an ACK timeout expressed as seconds",
+			body:           strings.Replace(validCreateDeviceJSON(), `"ACKTimeout": 1000`, `"ACKTimeout": 1`, 1),
+			service:        &mockDeviceService{},
+			wantStatusCode: http.StatusBadRequest,
+			wantCalls:      0,
+		},
+		{
+			name:           "returns bad request for a zero uplink interval",
+			body:           strings.Replace(validCreateDeviceJSON(), `"uplinkInterval": 10`, `"uplinkInterval": 0`, 1),
+			service:        &mockDeviceService{},
+			wantStatusCode: http.StatusBadRequest,
+			wantCalls:      0,
+		},
+		{
+			name:           "returns bad request for an unsupported radio protocol",
+			body:           strings.Replace(validCreateDeviceJSON(), `"radioProtocol": "lorawan"`, `"radioProtocol": "unsupported"`, 1),
+			service:        &mockDeviceService{},
+			wantStatusCode: http.StatusBadRequest,
+			wantCalls:      0,
+		},
+		{
+			name:           "returns bad request for an unsupported receive mode",
+			body:           strings.Replace(validCreateDeviceJSON(), `"radioReceiveMode": "lorawan"`, `"radioReceiveMode": "unsupported"`, 1),
+			service:        &mockDeviceService{},
+			wantStatusCode: http.StatusBadRequest,
+			wantCalls:      0,
+		},
+		{
 			name: "returns internal server error",
 			body: validCreateDeviceJSON(),
 			service: &mockDeviceService{
@@ -440,6 +523,14 @@ func TestDeviceHandler_CreateDevice(t *testing.T) {
 						got.Class,
 						contracts.ClassA,
 					)
+				}
+
+				if got.RadioProtocol == nil || *got.RadioProtocol != contracts.LoRaWAN {
+					t.Errorf("CreateDevice() RadioProtocol = %v, want %q", got.RadioProtocol, contracts.LoRaWAN)
+				}
+
+				if got.RadioReceiveMode == nil || *got.RadioReceiveMode != contracts.ReceiveLoRaWAN {
+					t.Errorf("CreateDevice() RadioReceiveMode = %v, want %q", got.RadioReceiveMode, contracts.ReceiveLoRaWAN)
 				}
 			}
 		})
@@ -757,6 +848,14 @@ func TestDeviceHandler_UpdateDevice(t *testing.T) {
 						got.Device.DevEUI,
 						"1122334455667788",
 					)
+				}
+
+				if got.Device.RadioProtocol == nil || *got.Device.RadioProtocol != contracts.RawLoRa {
+					t.Errorf("UpdateDevice() Device.RadioProtocol = %v, want %q", got.Device.RadioProtocol, contracts.RawLoRa)
+				}
+
+				if got.Device.RadioReceiveMode == nil || *got.Device.RadioReceiveMode != contracts.ReceiveAuto {
+					t.Errorf("UpdateDevice() Device.RadioReceiveMode = %v, want %q", got.Device.RadioReceiveMode, contracts.ReceiveAuto)
 				}
 			}
 		})

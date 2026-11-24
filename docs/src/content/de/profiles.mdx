@@ -19,3 +19,129 @@ Der Export enthält die Netzwerkkonfiguration und die verfügbare Historie. Ein 
 ## Gemeinsame Simulation
 
 Das Backend führt immer nur eine Simulation aus. Während eine andere Simulation aktiv ist, bleibt die Start-Schaltfläche deaktiviert und die Oberfläche zeigt den Grund an. Beenden Sie die aktive Simulation, bevor Sie eine neue starten.
+
+## Profile per Skript oder KI erstellen
+
+| Feld | Inhalt |
+| --- | --- |
+| `format`, `version` | `format` muss `lwn-simulator-profile` und `version` die Zahl `1` sein. |
+| `profile` | `profile` enthält `id` und `name`. Verwenden Sie eine gültige UUID v4 und einen Namen mit 1 bis 100 Zeichen. Beim Import vergibt das Backend eine neue Profil-UUID. |
+| `devices`, `gateways` | `devices` und `gateways` enthalten vollständige Objekte mit einer UUID v4 als `id` und einem booleschen `active`. Geräte- und Gateway-IDs bleiben erhalten. |
+| `gatewayBridge` | `gatewayBridge` ist optional. Geben Sie bei Verwendung `enabled` (Boolean), `address` (Bridge-Ziel) und `port` (UDP-Port) an. Für ein neues internes Netz kann das Feld entfallen. |
+| `logs` | `logs` ist ein Array aus Objekten mit `run` und `events`. Verwenden Sie für ein neues Netz `[]`. Behalten Sie beim Kopieren exportierter Protokolle die darin referenzierten Hardware-IDs bei. Importierte Läufe werden als gestoppt markiert. |
+
+Beachten Sie die Groß- und Kleinschreibung der JSON-Schlüssel und Werte. Geben Sie jedem Gerät und Gateway eine eigene UUID. Verwenden Sie 16 Hexadezimalstellen für DevEUI und Gateway EUI. Diese Werte müssen innerhalb der jeweiligen Gruppe eindeutig sein. Verwenden Sie für ABP unterschiedliche DevAddr-Werte mit 8 Hexadezimalstellen und Schlüssel mit 32 Stellen. Für OTAA verwenden Sie `activation: "oota"` und `OOTAConfig` mit 16-stelliger `joinEUI` und 32-stelligem `appKey` und entfernen `ABPConfig`.
+
+Ein `virtual`-Gateway benötigt ein positives `keepAlive` in Sekunden. Ein `real`-Gateway benötigt `gatewayIPv4` und `gatewayPort` und wird ohne `keepAlive` definiert. Koordinaten verwenden Dezimalgrad, Höhe und Reichweite Meter, Frequenzen Hz und RX-Verzögerungen und -Dauern Millisekunden. Wählen Sie kompatible Regionen, Frequenzen und Datenraten und platzieren Sie für den ersten Test mindestens ein aktives Gerät in Reichweite eines Gateways.
+
+[Gerätefelder](/hardware/devices) · [Gateway-Felder](/hardware/gateways) · [Import über die API](/api/profiles)
+
+### Python-Beispiel
+
+Speichern Sie das Skript als `generate_profile.py` und führen Sie `python3 generate_profile.py` aus. Es erstellt drei ABP-Geräte und ein virtuelles Gateway in der Nähe von Catania mit Testschlüsseln für die interne Simulation.
+
+```python
+from copy import deepcopy
+from pathlib import Path
+from uuid import uuid4
+import json
+
+DEVICE_TEMPLATE = {
+    "name": "External sensor",
+    "devEUI": "70B3D57ED0001001",
+    "class": "class-a",
+    "activation": "abp",
+    "radioProtocol": "lorawan",
+    "radioReceiveMode": "lorawan",
+    "ABPConfig": {
+        "devAddr": "26011BDA",
+        "nwkSKey": "00112233445566778899AABBCCDDEEFF",
+        "appSKey": "FFEEDDCCBBAA99887766554433221100"
+    },
+    "locationConfig": {
+        "latitude": 37.5,
+        "longitude": 15.1,
+        "altitude": 100,
+        "region": "EU868"
+    },
+    "RX1Config": {
+        "delay": 1000,
+        "duration": 1000,
+        "dataRateOffset": 0
+    },
+    "RX2Config": {
+        "delay": 2000,
+        "duration": 1000,
+        "channelFrequency": 869525000,
+        "dataRate": 0,
+        "ACKTimeout": 2000
+    },
+    "frameConfig": {
+        "fPort": 10,
+        "retransmission": 2,
+        "FCntUp": 0,
+        "FCntDown": 0,
+        "disableFrameCounterValidation": False
+    },
+    "payloadConfig": {
+        "uplinkInterval": 10,
+        "oversizedPayloadBehavior": "truncate",
+        "MType": "unconfirmed-data-up",
+        "payload": "temperature=23.5",
+        "base64Encoded": False
+    },
+    "advancedConfig": {
+        "antennaRange": 1500,
+        "ADREnabled": True,
+        "uplinkDataRate": 5
+    }
+}
+
+GATEWAY = {
+    "name": "External test gateway",
+    "type": "virtual",
+    "gatewayEUI": "A840410001001001",
+    "keepAlive": 30,
+    "latitude": 37.5,
+    "longitude": 15.1,
+    "altitude": 100
+}
+
+devices = []
+for i in range(1, 4):
+    device = deepcopy(DEVICE_TEMPLATE)
+    device.update(
+        id=str(uuid4()),
+        active=True,
+        name=f"Sensor {i}",
+        devEUI=f"70B3D57ED001{i:04X}",
+    )
+    device["ABPConfig"]["devAddr"] = f"260110{i:02X}"
+    device["locationConfig"]["latitude"] = 37.5 + i * 0.001
+    device["payloadConfig"]["payload"] = f"temperature={23 + i / 10:.1f}"
+    devices.append(device)
+
+archive = {
+    "format": "lwn-simulator-profile",
+    "version": 1,
+    "profile": {"id": str(uuid4()), "name": "Catania test network"},
+    "devices": devices,
+    "gateways": [dict(GATEWAY, id=str(uuid4()), active=True)],
+    "logs": [],
+}
+
+Path("catania-profile.json").write_text(
+    json.dumps(archive, ensure_ascii=False, indent=2) + "\n",
+    encoding="utf-8",
+)
+```
+
+### Datei mit KI erzeugen
+
+Geben Sie der KI dieses Format und Beispiel oder ein exportiertes Testprofil. Verwenden Sie in weitergegebenen Daten Testschlüssel. Die folgende Anweisung ist ein Ausgangspunkt.
+
+```text
+Erzeuge eine einzelne JSON-Datei im Format LWN Simulator Profile v1 anhand des beigefügten Beispiels. Erstelle drei EU868-ABP-Sensoren und ein virtuelles Gateway nahe 37.5, 15.1. Behalte die JSON-Schlüssel und Konfigurationsblöcke des Beispiels bei. Vergib eindeutige UUIDs v4, EUIs und ABP-Adressen. Verwende Testschlüssel, lasse logs leer und lasse gatewayBridge weg. Gib nur JSON aus.
+```
+
+Prüfen Sie die JSON-Syntax. Verwenden Sie **Import** im Profilmenü oder senden Sie das Dokument über die API im Feld `archive`. Bei einem Fehler korrigieren Sie das angegebene Feld. Öffnen Sie nach dem Import das neue Profil, prüfen Sie die Positionen und starten Sie eine kurze Simulation, um Uplinks in den Protokollen zu prüfen.

@@ -27,8 +27,9 @@ or paused. Choose one of its three tabs:
 2. Click **Queue Uplink**.
 
 The device immediately schedules an uplink using its configured activation
-mode, payload, frame settings, region, and receive windows. An OTAA device that
-has not joined sends a join request before application traffic.
+mode, payload, frame settings, region, and receive windows. A LoRaWAN OTAA device
+that has not joined sends a join request before application traffic. A device
+configured for **Raw LoRa** transmits its payload directly, without a join.
 
 ### Downlink
 
@@ -39,19 +40,27 @@ Use the downlink tab to send application data to a selected device.
 | **Target device** | Select the active device that will receive the downlink. |
 | **Payload** | Enter the application message. The character limit follows the selected region and data rate. |
 | **Base64 payload** | Enable when the payload is already Base64 encoded. The label and validation change accordingly. |
-| **FPort** | Enter an application port from `1` to `223`. |
+| **FPort** | LoRaWAN only: enter an application port from `1` to `223`. Hidden for Raw LoRa. |
 | **Data rate** | Choose `Auto` or a data rate supported by the device’s regional plan. |
-| **Confirmed** | Request an acknowledgement from the device. |
-| **ACK** | Set the acknowledgement bit when responding to a confirmed uplink. |
+| **Confirmed** | LoRaWAN only: request an acknowledgement from the device. |
+| **ACK** | LoRaWAN only: set the acknowledgement bit when responding to a confirmed uplink. |
 
 The payload limit is checked by bytes, not only by visible characters. This is
 important for UTF-8 text and for Base64 data. The form prevents unsupported
 FPort values, invalid Base64, unsupported regional data rates, and oversized
 payloads.
 
+For a **Raw LoRa** target, enter a text or Base64 payload and choose **Data
+rate**. FPort, Confirmed, and ACK are hidden. Select **Raw LoRa** or **Auto** as
+the device's receive mode when it should accept raw traffic. Queueing does not
+guarantee delivery: an eligible gateway and receive opportunity are still
+required.
+
 ### MAC command
 
-Select a device and a MAC command from the list. Commands that require
+Select a LoRaWAN device and a MAC command from the list. Raw LoRa devices are
+excluded because raw frames do not carry LoRaWAN MAC commands. If no active
+LoRaWAN device is available, submission is disabled. Commands that require
 parameters display only the relevant fields and validate their supported
 ranges. Commands without parameters, such as **Dev Status Req**, can be queued
 immediately.
@@ -67,8 +76,9 @@ configuration, device time, ping-slot settings, and beacon frequency.
     transmission immediately.
   </Tabs.Tab>
   <Tabs.Tab>
-    **Downlink** validates the payload, FPort, data rate, and confirmation flags
-    before queueing the message for an eligible receive window.
+    **Downlink** validates the payload and data rate before queueing the
+    message for an eligible receive window. LoRaWAN targets also use FPort
+    and confirmation flags.
   </Tabs.Tab>
   <Tabs.Tab>
     **MAC command** exposes only the parameters required by the selected
@@ -90,6 +100,13 @@ command. Look for events such as uplink transmission, downlink scheduling,
 gateway ingress/egress, receive-window activity, packet loss, and retry
 exhaustion.
 
+## Inspecting raw frames
+
+Raw frames appear in **Engine activity** with a **Raw LoRa · HEX** byte
+representation. The same information is preserved in the [simulation
+logs](/logs). Raw payloads are not interpreted as LoRaWAN application
+data or passed through the LoRaWAN payload codec.
+
 ## Reading radio results
 
 The simulator considers the configured device location, antenna range, gateway
@@ -98,6 +115,6 @@ collisions, and packet type when producing a result. A device can therefore be
 active and still lose a packet if no eligible gateway is in range or the radio
 conditions are unfavorable.
 
-Confirmed uplinks can open RX1 and RX2 windows and may be retransmitted when an
+Confirmed LoRaWAN uplinks can open RX1 and RX2 windows and may be retransmitted when an
 acknowledgement is not received. Class B and Class C devices have additional
 downlink opportunities according to their configuration.

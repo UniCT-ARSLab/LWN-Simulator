@@ -1,6 +1,6 @@
-# LWN Simulator
+# <img src=".github/readme-assets/logo.png" width="36" height="36" align="absmiddle" alt=""> LWN Simulator
 
-[![CI](https://github.com/Giuseppe-Compagnone/LWN-Simulator/actions/workflows/ci.yml/badge.svg)](https://github.com/Giuseppe-Compagnone/LWN-Simulator/actions/workflows/ci.yml)
+[![PR checks](https://github.com/Giuseppe-Compagnone/LWN-Simulator/actions/workflows/ci.yml/badge.svg?event=pull_request)](https://github.com/Giuseppe-Compagnone/LWN-Simulator/actions/workflows/ci.yml)
 [![Documentation](https://github.com/Giuseppe-Compagnone/LWN-Simulator/actions/workflows/deploy-docs.yml/badge.svg)](https://github.com/Giuseppe-Compagnone/LWN-Simulator/actions/workflows/deploy-docs.yml)
 [![Latest release](https://img.shields.io/github/v/release/Giuseppe-Compagnone/LWN-Simulator?display_name=tag&sort=semver)](https://github.com/Giuseppe-Compagnone/LWN-Simulator/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE.txt)
@@ -18,6 +18,8 @@ remote backend.
 The simulator supports virtual networks, real gateway transports, ChirpStack
 integration, repeatable simulations, profile-based configurations, persistent
 logs and live updates through WebSocket connections.
+
+![LWN Simulator homepage screenshot](.github/readme-assets/homepage.png)
 
 ## Documentation
 
@@ -58,7 +60,7 @@ shared packages used by them.
 
 ## Requirements
 
-- Node.js 20 or newer;
+- Node.js 24;
 - Corepack with Yarn 4 enabled;
 - Go 1.26 or newer for the backend and engine;
 - Docker is optional and useful when running ChirpStack locally.
@@ -92,6 +94,20 @@ yarn test           # run backend and engine tests
 yarn check          # run the complete validation pipeline
 yarn build          # build distribution artifacts
 ```
+
+## GitHub Actions
+
+CI checks run when a pull request is opened, reopened or updated. GitHub Pages
+publishes the documentation and Storybook on pushes to `main` or when the
+deploy workflow is run manually.
+
+To publish a distribution, set the same new version in
+`package.json` and `apps/desktop/package.json`. Once the release workflow is
+available on the default branch, open it in **Actions** under
+**Publish desktop and server release**, select **Run workflow**, and choose the
+branch or tag to build. The workflow publishes all Linux, macOS and Windows
+downloads in one GitHub Release named `v<version>`. It publishes only after all
+platform builds pass and includes a `SHA256SUMS` file for the downloads.
 
 ## License
 

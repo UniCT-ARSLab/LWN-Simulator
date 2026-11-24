@@ -4,6 +4,8 @@ type: object
 properties:
   uplinkInterval:
     type: number
+    exclusiveMinimum: 0
+    description: Interval between automatically scheduled uplinks, in seconds.
     x-oapi-codegen-extra-tags:
       validate: "required,gt=0"
   oversizedPayloadBehavior:
@@ -14,6 +16,8 @@ properties:
     type: string
   base64Encoded:
     type: boolean
+  payloadCodec:
+    $ref: "./PayloadCodec.yaml"
 
 required:
   - uplinkInterval

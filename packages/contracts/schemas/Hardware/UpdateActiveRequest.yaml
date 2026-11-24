@@ -1,0 +1,10 @@
+title: UpdateActiveRequest
+type: object
+properties:
+  active:
+    type: boolean
+    x-go-type: "*bool"
+    x-oapi-codegen-extra-tags:
+      validate: "required"
+required:
+  - active

@@ -7,7 +7,7 @@ import {
   SensorMapMode,
   SensorMapPos,
 } from "./SensorMap.types";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 export const useSensorMap = (props: useSensorMapProps): SensorMapLogic => {
   const mode = props.mode || SensorMapMode.Sensor;
@@ -18,27 +18,28 @@ export const useSensorMap = (props: useSensorMapProps): SensorMapLogic => {
   const [antennaRange, setAntennaRange] = useState<number | null>(null);
 
   // Functions
-  const handleClick = (e: MapLayerMouseEvent) => {
+  const handleClick = useCallback((e: MapLayerMouseEvent) => {
     const { lat, lng } = e.lngLat;
 
     setSelectedPos({
       lat,
       lng,
     });
-  };
+  }, []);
 
-  const updatePos = (lat: number, lng: number) => {
-    if (markerPos && markerPos.lat == lat && markerPos.lng == lng) return;
+  const updatePos = useCallback((lat: number, lng: number) => {
+    setMarkerPos((previous) => {
+      if (previous && previous.lat === lat && previous.lng === lng) {
+        return previous;
+      }
 
-    setMarkerPos({
-      lat,
-      lng,
+      return { lat, lng };
     });
-  };
+  }, []);
 
   // Effects
   useEffect(() => {
-    setMarkerPos(selectedPos);
+    if (selectedPos) setMarkerPos(selectedPos);
   }, [selectedPos]);
 
   return {

@@ -1,0 +1,203 @@
+name: Publish desktop and server release
+
+on:
+  workflow_dispatch:
+    inputs:
+      prerelease:
+        description: Publish as a prerelease
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Validate version
+        id: version
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(jq -er '.version' package.json)"
+          desktop_version="$(jq -er '.version' apps/desktop/package.json)"
+          if [[ "$version" != "$desktop_version" || ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::The root and desktop package.json files must use the same release version."
+            exit 1
+          fi
+          tag="v$version"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::Release $tag already exists."
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Package ${{ matrix.platform }} / ${{ matrix.arch }}
+    needs: prepare
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { platform: linux, arch: x64, runner: ubuntu-22.04, binary_arch: x86-64 }
+          - { platform: linux, arch: arm64, runner: ubuntu-22.04, binary_arch: ARM aarch64 }
+          - { platform: linux, arch: armv7l, runner: ubuntu-22.04, binary_arch: 'ARM, EABI5' }
+          - { platform: macos, arch: x64, runner: macos-15-intel, binary_arch: x86_64 }
+          - { platform: macos, arch: arm64, runner: macos-15, binary_arch: arm64 }
+          - { platform: windows, arch: x64, runner: windows-2022, binary_arch: amd64 }
+          - { platform: windows, arch: arm64, runner: windows-2022, binary_arch: arm64 }
+    env:
+      LWN_TARGET_ARCH: ${{ matrix.arch }}
+      EXPECTED_ARCH: ${{ matrix.binary_arch }}
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-toolchain
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: apps/backend/go.mod
+          cache-dependency-path: |
+            apps/backend/go.sum
+            packages/engine/go.sum
+
+      - name: Install Linux packaging tools
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: |
+          packages=(rpm)
+          if [[ "$LWN_TARGET_ARCH" != x64 ]]; then
+            packages+=(qemu-user-static)
+          fi
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y "${packages[@]}"
+
+      - name: Build Linux distribution
+        if: matrix.platform == 'linux'
+        env:
+          LWN_ELECTRON_TARGETS: AppImage,deb,rpm
+        run: ./scripts/build-all.sh
+
+      - name: Verify Linux distribution
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: |
+          backend=releases/server/lwn-server
+          file "$backend" | grep -F "$EXPECTED_ARCH"
+          dpkg-deb --info releases/desktop/*.deb >/dev/null
+          rpm -qp releases/desktop/*.rpm >/dev/null
+          case "$LWN_TARGET_ARCH" in
+            x64)
+              "$backend" --help >/dev/null
+              releases/desktop/*.AppImage --appimage-version >/dev/null
+              ;;
+            arm64) qemu-aarch64-static "$backend" --help >/dev/null ;;
+            armv7l) qemu-arm-static "$backend" --help >/dev/null ;;
+          esac
+
+      - name: Build and verify macOS distribution
+        if: matrix.platform == 'macos'
+        shell: bash
+        run: |
+          test "$(uname -m)" = "$EXPECTED_ARCH"
+          ./scripts/build-all.sh
+          backend=releases/server/lwn-server
+          file "$backend" | grep -F "$EXPECTED_ARCH"
+          "$backend" --help >/dev/null
+          hdiutil verify releases/desktop/*.dmg
+          unzip -tq releases/desktop/*.zip
+
+      - name: Build and verify Windows distribution
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          yarn install --immutable
+          .\scripts\build-windows.ps1 -ElectronArch $env:LWN_TARGET_ARCH -GoArch $env:EXPECTED_ARCH
+          $buildInfo = go version -m apps/desktop/assets/lwn-server.exe
+          if (-not ($buildInfo -match "GOARCH=$env:EXPECTED_ARCH$")) {
+            throw "Unexpected Windows backend architecture"
+          }
+
+      - name: Stage verified assets
+        run: node .github/scripts/stage-release-assets.mjs "${{ matrix.platform }}" "${{ matrix.arch }}"
+
+      - name: Upload release assets for publishing
+        uses: actions/upload-artifact@v6
+        with:
+          name: release-assets-${{ matrix.platform }}-${{ matrix.arch }}
+          path: release-assets/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  publish:
+    name: Publish GitHub Release
+    needs: [prepare, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    concurrency:
+      group: release-tag-${{ needs.prepare.outputs.tag }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Download verified assets
+        uses: actions/download-artifact@v7
+        with:
+          pattern: release-assets-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Publish release with checksums
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          tag_ref="refs/tags/$TAG"
+          tag_commit="$(git ls-remote origin "$tag_ref" "$tag_ref^{}" | awk '
+            $2 ~ /\^\{\}$/ { peeled = $1 }
+            $2 !~ /\^\{\}$/ { direct = $1 }
+            END { print peeled ? peeled : direct }
+          ')"
+          options=(--target "$GITHUB_SHA" --generate-notes)
+          if [[ -n "$tag_commit" ]]; then
+            if [[ "$tag_commit" != "$GITHUB_SHA" ]]; then
+              echo "::error::Tag $TAG already points to a different commit."
+              exit 1
+            fi
+            options+=(--verify-tag)
+          fi
+          if [[ "$PRERELEASE" == true || "$TAG" == *-* ]]; then
+            options+=(--prerelease)
+          fi
+
+          cd release-assets
+          shopt -s nullglob
+          assets=(*)
+          test "${#assets[@]}" -eq 24
+          sha256sum -- "${assets[@]}" > SHA256SUMS
+          gh release create "$TAG" "${assets[@]}" SHA256SUMS "${options[@]}" --repo "$GITHUB_REPOSITORY"

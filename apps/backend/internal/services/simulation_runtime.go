@@ -268,6 +268,10 @@ func (s *SimulationService) RegisterDeviceLocked(device contracts.Device) error 
 	return s.withHardwareRuntimeLocked(func(runtime *engine.Engine) error { return runtime.RegisterDevice(device) })
 }
 
+func (s *SimulationService) ValidateDeviceUpdateLocked(device contracts.Device) error {
+	return s.withHardwareRuntimeLocked(func(runtime *engine.Engine) error { return runtime.ValidateDeviceUpdate(device) })
+}
+
 func (s *SimulationService) UpdateDeviceLocked(device contracts.Device) error {
 	return s.withHardwareRuntimeLocked(func(runtime *engine.Engine) error { return runtime.UpdateDevice(device) })
 }
@@ -278,6 +282,10 @@ func (s *SimulationService) RemoveDeviceLocked(deviceID string) error {
 
 func (s *SimulationService) RegisterGatewayLocked(gateway contracts.Gateway) error {
 	return s.withHardwareRuntimeLocked(func(runtime *engine.Engine) error { return runtime.RegisterGateway(gateway) })
+}
+
+func (s *SimulationService) ValidateGatewayUpdateLocked(gateway contracts.Gateway) error {
+	return s.withHardwareRuntimeLocked(func(runtime *engine.Engine) error { return runtime.ValidateGatewayUpdate(gateway) })
 }
 
 func (s *SimulationService) UpdateGatewayLocked(gateway contracts.Gateway) error {

@@ -8,4 +8,22 @@ La pagina Log conserva tutte le simulazioni completate e quelle ancora in esecuz
 
 Seleziona una run per vedere durata, eventi, device, gateway e packet success. La pagina di dettaglio separa l'elenco degli oggetti dalla cronologia dell'oggetto selezionato.
 
-Gli eventi sono ordinati dal più recente al più vecchio e includono registrazione, join, trasmissioni, collisioni, perdite, finestre RX, downlink e comandi MAC. Durante una simulazione la lista si aggiorna in tempo reale e segue automaticamente il fondo solo se eri già vicino alla fine.
+Le run sono elencate dalla più recente. All'interno di una run gli eventi
+seguono l'ordine cronologico, dal più vecchio al più recente, e includono
+registrazione, join, trasmissioni, collisioni, perdite, finestre RX, downlink e
+comandi MAC. Durante una simulazione la lista si aggiorna in tempo reale e
+segue automaticamente il fondo solo se eri già vicino alla fine.
+
+## Frame Raw LoRa
+
+Gli eventi radio raw mostrano **Raw LoRa · HEX** seguito dai byte del payload
+in esadecimale, per esempio `00 DE AD BE EF`. In questo modo puoi leggere dati
+binari senza interpretarli come testo. La stessa rappresentazione è presente
+in **Engine activity** nella dashboard.
+
+Usa il gateway associato e il timestamp simulato per contestualizzare il frame.
+Un frame raw ricevuto via UDP senza indirizzo del device compare nello storico
+del gateway e nel flusso globale, ma non può essere attribuito automaticamente
+allo storico di un device specifico. Non indica una join LoRaWAN riuscita o la
+consegna all'applicazione. I byte raw sono distinti dai dati applicativi
+**Decoded** prodotti dal codec del payload LoRaWAN.

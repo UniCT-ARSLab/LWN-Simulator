@@ -1,10 +1,9 @@
 "use client";
 
-import { Device } from "@lwn-simulator/contracts";
+import { Device, RadioProtocol, RadioReceiveMode } from "@lwn-simulator/contracts";
 import { useDeviceService } from "@lwn-simulator/sdk";
 import {
   Button,
-  ButtonType,
   EntityDetailSection,
   EntityDetailTone,
   EntityDetails,
@@ -14,6 +13,7 @@ import {
   NotificationHandler,
   Spinner,
 } from "@lwn-simulator/ui-components";
+import { DeleteHardwareButton } from "@/components/Hardware";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
@@ -42,7 +42,7 @@ const getDeviceSections = (device: Device): Array<EntityDetailSection> => {
     {
       title: "Device overview",
       icon: "memory",
-      description: "Identity, state and LoRaWAN operating profile",
+      description: "Identity, state and radio operating profile",
       layout: EntityDetailsSectionLayout.Full,
       metrics: [
         {
@@ -73,6 +73,8 @@ const getDeviceSections = (device: Device): Array<EntityDetailSection> => {
         { label: "Name", value: device.name },
         { label: "Device ID", value: device.id, mono: true },
         { label: "DevEUI", value: device.devEUI, mono: true },
+        { label: "Radio Protocol", value: device.radioProtocol === RadioProtocol.RawLora ? "Raw LoRa" : "LoRaWAN" },
+        { label: "Radio Receive Mode", value: device.radioReceiveMode === RadioReceiveMode.Auto ? "Auto" : device.radioReceiveMode === RadioReceiveMode.RawLora ? "Raw LoRa" : "LoRaWAN" },
       ],
     },
     {
@@ -167,6 +169,15 @@ const getDeviceSections = (device: Device): Array<EntityDetailSection> => {
           label: "Base64 encoded",
           value: displayBoolean(device.payloadConfig.base64Encoded),
         },
+        {
+          label: "Payload Codec",
+          value: displayBoolean(device.payloadConfig.payloadCodec?.enabled ?? false),
+        },
+        {
+          label: "JavaScript Payload Codec",
+          value: displayValue(device.payloadConfig.payloadCodec?.script),
+          mono: true,
+        },
       ],
     },
     {
@@ -247,18 +258,6 @@ const DeviceInfoContent = () => {
     };
   }, [deviceService, searchParams]);
 
-  const handleDelete = async () => {
-    if (!device || !window.confirm("Delete this device?")) return;
-
-    try {
-      await deviceService.deleteDevice({ id: device.id });
-      NotificationHandler.instance.success("Device deleted");
-      router.back();
-    } catch {
-      NotificationHandler.instance.error("Failed to delete device");
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="page entity-details-loading">
@@ -275,7 +274,20 @@ const DeviceInfoContent = () => {
       >
         <Button value="Back" onClick={() => router.back()} />
         {device && <Button value="Edit" onClick={() => router.push("/hardware/devices/new?deviceId=" + encodeURIComponent(device.id))} />}
-        {device && <Button value="Delete" type={ButtonType.Outlined} onClick={handleDelete} />}
+        {device && (
+          <DeleteHardwareButton
+            key={device.id}
+            kind="device"
+            name={device.name}
+            onDelete={async () => {
+              await deviceService.deleteDevice({ id: device.id });
+            }}
+            onDeleted={() => {
+              NotificationHandler.instance.success("Device deleted");
+              router.back();
+            }}
+          />
+        )}
       </PageHeader>
       {error || !device ? (
         <p>Unable to load this device.</p>

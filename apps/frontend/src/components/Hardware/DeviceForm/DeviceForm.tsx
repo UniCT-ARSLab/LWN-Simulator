@@ -4,6 +4,8 @@ import { SensorMap, SensorMapMode, useSensorMap } from "@/components/SensorMap";
 import {
   estimateRegion,
   getAltitude,
+  hasPayloadDecoder,
+  isValidJavaScript,
   latValidation,
   lngValidation,
   randomDevEUI,
@@ -18,12 +20,15 @@ import {
   DeviceMType,
   DeviceRegion,
   OversizedPayloadBehavior,
+  RadioProtocol,
+  RadioReceiveMode,
 } from "@lwn-simulator/contracts";
 import {
   booleanCheckboxField,
   Button,
   ButtonLayout,
   ButtonType,
+  codeEditorField,
   Form,
   FormField,
   FormLogic,
@@ -34,58 +39,134 @@ import {
   SelectOption,
   textField,
 } from "@lwn-simulator/ui-components";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { DeviceFormProps } from "./DeviceForm.types";
+
+const getRx1DataRateOptions = (region: DeviceRegion): Array<SelectOption> => {
+  const [minimum, maximum] = rx1DataRateOffsetRange[region];
+
+  return Array.from({ length: maximum - minimum + 1 }, (_, index) => ({
+    value: (minimum + index).toString(),
+  }));
+};
+
+const getRx2DataRateOptions = (region: DeviceRegion): Array<SelectOption> =>
+  rx2DataRateOptions[region].map((option) => ({ value: option }));
+
+const defaultPayloadCodec = `function decodeUplink(input) {
+  return { data: {} };
+}`;
+
+const lockFieldsDuringSimulation = (
+  fields: Array<FormField>,
+  locked: boolean,
+): Array<FormField> =>
+  fields.map((field) =>
+    locked && !["active", "payload", "base64Encoded", "latitude", "longitude", "altitude"].includes(field.name)
+      ? { ...field, disabled: true, toolbar: undefined }
+      : field,
+  );
 
 export const DeviceForm = (props: DeviceFormProps) => {
   // Hooks
   const formLogicRef = useRef<FormLogic | null>(null);
   const hydratedDeviceIdRef = useRef<string | null>(null);
   const mapLogic = useSensorMap({ mode: SensorMapMode.Coords });
+  const { setAntennaRange, updatePos } = mapLogic;
 
   // Callbacks
-  const hydrateForm = (logic: FormLogic, device: Device) => {
-    const values: Record<string, FormValue> = {
-      active: device.active,
-      name: device.name,
-      devEUI: device.devEUI,
-      latitude: device.locationConfig.latitude.toString(),
-      longitude: device.locationConfig.longitude.toString(),
-      altitude: device.locationConfig.altitude.toString(),
-      region: device.locationConfig.region,
-      class: device.class,
-      activation: device.activation,
-      joinEUI: device.OOTAConfig?.joinEUI ?? "",
-      appKey: device.OOTAConfig?.appKey ?? "",
-      devAddr: device.ABPConfig?.devAddr ?? "",
-      nwkSKey: device.ABPConfig?.nwkSKey ?? "",
-      appSKey: device.ABPConfig?.appSKey ?? "",
-      rx1Delay: device.RX1Config.delay.toString(),
-      rx1Duration: device.RX1Config.duration.toString(),
-      rx1DRO: device.RX1Config.dataRateOffset.toString(),
-      rx2Delay: device.RX2Config.delay.toString(),
-      rx2Duration: device.RX2Config.duration.toString(),
-      rx2CF: device.RX2Config.channelFrequency.toString(),
-      rx2DR: device.RX2Config.dataRate,
-      rx2ACKT: device.RX2Config.ACKTimeout.toString(),
-      fPort: device.frameConfig.fPort.toString(),
-      retransmission: device.frameConfig.retransmission.toString(),
-      fCntUp: device.frameConfig.FCntUp?.toString() ?? "",
-      fCntDown: device.frameConfig.FCntDown?.toString() ?? "",
-      disableFrameCounterValidation:
-        device.frameConfig.disableFrameCounterValidation,
-      uplinkInterval: device.payloadConfig.uplinkInterval.toString(),
-      oversizedPayloadBehavior: device.payloadConfig.oversizedPayloadBehavior,
-      MType: device.payloadConfig.MType,
-      payload: device.payloadConfig.payload,
-      base64Encoded: device.payloadConfig.base64Encoded,
-      antennaRange: device.advancedConfig.antennaRange.toString(),
-      ADREnabled: device.advancedConfig.ADREnabled,
-    };
-    Object.entries(values).forEach(([name, value]) =>
-      logic.setValue(name, value),
-    );
-  };
+  const setRegionDependentFields = useCallback(
+    (
+      logic: FormLogic,
+      region: DeviceRegion,
+      values?: {
+        rx1DRO?: string;
+        rx2DR?: number;
+        rx2CF?: string;
+      },
+    ) => {
+      logic.setProp("rx1DRO", "options", getRx1DataRateOptions(region));
+      logic.setProp("rx2DR", "options", getRx2DataRateOptions(region));
+
+      const defaultFrequency = rx2Frequency[region].toString();
+      logic.setProp("rx2CF", "placeholder", defaultFrequency);
+      logic.setValue("rx2CF", values?.rx2CF ?? defaultFrequency);
+
+      if (values?.rx1DRO !== undefined) {
+        logic.setValue("rx1DRO", values.rx1DRO);
+      }
+
+      if (values?.rx2DR !== undefined) {
+        logic.setValue("rx2DR", values.rx2DR);
+      }
+    },
+    [],
+  );
+
+  const hydrateForm = useCallback(
+    (logic: FormLogic, device: Device) => {
+      const values: Record<string, FormValue> = {
+        active: device.active,
+        name: device.name,
+        devEUI: device.devEUI,
+        latitude: device.locationConfig.latitude.toString(),
+        longitude: device.locationConfig.longitude.toString(),
+        altitude: device.locationConfig.altitude.toString(),
+        region: device.locationConfig.region,
+        class: device.class,
+        activation: device.activation,
+        radioProtocol: device.radioProtocol ?? RadioProtocol.Lorawan,
+        radioReceiveMode: device.radioReceiveMode ?? RadioReceiveMode.Lorawan,
+        joinEUI: device.OOTAConfig?.joinEUI ?? "",
+        appKey: device.OOTAConfig?.appKey ?? "",
+        devAddr: device.ABPConfig?.devAddr ?? "",
+        nwkSKey: device.ABPConfig?.nwkSKey ?? "",
+        appSKey: device.ABPConfig?.appSKey ?? "",
+        rx1Delay: device.RX1Config.delay.toString(),
+        rx1Duration: device.RX1Config.duration.toString(),
+        rx1DRO: device.RX1Config.dataRateOffset.toString(),
+        rx2Delay: device.RX2Config.delay.toString(),
+        rx2Duration: device.RX2Config.duration.toString(),
+        rx2CF: device.RX2Config.channelFrequency.toString(),
+        rx2DR: device.RX2Config.dataRate,
+        rx2ACKT: device.RX2Config.ACKTimeout.toString(),
+        fPort: device.frameConfig.fPort.toString(),
+        retransmission: device.frameConfig.retransmission.toString(),
+        fCntUp: device.frameConfig.FCntUp?.toString() ?? "",
+        fCntDown: device.frameConfig.FCntDown?.toString() ?? "",
+        disableFrameCounterValidation:
+          device.frameConfig.disableFrameCounterValidation,
+        uplinkInterval: device.payloadConfig.uplinkInterval.toString(),
+        oversizedPayloadBehavior: device.payloadConfig.oversizedPayloadBehavior,
+        MType: device.payloadConfig.MType,
+        payload: device.payloadConfig.payload,
+        base64Encoded: device.payloadConfig.base64Encoded,
+        payloadCodecEnabled:
+          device.payloadConfig.payloadCodec?.enabled ?? false,
+        payloadCodec:
+          device.payloadConfig.payloadCodec?.script?.trim() ||
+          defaultPayloadCodec,
+        antennaRange: device.advancedConfig.antennaRange.toString(),
+        ADREnabled: device.advancedConfig.ADREnabled,
+      };
+      Object.entries(values).forEach(([name, value]) =>
+        logic.setValue(name, value),
+      );
+
+      setRegionDependentFields(logic, device.locationConfig.region, {
+        rx1DRO: values.rx1DRO as string,
+        rx2DR: values.rx2DR as number,
+        rx2CF: values.rx2CF as string,
+      });
+
+      updatePos(
+        device.locationConfig.latitude,
+        device.locationConfig.longitude,
+      );
+      setAntennaRange(device.advancedConfig.antennaRange);
+    },
+    [setAntennaRange, updatePos, setRegionDependentFields],
+  );
 
   // Effects
   useEffect(() => {
@@ -97,7 +178,7 @@ export const DeviceForm = (props: DeviceFormProps) => {
       hydrateForm(formLogicRef.current, props.device);
       hydratedDeviceIdRef.current = props.device.id;
     }
-  }, [props.device]);
+  }, [hydrateForm, props.device]);
 
   useEffect(() => {
     if (formLogicRef.current && mapLogic.selectedPos) {
@@ -132,24 +213,25 @@ export const DeviceForm = (props: DeviceFormProps) => {
 
   return (
     <div className="page-content device-form">
-        <div className="form-wrapper">
-          <Form
-            onSubmit={props.onSubmit}
-            submitButton={{
-              value: props.device ? "Save" : "Create",
-              className: "submit-button",
-            }}
-            onLogicReady={(logic) => {
-              formLogicRef.current = logic;
-              if (
-                props.device &&
-                hydratedDeviceIdRef.current !== props.device.id
-              ) {
-                hydrateForm(logic, props.device);
-                hydratedDeviceIdRef.current = props.device.id;
-              }
-            }}
-            fields={[
+      <div className="form-wrapper">
+        <Form
+          onSubmit={props.onSubmit}
+          submitButton={{
+            value: props.device ? "Save" : "Create",
+            className: "submit-button",
+          }}
+          onLogicReady={(logic) => {
+            formLogicRef.current = logic;
+            if (
+              props.device &&
+              hydratedDeviceIdRef.current !== props.device.id
+            ) {
+              hydrateForm(logic, props.device);
+              hydratedDeviceIdRef.current = props.device.id;
+            }
+          }}
+          fields={lockFieldsDuringSimulation(
+            [
               booleanCheckboxField({
                 value: props.device?.active ?? false,
                 name: "active",
@@ -351,37 +433,10 @@ export const DeviceForm = (props: DeviceFormProps) => {
                   logic.setValue("rx1DRO", null);
 
                   if (logic.fieldsState.region.value) {
-                    const range =
-                      rx1DataRateOffsetRange[
-                        logic.fieldsState.region.value as DeviceRegion
-                      ];
-
-                    const values: Array<SelectOption> = [];
-
-                    for (let i = range[0]; i <= range[1]; i++) {
-                      values.push({
-                        value: i.toString(),
-                      });
-                    }
-
-                    logic.setProp("rx1DRO", "options", values);
-                    logic.setProp(
-                      "rx2DR",
-                      "options",
-                      rx2DataRateOptions[
-                        logic.fieldsState.region.value as DeviceRegion
-                      ].map((opt) => {
-                        return { value: opt };
-                      }),
+                    setRegionDependentFields(
+                      logic,
+                      logic.fieldsState.region.value as DeviceRegion,
                     );
-
-                    const freq =
-                      rx2Frequency[
-                        logic.fieldsState.region.value as DeviceRegion
-                      ];
-
-                    logic.setProp("rx2CF", "placeholder", freq.toString());
-                    logic.setValue("rx2CF", freq.toString());
                   } else {
                     logic.setProp(
                       "rx1DRO",
@@ -482,6 +537,53 @@ export const DeviceForm = (props: DeviceFormProps) => {
                 },
                 required: true,
                 disabled: !!props.device,
+              }),
+              selectField({
+                value: RadioProtocol.Lorawan,
+                name: "radioProtocol",
+                label: "Radio Protocol",
+                error: null,
+                options: [
+                  { value: RadioProtocol.Lorawan, displayed: <>LoRaWAN</> },
+                  { value: RadioProtocol.RawLora, displayed: <>Raw LoRa</> },
+                ],
+                info: {
+                  default:
+                    "Protocol used by the device when transmitting radio frames",
+                  [RadioProtocol.Lorawan]:
+                    "Adds the LoRaWAN network and security headers",
+                  [RadioProtocol.RawLora]:
+                    "Transmits the payload as a raw LoRa frame without LoRaWAN headers",
+                },
+                required: true,
+              }),
+              selectField({
+                value: RadioReceiveMode.Lorawan,
+                name: "radioReceiveMode",
+                label: "Radio Receive Mode",
+                error: null,
+                options: [
+                  {
+                    value: RadioReceiveMode.Lorawan,
+                    displayed: <>LoRaWAN</>,
+                  },
+                  {
+                    value: RadioReceiveMode.RawLora,
+                    displayed: <>Raw LoRa</>,
+                  },
+                  { value: RadioReceiveMode.Auto, displayed: <>Auto</> },
+                ],
+                info: {
+                  default:
+                    "Frame protocols accepted by the device while receiving",
+                  [RadioReceiveMode.Lorawan]:
+                    "Accepts only structurally valid LoRaWAN frames",
+                  [RadioReceiveMode.RawLora]:
+                    "Accepts only raw LoRa frames",
+                  [RadioReceiveMode.Auto]:
+                    "Accepts LoRaWAN frames and falls back to raw LoRa",
+                },
+                required: true,
               }),
               textField({
                 name: "joinEUI",
@@ -649,7 +751,9 @@ export const DeviceForm = (props: DeviceFormProps) => {
                 label: "RX1 Data Rate offset",
                 error: null,
                 placeholder: "Select DRO",
-                options: [],
+                options: props.device
+                  ? getRx1DataRateOptions(props.device.locationConfig.region)
+                  : [],
                 info: {
                   default: "Offset applied to the uplink data rate for RX1",
                 },
@@ -709,7 +813,9 @@ export const DeviceForm = (props: DeviceFormProps) => {
                 label: "RX2 Data Rate",
                 value: "",
                 placeholder: "0",
-                options: [],
+                options: props.device
+                  ? getRx2DataRateOptions(props.device.locationConfig.region)
+                  : [],
                 info: {
                   default:
                     "Data rate used for receiving downlink messages during RX2",
@@ -926,6 +1032,50 @@ export const DeviceForm = (props: DeviceFormProps) => {
                   }
                 },
               }),
+              booleanCheckboxField({
+                value: false,
+                name: "payloadCodecEnabled",
+                label: "Payload Codec",
+                error: null,
+                text: "Enable",
+                info: {
+                  default:
+                    "Uses a JavaScript decoder to convert uplink bytes into readable data",
+                },
+                onChange: (logic: FormLogic) => {
+                  if (!logic.fieldsState.payloadCodec.value) {
+                    logic.setValue("payloadCodec", defaultPayloadCodec);
+                  }
+                },
+              }),
+              codeEditorField({
+                name: "payloadCodec",
+                label: "JavaScript Payload Codec",
+                value: defaultPayloadCodec,
+                placeholder: defaultPayloadCodec,
+                info: {
+                  default:
+                    "Provide a decodeUplink(input) function compatible with the payload codec API",
+                },
+                error: null,
+                required: true,
+                validations: [
+                  {
+                    rule: (value: FormValue) =>
+                      isValidJavaScript(String(value)),
+                    error: "Enter valid JavaScript syntax",
+                  },
+                  {
+                    rule: (value: FormValue) =>
+                      !isValidJavaScript(String(value)) || hasPayloadDecoder(String(value)),
+                    error: "Define a decodeUplink(input) function",
+                    realtime: true,
+                  },
+                ],
+                resize: true,
+                display: (fieldsState: Record<string, FormField>) =>
+                  fieldsState.payloadCodecEnabled.value === true,
+              }),
               textField({
                 name: "antennaRange",
                 label: "Antenna Range",
@@ -965,10 +1115,12 @@ export const DeviceForm = (props: DeviceFormProps) => {
                     "Allows the network to optimize the device's data rate and transmission power",
                 },
               }),
-            ]}
-          />
-        </div>
-        <SensorMap logic={mapLogic} mode={SensorMapMode.Coords} />
+            ],
+            !!props.device && props.simulationActive,
+          )}
+        />
       </div>
+      <SensorMap logic={mapLogic} mode={SensorMapMode.Coords} />
+    </div>
   );
 };

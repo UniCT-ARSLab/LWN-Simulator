@@ -1,0 +1,43 @@
+---
+title: "Profils"
+---
+
+# Profils
+
+Définissez `SERVER` et `BASE` comme indiqué dans [Connexion et première requête](/api) avant d’exécuter ces commandes.
+
+Les chemins commencent par `/api/profile`. Chaque profil possède son matériel, son bridge et son historique. Création et renommage utilisent un nom de 100 caractères maximum. Un import crée toujours un nouveau profil avec un nouvel UUID interne, sans remplacer les profils existants. Ne supprimez ni le dernier profil ni celui d’une simulation active.
+
+Les noms de profil doivent être uniques, sans distinction de casse.
+
+| Méthode | Chemin | Requête / résultat |
+| --- | --- | --- |
+| GET | `/api/profile/get-profiles` | Liste → `{profiles,total}`. |
+| GET | `/api/profile/get-profile/{id}` | Lecture → `{profile}`. |
+| POST | `/api/profile/create-profile` | `{"name":"External test"}` → `201 {profile}`. |
+| PUT | `/api/profile/update-profile/{id}` | `{"name":"New name"}` → `{profile}`. |
+| DELETE | `/api/profile/delete-profile/{id}` | Suppression du profil et de ses données → `204`, sans JSON. |
+| GET | `/api/profile/export-profile/{id}` | Archive complète JSON ; `?download=1` ajoute les en-têtes de téléchargement. |
+| POST | `/api/profile/import-profile` | `{"archive": ...}` → `201 {profile}`. Utilisez l’archive complète exportée, avec métadonnées et journaux. |
+
+
+```bash
+curl -fsS "$SERVER/api/profile/create-profile" \
+  -H 'Content-Type: application/json' -d '{"name":"External test"}'
+curl -fsS -X PUT "$SERVER/api/profile/update-profile/$PROFILE_ID" \
+  -H 'Content-Type: application/json' -d '{"name":"Sensor experiment"}'
+```
+
+
+## Export et import
+
+Exemple d’export et d’import. Le document exporté doit être enveloppé dans `archive` : c’est du JSON, pas un téléversement multipart.
+
+```bash
+curl -fsS "$SERVER/api/profile/export-profile/$PROFILE_ID?download=1" -o profile.json
+jq '{archive: .}' profile.json > import.json
+curl -fsS "$SERVER/api/profile/import-profile" \
+  -H 'Content-Type: application/json' --data-binary @import.json
+```
+
+[Créer des profils par script ou avec l’IA](/profiles)

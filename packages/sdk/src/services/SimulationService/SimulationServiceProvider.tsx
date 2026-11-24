@@ -27,6 +27,7 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
   const [snapshot, setSnapshot] = useState<SimulationSnapshot | null>(null);
   const [events, setEvents] = useState<Array<SimulationEvent>>([]);
   const [error, setError] = useState<Error | null>(null);
+  const [clockNowMilliseconds, setClockNowMilliseconds] = useState(0);
 
   // Hooks
   const {
@@ -39,6 +40,11 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
   const pendingEventsRef = useRef<Array<SimulationEvent>>([]);
   const renderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasSnapshotRef = useRef(false);
+  const [snapshotClock, setSnapshotClock] = useState<{
+    elapsedMilliseconds: number;
+    receivedAtMilliseconds: number;
+    speed: number;
+  } | null>(null);
 
   // Memos
   const service = useMemo(
@@ -49,6 +55,11 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
   // Callbacks
   const updateSnapshot = useCallback((next: SimulationSnapshot) => {
     hasSnapshotRef.current = true;
+    setSnapshotClock({
+      elapsedMilliseconds: next.state.elapsedMilliseconds,
+      receivedAtMilliseconds: Date.now(),
+      speed: next.state.speed,
+    });
     setSnapshot(next);
   }, []);
 
@@ -160,40 +171,43 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
 
   const connect = useCallback(() => undefined, []);
 
+  const { onControlStatus, profileID } = props;
+  const applyControlSnapshot = useCallback((next: SimulationSnapshot) => {
+    pendingSnapshotRef.current = null;
+    setError(null);
+    updateSnapshot(next);
+    onControlStatus?.(profileID, next.state.status);
+  }, [onControlStatus, profileID, updateSnapshot]);
+
   const start = useCallback(
     async (config: SimulationConfig) => {
       const next = await service.start(config);
-      pendingSnapshotRef.current = null;
       pendingEventsRef.current = [];
       updateEvents([]);
-      setError(null);
-      updateSnapshot(next);
+      applyControlSnapshot(next);
       return next;
     },
-    [service, updateEvents, updateSnapshot],
+    [applyControlSnapshot, service, updateEvents],
   );
 
   const pause = useCallback(async () => {
     const next = await service.pause();
-    setError(null);
-    updateSnapshot(next);
+    applyControlSnapshot(next);
     return next;
-  }, [service, updateSnapshot]);
+  }, [applyControlSnapshot, service]);
 
   const resume = useCallback(async () => {
     const next = await service.resume();
-    setError(null);
-    updateSnapshot(next);
+    applyControlSnapshot(next);
     return next;
-  }, [service, updateSnapshot]);
+  }, [applyControlSnapshot, service]);
 
   const stop = useCallback(async () => {
     const next = await service.stop();
-    setError(null);
-    updateSnapshot(next);
+    applyControlSnapshot(next);
     disconnect();
     return next;
-  }, [disconnect, service, updateSnapshot]);
+  }, [applyControlSnapshot, disconnect, service]);
 
   const getSnapshot = useCallback(async () => {
     const next = await service.getSnapshot();
@@ -241,6 +255,11 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
     return response;
   }, [service]);
 
+  const getLogExportURL = useCallback((id?: string) => service.getLogExportURL(id), [service]);
+  const getTelemetryExportURL = useCallback(
+    (id?: string) => service.getTelemetryExportURL(id),
+    [service],
+  );
   const getLogs = useCallback(() => service.getLogs(), [service]);
   const getLog = useCallback((id: string) => service.getLog(id), [service]);
   const getLogEvents = useCallback(
@@ -261,6 +280,37 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
 
   useEffect(() => disconnect, [disconnect]);
 
+  useEffect(() => {
+    if (snapshot?.state.status !== "running") return undefined;
+
+    const timer = setInterval(() => setClockNowMilliseconds(Date.now()), 100);
+    return () => clearInterval(timer);
+  }, [snapshot?.state.status]);
+
+  const displayedSnapshot = useMemo(() => {
+    if (!snapshot || snapshot.state.status !== "running") return snapshot;
+
+    const clock = snapshotClock;
+    if (!clock) return snapshot;
+
+    const elapsedMilliseconds = Math.max(
+      snapshot.state.elapsedMilliseconds,
+      clock.elapsedMilliseconds +
+        (clockNowMilliseconds - clock.receivedAtMilliseconds) * clock.speed,
+    );
+    if (elapsedMilliseconds === snapshot.state.elapsedMilliseconds) {
+      return snapshot;
+    }
+
+    return {
+      ...snapshot,
+      state: {
+        ...snapshot.state,
+        elapsedMilliseconds,
+      },
+    };
+  }, [clockNowMilliseconds, snapshot, snapshotClock]);
+
   // Memos
   const value = useMemo(
     (): SimulationServiceContent => ({
@@ -275,12 +325,14 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
       queueMACCommand,
       getEvents,
       getMetrics,
+      getLogExportURL,
+      getTelemetryExportURL,
       getLogs,
       getLog,
       getLogEvents,
       connect,
       disconnect,
-      snapshot,
+      snapshot: displayedSnapshot,
       events,
       connectionState: connectionState as SimulationConnectionState,
       error: error ?? websocketError,
@@ -297,12 +349,14 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
       queueMACCommand,
       getEvents,
       getMetrics,
+      getLogExportURL,
+      getTelemetryExportURL,
       getLogs,
       getLog,
       getLogEvents,
       connect,
       disconnect,
-      snapshot,
+      displayedSnapshot,
       events,
       connectionState,
       websocketError,

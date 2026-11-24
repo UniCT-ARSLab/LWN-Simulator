@@ -1,0 +1,11 @@
+title: RadioProtocol
+type: string
+description: Protocol carried by a device radio transmission.
+
+enum:
+  - lorawan
+  - raw-lora
+
+x-enum-varnames:
+  - LoRaWAN
+  - RawLoRa

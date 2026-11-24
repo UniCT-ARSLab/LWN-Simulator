@@ -1,6 +1,8 @@
 title: SimulationLogObject
 type: object
 properties:
+  gatewayType:
+    $ref: "../Gateway/GatewayType.yaml"
   id:
     type: string
     x-oapi-codegen-extra-tags:

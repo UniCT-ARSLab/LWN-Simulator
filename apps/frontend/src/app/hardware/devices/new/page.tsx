@@ -9,8 +9,10 @@ import {
   DeviceMType,
   DeviceRegion,
   OversizedPayloadBehavior,
+  RadioProtocol,
+  RadioReceiveMode,
 } from "@lwn-simulator/contracts";
-import { useDeviceService } from "@lwn-simulator/sdk";
+import { useDeviceService, useProfileService } from "@lwn-simulator/sdk";
 import {
   FormValue,
   NotificationHandler,
@@ -27,9 +29,14 @@ const NewDevicePage = () => {
 
   // Hooks
   const deviceService = useDeviceService();
+  const profileService = useProfileService();
   const router = useRouter();
   const searchParams = useSearchParams();
   const deviceId = searchParams.get("deviceId");
+  const simulationActive = profileService.simulationActivity?.active === true &&
+    (!profileService.simulationActivity.profileID ||
+      profileService.simulationActivity.profileID === profileService.activeProfileID);
+  const editLocked = editingDevice !== null && simulationActive;
 
   // Effects
   useEffect(() => {
@@ -61,10 +68,40 @@ const NewDevicePage = () => {
 
   // Callbacks
   const handleSubmit = async (values: Record<string, FormValue>) => {
+    if (editingDevice && simulationActive) {
+      try {
+        await deviceService.updateDevice({
+          id: editingDevice.id,
+          device: {
+            ...editingDevice,
+            active: values.active as boolean,
+            locationConfig: {
+              ...editingDevice.locationConfig,
+              latitude: Number(values.latitude),
+              longitude: Number(values.longitude),
+              altitude: Number(values.altitude),
+            },
+            payloadConfig: {
+              ...editingDevice.payloadConfig,
+              payload: values.payload as string,
+              base64Encoded: values.base64Encoded as boolean,
+            },
+          },
+        });
+        NotificationHandler.instance.success("Device updated");
+        router.back();
+      } catch {
+        NotificationHandler.instance.error("Failed to update device");
+      }
+      return;
+    }
+
     const req: CreateDeviceRequest = {
       devEUI: values.devEUI as string,
       name: values.name as string,
       activation: values.activation as DeviceActivation,
+      radioProtocol: values.radioProtocol as RadioProtocol,
+      radioReceiveMode: values.radioReceiveMode as RadioReceiveMode,
       class: values.class as DeviceClass,
       locationConfig: {
         latitude: Number(values.latitude),
@@ -103,6 +140,14 @@ const NewDevicePage = () => {
         MType: values.MType as DeviceMType,
         payload: values.payload as string,
         base64Encoded: values.base64Encoded as boolean,
+        ...(values.payloadCodecEnabled
+          ? {
+              payloadCodec: {
+                enabled: true,
+                script: values.payloadCodec as string,
+              },
+            }
+          : {}),
       },
       ...((values.activation as DeviceActivation) == DeviceActivation.Oota
         ? {
@@ -125,16 +170,26 @@ const NewDevicePage = () => {
 
     try {
       if (editingDevice) {
+        const device = {
+          ...editingDevice,
+          ...req,
+          devEUI: editingDevice.devEUI,
+          class: editingDevice.class,
+          activation: editingDevice.activation,
+          active: values.active as boolean,
+          payloadConfig: {
+            ...editingDevice.payloadConfig,
+            ...req.payloadConfig,
+          },
+        };
+
+        if (!values.payloadCodecEnabled) {
+          delete device.payloadConfig.payloadCodec;
+        }
+
         await deviceService.updateDevice({
           id: editingDevice.id,
-          device: {
-            ...editingDevice,
-            ...req,
-            devEUI: editingDevice.devEUI,
-            class: editingDevice.class,
-            activation: editingDevice.activation,
-            active: values.active as boolean,
-          },
+          device,
         });
         NotificationHandler.instance.success("Device updated");
         router.back();
@@ -159,8 +214,19 @@ const NewDevicePage = () => {
 
   return (
     <div className="page new-device-page">
-      <PageHeader title={editingDevice ? "Edit Device" : "Create new Device"} />
-      <DeviceForm device={editingDevice} onSubmit={handleSubmit} />
+      <PageHeader
+        title={editingDevice ? "Edit Device" : "Create new Device"}
+        subTitle={
+          editLocked
+            ? "Simulation is active. You can change the device status, position and payload."
+            : undefined
+        }
+      />
+      <DeviceForm
+        device={editingDevice}
+        simulationActive={simulationActive}
+        onSubmit={handleSubmit}
+      />
     </div>
   );
 };

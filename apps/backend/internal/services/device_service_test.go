@@ -252,6 +252,40 @@ func TestDeviceService_CreateDevice(t *testing.T) {
 	}
 }
 
+func TestDeviceService_CreateDevicePreservesRadioConfiguration(t *testing.T) {
+	repository := &mockDeviceRepository{devices: []contracts.Device{}}
+	service := newTestDeviceService(repository)
+	protocol := contracts.RawLoRa
+	receiveMode := contracts.ReceiveAuto
+
+	response, err := service.CreateDevice(contracts.CreateDeviceRequest{
+		DevEUI:           "0102030405060708",
+		Name:             "raw-device",
+		RadioProtocol:    &protocol,
+		RadioReceiveMode: &receiveMode,
+	})
+	if err != nil {
+		t.Fatalf("CreateDevice() error = %v", err)
+	}
+	if response.Device.RadioProtocol == nil || *response.Device.RadioProtocol != contracts.RawLoRa {
+		t.Fatalf("radio protocol was not preserved: %+v", response.Device.RadioProtocol)
+	}
+	if response.Device.RadioReceiveMode == nil || *response.Device.RadioReceiveMode != contracts.ReceiveAuto {
+		t.Fatalf("radio receive mode was not preserved: %+v", response.Device.RadioReceiveMode)
+	}
+}
+
+func TestValidateDeviceRejectsUnknownRadioConfiguration(t *testing.T) {
+	invalidProtocol := contracts.RadioProtocol("invalid")
+	if err := ValidateDevice(contracts.Device{RadioProtocol: &invalidProtocol}); err == nil {
+		t.Fatal("expected an invalid radio protocol to be rejected")
+	}
+	invalidMode := contracts.RadioReceiveMode("invalid")
+	if err := ValidateDevice(contracts.Device{RadioReceiveMode: &invalidMode}); err == nil {
+		t.Fatal("expected an invalid receive mode to be rejected")
+	}
+}
+
 func TestDeviceService_GetDevice(t *testing.T) {
 	tests := []struct {
 		name          string

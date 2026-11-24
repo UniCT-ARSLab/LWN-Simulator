@@ -48,9 +48,11 @@ func (e *Engine) processJoinRequestLocked(scheduled types.ScheduledEvent) []cont
 	}
 
 	packetID := uuid.NewString()
+	session.DevNonce++
 	e.metrics.JoinRequests++
 	gateways := e.coveredGateways(device)
 	session.PendingJoinRequest = &types.PendingJoinRequest{
+		RequestedAt:    time.Now(),
 		PacketID:       packetID,
 		JoinEUI:        device.OOTAConfig.JoinEUI,
 		GatewayIDs:     gatewayIDs(gateways),
@@ -69,21 +71,24 @@ func (e *Engine) processUplinkLocked(scheduled types.ScheduledEvent) []contracts
 	if !ok || !device.Active {
 		return []contracts.SimulationEvent{e.newEventLocked(contracts.PacketDropped, "uplink dropped because the device is not active", scheduled.DeviceID, "", scheduled.ID)}
 	}
-	if !session.Joined {
+	if deviceRadioProtocol(device) != contracts.RawLoRa && !session.Joined {
 		return []contracts.SimulationEvent{e.newEventLocked(contracts.PacketDropped, "uplink dropped because the device has not joined", scheduled.DeviceID, "", scheduled.ID)}
 	}
 
+	if pending := session.PendingUplink; pending != nil && pending.PacketID == scheduled.PacketID && pending.PayloadConfig != nil {
+		device.PayloadConfig = *pending.PayloadConfig
+	}
 	attempt := scheduled.Attempt
 	if attempt < 1 {
 		attempt = 1
 	}
-	confirmed := device.PayloadConfig.MType == contracts.ConfirmedDataUp
+	confirmed := deviceRadioProtocol(device) == contracts.LoRaWAN && device.PayloadConfig.MType == contracts.ConfirmedDataUp
 	packetID := scheduled.PacketID
 	frameCounter := scheduled.FrameCounter
 	dataRate := session.CurrentDataRate
 	fragmentCount := scheduled.FragmentCount
 	if fragmentCount < 1 {
-		fragmentCount = payloadFragmentCount(device, dataRate)
+		fragmentCount = payloadFragmentCount(device, dataRate, session)
 	}
 	fragmentIndex := scheduled.FragmentIndex
 	isFragmentContinuation := attempt == 1 && packetID != "" && session.PendingUplink != nil && session.PendingUplink.PacketID == packetID
@@ -100,8 +105,9 @@ func (e *Engine) processUplinkLocked(scheduled types.ScheduledEvent) []contracts
 			session.FrameCounterUp = frameCounter
 		}
 	}
-	payloadSize := payloadSizeForFragment(device, dataRate, fragmentIndex)
-	if attempt == 1 && !isFragmentContinuation {
+	payloadSize := payloadSizeForFragment(device, dataRate, fragmentIndex, session)
+	newUplink := attempt == 1 && !isFragmentContinuation
+	if newUplink {
 		if frameCounter == 0 {
 			session.FrameCounterUp++
 			frameCounter = session.FrameCounterUp
@@ -109,8 +115,11 @@ func (e *Engine) processUplinkLocked(scheduled types.ScheduledEvent) []contracts
 		packetID = uuid.NewString()
 		e.metrics.TotalUplinks++
 		if confirmed || fragmentCount > 1 || session.UnconfirmedRepetitions > 1 {
+			payloadConfig := device.PayloadConfig
 			session.PendingUplink = &types.PendingUplink{
-				PacketID: packetID, FrameCounter: frameCounter, Attempt: attempt,
+				PayloadConfig: &payloadConfig,
+				ReservedFOpts: uplinkMACReserve(session),
+				PacketID:      packetID, FrameCounter: frameCounter, Attempt: attempt,
 				Confirmed: confirmed, TransmissionAt: scheduled.At, FPort: device.FrameConfig.FPort,
 				PayloadSize: payloadSize, DataRate: dataRate,
 				FragmentIndex: fragmentIndex, FragmentCount: fragmentCount,
@@ -131,7 +140,7 @@ func (e *Engine) processUplinkLocked(scheduled types.ScheduledEvent) []contracts
 		dataRate = pending.DataRate
 		fragmentIndex = pending.FragmentIndex
 		fragmentCount = pending.FragmentCount
-		payloadSize = payloadSizeForFragment(device, dataRate, fragmentIndex)
+		payloadSize = payloadSizeForFragment(device, dataRate, fragmentIndex, session)
 		pending.Attempt = attempt
 		if attempt > 1 {
 			e.metrics.Retransmissions++
@@ -143,7 +152,11 @@ func (e *Engine) processUplinkLocked(scheduled types.ScheduledEvent) []contracts
 		scheduled.DeviceID, "", scheduled.ID, packetID, frameCounter, attempt, confirmed, nil,
 	)}
 	e.decorateDeviceEventLocked(&events[0], session, device.LocationConfig.Region, device.FrameConfig.FPort, dataRate, payloadSize)
-	e.eventLog[len(e.eventLog)-1] = events[0]
+	if newUplink {
+		e.setUplinkOutcomeLocked(&events[0], contracts.UplinkStarted)
+	} else {
+		e.eventLog[len(e.eventLog)-1] = events[0]
+	}
 	scheduled.FragmentIndex = fragmentIndex
 	scheduled.FragmentCount = fragmentCount
 	return append(events, e.startRadioTransmissionLocked(device, scheduled, packetID, frameCounter, confirmed)...)
@@ -152,6 +165,9 @@ func (e *Engine) processUplinkLocked(scheduled types.ScheduledEvent) []contracts
 func (e *Engine) processReceiveWindowLocked(scheduled types.ScheduledEvent) []contracts.SimulationEvent {
 	device, session, ok := e.deviceSessionLocked(scheduled.DeviceID)
 	if !ok {
+		return nil
+	}
+	if scheduled.FrameCounter < 0 && session.PendingJoinRequest == nil {
 		return nil
 	}
 	window := scheduled.Window
@@ -193,7 +209,8 @@ func (e *Engine) processReceiveWindowLocked(scheduled types.ScheduledEvent) []co
 
 	if session.PendingJoinRequest != nil && session.PendingJoinRequest.PacketID == scheduled.PacketID {
 		pending := session.PendingJoinRequest
-		if len(pending.GatewayIDs) > 0 && !windowExpired {
+		usesExternalTransport := e.gatewaysUseExternalTransportLocked(pending.GatewayIDs)
+		if len(pending.GatewayIDs) > 0 && !usesExternalTransport && !windowExpired {
 			session.Joined = true
 			session.JoinEUI = pending.JoinEUI
 			session.DeviceAddress = joinedDeviceAddress(session)
@@ -214,7 +231,10 @@ func (e *Engine) processReceiveWindowLocked(scheduled types.ScheduledEvent) []co
 	}
 
 	pending := session.PendingUplink
-	if pending == nil || pending.PacketID != scheduled.PacketID || pending.FrameCounter != scheduled.FrameCounter {
+	if pending == nil {
+		return events
+	}
+	if pending.PacketID != scheduled.PacketID || pending.FrameCounter != scheduled.FrameCounter {
 		e.metrics.FrameCounterErrors++
 		return append(events, e.newProtocolEventLocked(
 			contracts.FrameCounterRejected, "receive window does not match the pending frame counter",
@@ -223,7 +243,8 @@ func (e *Engine) processReceiveWindowLocked(scheduled types.ScheduledEvent) []co
 		))
 	}
 	continuousReceive := device.Class == contracts.ClassC
-	if len(pending.GatewayIDs) > 0 && (!windowExpired || continuousReceive) {
+	usesExternalTransport := e.gatewaysUseExternalTransportLocked(pending.GatewayIDs)
+	if len(pending.GatewayIDs) > 0 && !usesExternalTransport && (!windowExpired || continuousReceive) {
 		session.FrameCounterDown++
 		e.applyADRLocked(device, session)
 		e.metrics.AcknowledgedUplinks++
@@ -236,6 +257,7 @@ func (e *Engine) processReceiveWindowLocked(scheduled types.ScheduledEvent) []co
 		e.eventLog[len(e.eventLog)-1] = events[len(events)-1]
 		if pending.FragmentIndex+1 < pending.FragmentCount {
 			pending.FragmentIndex++
+			pending.WirePayload = nil
 			pending.Attempt = 1
 			pending.GatewayIDs = nil
 			next := types.ScheduledEvent{
@@ -257,7 +279,7 @@ func (e *Engine) processReceiveWindowLocked(scheduled types.ScheduledEvent) []co
 		session.PendingUplink = nil
 		e.metrics.SuccessfulUplinks++
 		e.metrics.PacketSuccessRate = e.packetSuccessRate()
-		events = append(events, e.newPacketEventLocked(contracts.MetricsUpdated, "simulation metrics updated", device.ID, "", scheduled.ID, pending.PacketID))
+		events = append(events, e.newUplinkOutcomeEventLocked(contracts.MetricsUpdated, "simulation metrics updated", device.ID, "", scheduled.ID, pending.PacketID, contracts.UplinkSucceeded))
 		return append(events, e.scheduleUplinkLocked(device, pending.TransmissionAt)...)
 	}
 
@@ -300,9 +322,23 @@ func (e *Engine) processReceiveWindowLocked(scheduled types.ScheduledEvent) []co
 	return append(events, e.scheduleUplinkLocked(device, scheduled.At)...)
 }
 
+func (e *Engine) gatewaysUseExternalTransportLocked(gatewayIDs []string) bool {
+	for _, gatewayID := range gatewayIDs {
+		if _, ok := e.gatewayAdapters[gatewayID]; ok {
+			return true
+		}
+	}
+	return false
+}
+
 func (e *Engine) applyADRLocked(device contracts.Device, session *types.DeviceSession) {
-	if !device.AdvancedConfig.ADREnabled || session == nil {
+	if !device.AdvancedConfig.ADREnabled || session == nil || session.ExternalADR {
 		return
+	}
+	for _, gateway := range e.coveredGateways(device) {
+		if _, external := e.gatewayAdapters[gateway.ID]; external {
+			return
+		}
 	}
 	plan := regional.MustPlan(device.LocationConfig.Region)
 	if session.LastSNR > 10 && session.CurrentDataRate < plan.MaximumDataRate {
@@ -343,7 +379,7 @@ func gatewayIDs(gateways []contracts.Gateway) []string {
 }
 
 func (e *Engine) scheduleWindowLocked(device contracts.Device, source types.ScheduledEvent, window contracts.SimulationRxWindow, packetID string, frameCounter int64, confirmed bool) contracts.SimulationEvent {
-	delay := durationSeconds(device.RX1Config.Delay)
+	delay := durationMilliseconds(device.RX1Config.Delay)
 	session := e.sessions[device.ID]
 	if session != nil && session.ReceiveDelay > 0 {
 		delay = session.ReceiveDelay
@@ -351,9 +387,18 @@ func (e *Engine) scheduleWindowLocked(device contracts.Device, source types.Sche
 	kind := types.ScheduledEventRX1Window
 	dataRate := currentDeviceDataRate(e.sessions[device.ID], device)
 	frequency := source.ChannelFrequency
+	if window == contracts.RX1 && session != nil {
+		for _, ch := range session.NetworkChannels {
+			if ch.Frequency == frequency && ch.DownlinkFrequency > 0 {
+				frequency = ch.DownlinkFrequency
+				break
+			}
+		}
+	}
 	if window == contracts.RX2 {
-		delay = durationSeconds(device.RX2Config.Delay)
-		if session != nil && session.ReceiveDelay > 0 {
+		delay = durationMilliseconds(device.RX2Config.Delay)
+		configuredRX1Delay := durationMilliseconds(device.RX1Config.Delay)
+		if session != nil && session.ReceiveDelay > 0 && session.ReceiveDelay != configuredRX1Delay {
 			delay = session.ReceiveDelay + time.Second
 		}
 		kind = types.ScheduledEventRX2Window
@@ -418,7 +463,7 @@ func (e *Engine) rescheduleJoinRequestLocked(device contracts.Device, base time.
 func (e *Engine) finalizeDroppedUplinkLocked(deviceID, scheduledID string, pending *types.PendingUplink) contracts.SimulationEvent {
 	e.metrics.DroppedUplinks++
 	e.metrics.PacketSuccessRate = e.packetSuccessRate()
-	return e.newPacketEventLocked(contracts.PacketDropped, "confirmed uplink dropped after retry limit", deviceID, "", scheduledID, pending.PacketID)
+	return e.newUplinkOutcomeEventLocked(contracts.PacketDropped, "confirmed uplink dropped after retry limit", deviceID, "", scheduledID, pending.PacketID, contracts.UplinkDropped)
 }
 
 func (e *Engine) newProtocolEventLocked(eventType contracts.SimulationEventType, message, deviceID, gatewayID, scheduledID, packetID string, frameCounter int64, attempt int, confirmed bool, window *contracts.SimulationRxWindow) contracts.SimulationEvent {
@@ -497,11 +542,11 @@ func uplinkMessage(attempt int, confirmed bool) string {
 	return "device uplink transmitted"
 }
 
-func durationSeconds(value *int) time.Duration {
-	if value == nil || *value <= 0 {
-		return 0
+func joinAcceptReceiveDelay(value int) time.Duration {
+	if value == 0 {
+		value = 1
 	}
-	return time.Duration(*value) * time.Second
+	return time.Duration(value) * time.Second
 }
 
 func durationSecondsFloat(value float32) time.Duration {
@@ -513,6 +558,13 @@ func durationMilliseconds(value *int) time.Duration {
 		return 0
 	}
 	return time.Duration(*value) * time.Millisecond
+}
+
+func millisecondsAsWholeSeconds(value *int) int {
+	if value == nil || *value <= 0 {
+		return 0
+	}
+	return (*value + 999) / 1000
 }
 
 func intValue(value *int) int {

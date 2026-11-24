@@ -28,7 +28,7 @@ const SelectFormField = (props: SelectFormFieldProps) => {
   useEffect(() => {
     if (props.disabled) return;
 
-    if (value == "") setValue(null);
+    if (value === "") setValue(null);
   }, [props.disabled, setValue, value]);
 
   const shouldVirtualize = props.options.length > virtualizeAfterOptions;
@@ -86,7 +86,10 @@ const SelectFormField = (props: SelectFormFieldProps) => {
       )}
     >
       <div
-        className={cn("selected-box", !props.value && "placeholder")}
+        className={cn(
+          "selected-box",
+          (props.value === null || props.value === "") && "placeholder",
+        )}
         onMouseDown={(e) => {
           e.preventDefault();
         }}
@@ -97,7 +100,9 @@ const SelectFormField = (props: SelectFormFieldProps) => {
           setIsOpen((prev) => !prev);
         }}
       >
-        {props.value ? displayed : props.placeholder}
+        {props.value !== null && props.value !== ""
+          ? displayed
+          : props.placeholder}
       </div>
       <span className="material-symbols-outlined arrow-icon">
         keyboard_arrow_down

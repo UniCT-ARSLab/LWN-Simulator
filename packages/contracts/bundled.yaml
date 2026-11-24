@@ -6,6 +6,57 @@ info:
 paths: {}
 components:
   schemas:
+    UpdatePositionRequest:
+      title: UpdatePositionRequest
+      type: object
+      description: Replace the geographic position without changing the radio region.
+      properties:
+        latitude:
+          type: number
+          x-go-type: '*float32'
+          x-oapi-codegen-extra-tags:
+            validate: required,min=-90,max=90
+        longitude:
+          type: number
+          x-go-type: '*float32'
+          x-oapi-codegen-extra-tags:
+            validate: required,min=-180,max=180
+        altitude:
+          type: number
+          description: Altitude in meters.
+          x-go-type: '*float32'
+          x-oapi-codegen-extra-tags:
+            validate: required
+      required:
+        - latitude
+        - longitude
+        - altitude
+    UpdateActiveRequest:
+      title: UpdateActiveRequest
+      type: object
+      properties:
+        active:
+          type: boolean
+          x-go-type: '*bool'
+          x-oapi-codegen-extra-tags:
+            validate: required
+      required:
+        - active
+    UpdateDevicePayloadRequest:
+      title: UpdateDevicePayloadRequest
+      type: object
+      properties:
+        payload:
+          type: string
+          description: Application payload. An empty string clears the payload.
+          x-go-type: '*string'
+          x-oapi-codegen-extra-tags:
+            validate: required
+        base64Encoded:
+          type: boolean
+          description: Whether the payload is Base64. Omit to keep the current setting.
+      required:
+        - payload
     Profile:
       title: Profile
       type: object
@@ -277,6 +328,28 @@ components:
       x-enum-varnames:
         - OOTA
         - ABP
+    RadioProtocol:
+      title: RadioProtocol
+      type: string
+      description: Protocol carried by a device radio transmission.
+      enum:
+        - lorawan
+        - raw-lora
+      x-enum-varnames:
+        - LoRaWAN
+        - RawLoRa
+    RadioReceiveMode:
+      title: RadioReceiveMode
+      type: string
+      description: Protocols accepted by a device when it listens for radio frames.
+      enum:
+        - lorawan
+        - raw-lora
+        - auto
+      x-enum-varnames:
+        - ReceiveLoRaWAN
+        - ReceiveRawLoRa
+        - ReceiveAuto
     OOTAConfig:
       title: OOTAConfig
       type: object
@@ -416,6 +489,8 @@ components:
       properties:
         uplinkInterval:
           type: number
+          exclusiveMinimum: 0
+          description: Interval between automatically scheduled uplinks, in seconds.
           x-oapi-codegen-extra-tags:
             validate: required,gt=0
         oversizedPayloadBehavior:
@@ -426,6 +501,8 @@ components:
           type: string
         base64Encoded:
           type: boolean
+        payloadCodec:
+          $ref: '#/components/schemas/PayloadCodec'
       required:
         - uplinkInterval
         - oversizedPayloadBehavior
@@ -475,6 +552,12 @@ components:
           $ref: '#/components/schemas/RX2Config'
         activation:
           $ref: '#/components/schemas/DeviceActivation'
+        radioProtocol:
+          $ref: '#/components/schemas/RadioProtocol'
+          description: Protocol used when the device transmits a radio frame. Omitted values default to lorawan.
+        radioReceiveMode:
+          $ref: '#/components/schemas/RadioReceiveMode'
+          description: Protocol accepted while the device listens. Omitted values default to lorawan.
         OOTAConfig:
           $ref: '#/components/schemas/OOTAConfig'
         ABPConfig:
@@ -512,6 +595,12 @@ components:
           type: string
         activation:
           $ref: '#/components/schemas/DeviceActivation'
+        radioProtocol:
+          $ref: '#/components/schemas/RadioProtocol'
+          description: Protocol used when the device transmits. Defaults to lorawan.
+        radioReceiveMode:
+          $ref: '#/components/schemas/RadioReceiveMode'
+          description: Protocol accepted while the device listens. Defaults to lorawan.
         class:
           $ref: '#/components/schemas/DeviceClass'
         locationConfig:
@@ -646,10 +735,6 @@ components:
             validate: required
         type:
           $ref: '#/components/schemas/GatewayType'
-        macAddress:
-          type: string
-          x-oapi-codegen-extra-tags:
-            validate: required
         gatewayEUI:
           type: string
           x-oapi-codegen-extra-tags:
@@ -657,6 +742,8 @@ components:
         keepAlive:
           type: integer
           format: int32
+          minimum: 1
+          description: Interval between virtual gateway keepalive messages, in seconds.
           x-oapi-codegen-extra-tags:
             validate: omitempty,gt=0
         gatewayIPv4:
@@ -686,7 +773,6 @@ components:
         - active
         - name
         - type
-        - macAddress
         - gatewayEUI
         - latitude
         - longitude
@@ -710,10 +796,6 @@ components:
             validate: required
         type:
           $ref: '#/components/schemas/GatewayType'
-        macAddress:
-          type: string
-          x-oapi-codegen-extra-tags:
-            validate: required
         gatewayEUI:
           type: string
           x-oapi-codegen-extra-tags:
@@ -721,6 +803,8 @@ components:
         keepAlive:
           type: integer
           format: int32
+          minimum: 1
+          description: Interval between virtual gateway keepalive messages, in seconds.
           x-oapi-codegen-extra-tags:
             validate: omitempty,gt=0
         gatewayIPv4:
@@ -748,7 +832,6 @@ components:
       required:
         - name
         - type
-        - macAddress
         - gatewayEUI
         - latitude
         - longitude
@@ -1275,6 +1358,22 @@ components:
       title: SimulationEvent
       type: object
       properties:
+        radioProtocol:
+          $ref: '#/components/schemas/RadioProtocol'
+        telemetry:
+          $ref: '#/components/schemas/SimulationTelemetry'
+        uplinkOutcome:
+          type: string
+          x-enum-varnames:
+            - UplinkStarted
+            - UplinkSucceeded
+            - UplinkDropped
+            - UplinkAccepted
+          enum:
+            - started
+            - succeeded
+            - dropped
+            - accepted
         id:
           type: string
           x-go-name: ID
@@ -1393,6 +1492,13 @@ components:
         error:
           type: string
           x-go-name: Error
+        decodedPayload:
+          type: object
+          additionalProperties: true
+          x-go-name: DecodedPayload
+        radioFrame:
+          $ref: '#/components/schemas/RadioFrame'
+          description: Radio-level frame associated with this event, when available.
       required:
         - id
         - sequence
@@ -1662,6 +1768,85 @@ components:
         - Collision
         - LowSNR
         - RandomLoss
+    RadioFrame:
+      title: RadioFrame
+      type: object
+      description: Common radio-level representation shared by LoRaWAN and raw LoRa frames.
+      properties:
+        protocol:
+          $ref: '#/components/schemas/RadioProtocol'
+        payload:
+          type: string
+          format: byte
+          description: Radio payload encoded as Base64 for transport in JSON.
+        frequency:
+          type: integer
+          format: int64
+          description: Radio frequency in hertz.
+          x-go-name: Frequency
+          x-oapi-codegen-extra-tags:
+            validate: required,min=1
+        bandwidth:
+          type: integer
+          format: int64
+          description: LoRa bandwidth in hertz.
+          x-go-name: Bandwidth
+          x-oapi-codegen-extra-tags:
+            validate: required,min=1
+        spreadingFactor:
+          type: integer
+          format: int32
+          description: LoRa spreading factor.
+          x-go-name: SpreadingFactor
+          x-oapi-codegen-extra-tags:
+            validate: required,min=5,max=12
+        codingRate:
+          type: string
+          description: LoRa coding rate, for example 4/5.
+          x-go-name: CodingRate
+          x-oapi-codegen-extra-tags:
+            validate: required
+        transmissionPower:
+          type: integer
+          format: int32
+          description: Transmission power in dBm.
+          x-go-name: TransmissionPower
+        senderID:
+          type: string
+          description: Internal identifier of the transmitting device or gateway.
+          x-go-name: SenderID
+          x-oapi-codegen-extra-tags:
+            validate: required
+        gatewayID:
+          type: string
+          description: Gateway that received or transmitted the frame, when known.
+          x-go-name: GatewayID
+          x-oapi-codegen-extra-tags:
+            validate: omitempty
+        timestampMilliseconds:
+          type: integer
+          format: int64
+          description: Simulation timestamp associated with the frame.
+          x-go-name: TimestampMilliseconds
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        airtimeMilliseconds:
+          type: integer
+          format: int64
+          description: Calculated airtime of the frame.
+          x-go-name: AirtimeMilliseconds
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=0
+      required:
+        - protocol
+        - payload
+        - frequency
+        - bandwidth
+        - spreadingFactor
+        - codingRate
+        - transmissionPower
+        - senderID
+        - timestampMilliseconds
     GatewayConnectionState:
       title: GatewayConnectionState
       type: string
@@ -2021,6 +2206,8 @@ components:
       title: SimulationLogObject
       type: object
       properties:
+        gatewayType:
+          $ref: '#/components/schemas/GatewayType'
         id:
           type: string
           x-oapi-codegen-extra-tags:
@@ -2040,10 +2227,35 @@ components:
         - name
         - kind
         - identifier
+    SimulationTelemetry:
+      title: SimulationTelemetry
+      type: object
+      required:
+        - elapsedMilliseconds
+        - sequence
+        - metrics
+        - connectedGateways
+      properties:
+        elapsedMilliseconds:
+          type: integer
+          format: int64
+          minimum: 0
+        sequence:
+          type: integer
+          format: int64
+          minimum: 0
+        metrics:
+          $ref: '#/components/schemas/SimulationMetrics'
+        connectedGateways:
+          type: integer
+          format: int64
+          minimum: 0
     SimulationRunSummary:
       title: SimulationRunSummary
       type: object
       properties:
+        telemetry:
+          $ref: '#/components/schemas/SimulationTelemetry'
         id:
           type: string
           x-oapi-codegen-extra-tags:
@@ -2140,19 +2352,26 @@ components:
       properties:
         delay:
           type: integer
+          minimum: 1
+          description: Delay before the RX1 receive window opens, in milliseconds.
           x-go-type: '*int'
           x-oapi-codegen-extra-tags:
-            validate: required,min=0
+            validate: required,gt=0
         duration:
           type: integer
+          minimum: 1
+          description: Duration of the RX1 receive window, in milliseconds.
           x-go-type: '*int'
           x-oapi-codegen-extra-tags:
-            validate: required,min=0
+            validate: required,gt=0
         dataRateOffset:
           type: integer
+          minimum: 0
+          maximum: 5
+          description: Regional RX1 data-rate offset applied to the uplink data rate.
           x-go-type: '*int'
           x-oapi-codegen-extra-tags:
-            validate: required,min=0
+            validate: required,min=0,max=5
       required:
         - delay
         - duration
@@ -2163,25 +2382,38 @@ components:
       properties:
         delay:
           type: integer
+          minimum: 1
+          description: Delay before the RX2 receive window opens, in milliseconds.
           x-go-type: '*int'
           x-oapi-codegen-extra-tags:
-            validate: required,min=0
+            validate: required,gt=0
         duration:
           type: integer
+          minimum: 1
+          description: Duration of the RX2 receive window, in milliseconds.
           x-go-type: '*int'
           x-oapi-codegen-extra-tags:
-            validate: required,min=0
+            validate: required,gt=0
         channelFrequency:
-          type: number
+          type: integer
+          format: int64
+          minimum: 1
+          description: RX2 channel center frequency, in hertz.
           x-oapi-codegen-extra-tags:
             validate: required,gt=0
         dataRate:
           type: integer
+          minimum: 0
+          maximum: 15
+          description: Regional data-rate index used by RX2.
           x-go-type: '*int'
           x-oapi-codegen-extra-tags:
-            validate: required,min=0
+            validate: required,min=0,max=15
         ACKTimeout:
           type: integer
+          minimum: 1000
+          maximum: 3000
+          description: Time to wait for an acknowledgement before retrying, in milliseconds.
           x-oapi-codegen-extra-tags:
             validate: required,min=1000,max=3000
       required:
@@ -2190,3 +2422,17 @@ components:
         - channelFrequency
         - dataRate
         - ACKTimeout
+    PayloadCodec:
+      title: PayloadCodec
+      description: Optional JavaScript payload codec configuration for a device.
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: Whether the payload codec is enabled for this device.
+        script:
+          type: string
+          description: JavaScript payload codec source code.
+      required:
+        - enabled
+        - script

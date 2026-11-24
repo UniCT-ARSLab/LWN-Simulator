@@ -47,7 +47,6 @@ func ValidateHardware(devices []contracts.Device, gateways []contracts.Gateway) 
 	ids := make(map[string]string, len(devices)+len(gateways))
 	devEUIs := make(map[string]struct{}, len(devices))
 	gatewayEUIs := make(map[string]struct{}, len(gateways))
-	macAddresses := make(map[string]struct{}, len(gateways))
 
 	for index, device := range devices {
 		prefix := fmt.Sprintf("devices[%d]", index)
@@ -71,16 +70,6 @@ func ValidateHardware(devices []contracts.Device, gateways []contracts.Gateway) 
 			issues.Add(prefix+".gatewayEUI", "duplicate", "Gateway EUI must be unique")
 		}
 		gatewayEUIs[gatewayEUI] = struct{}{}
-
-		macAddress, err := net.ParseMAC(gateway.MacAddress)
-		canonicalMAC := strings.ToLower(gateway.MacAddress)
-		if err == nil && len(macAddress) == 6 {
-			canonicalMAC = hex.EncodeToString(macAddress)
-		}
-		if _, exists := macAddresses[canonicalMAC]; exists {
-			issues.Add(prefix+".macAddress", "duplicate", "MAC address must be unique")
-		}
-		macAddresses[canonicalMAC] = struct{}{}
 	}
 
 	return validationResult(issues)
@@ -114,6 +103,12 @@ func validateDevice(issues *types.ValidationErrors, prefix string, device contra
 	validateUUID(issues, prefix+".id", device.ID)
 	validateRequired(issues, prefix+".name", device.Name)
 	validateHex(issues, prefix+".devEUI", device.DevEUI, 16)
+	if device.RadioProtocol != nil && !device.RadioProtocol.Valid() {
+		issues.Add(prefix+".radioProtocol", "invalid_enum", "radio protocol is not supported")
+	}
+	if device.RadioReceiveMode != nil && !device.RadioReceiveMode.Valid() {
+		issues.Add(prefix+".radioReceiveMode", "invalid_enum", "radio receive mode is not supported")
+	}
 
 	if !device.Class.Valid() {
 		issues.Add(prefix+".class", "invalid_enum", "class is not supported")
@@ -169,10 +164,6 @@ func validateGateway(issues *types.ValidationErrors, prefix string, gateway cont
 	validateRequired(issues, prefix+".name", gateway.Name)
 	if !gateway.Type.Valid() {
 		issues.Add(prefix+".type", "invalid_enum", "gateway type is not supported")
-	}
-	macAddress, err := net.ParseMAC(gateway.MacAddress)
-	if err != nil || len(macAddress) != 6 {
-		issues.Add(prefix+".macAddress", "invalid_mac_address", "MAC address must be a valid hardware address")
 	}
 	validateHex(issues, prefix+".gatewayEUI", gateway.GatewayEUI, 16)
 	validateCoordinate(issues, prefix+".latitude", gateway.Latitude, -90, 90)
@@ -264,6 +255,7 @@ func validatePayload(issues *types.ValidationErrors, prefix string, config contr
 			issues.Add(prefix+".payload", "invalid_base64", "payload must be valid standard base64 when base64Encoded is true")
 		}
 	}
+	validatePayloadCodec(issues, prefix+".payloadCodec", config.PayloadCodec)
 }
 
 func validateUUID(issues *types.ValidationErrors, field string, value string) {

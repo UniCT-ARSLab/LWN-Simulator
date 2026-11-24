@@ -20,6 +20,7 @@ const BooleanCheckboxFormField = (props: BooleanCheckboxFormFieldProps) => {
         <input
           className="checkbox-option"
           type="checkbox"
+          id={props.name}
           checked={props.value}
           readOnly
           placeholder={props.placeholder}

@@ -6,6 +6,24 @@ title: Journaux et historique
 
 La page Journaux conserve les simulations terminées et celles en cours. Sélectionnez une exécution pour voir durée, événements, appareils, passerelles et packet success.
 
-Le détail sépare la liste des objets de l'historique de l'objet sélectionné. Les événements sont affichés du plus récent au plus ancien : enregistrement, join, transmissions, collisions, pertes, fenêtres RX, downlinks et commandes MAC.
+Le détail sépare la liste des objets de l'historique de l'objet sélectionné.
+Les exécutions sont affichées de la plus récente à la plus ancienne ; dans
+chaque exécution, les événements suivent l'ordre chronologique, du plus ancien
+au plus récent : enregistrement, join, transmissions, collisions, pertes,
+fenêtres RX, downlinks et commandes MAC.
 
 Pendant une simulation, la liste se met à jour en temps réel et ne suit automatiquement la fin que si vous étiez déjà proche du bas.
+
+## Trames Raw LoRa
+
+Les événements radio raw affichent **Raw LoRa · HEX** suivi des octets du
+payload en hexadécimal, par exemple `00 DE AD BE EF`. Vous pouvez ainsi lire
+des données binaires sans les interpréter comme du texte. La même
+représentation apparaît dans **Engine activity** sur le tableau de bord.
+
+Utilisez la passerelle associée et l'horodatage simulé pour situer la trame.
+Une trame raw reçue par UDP sans adresse d'appareil apparaît dans l'historique
+de la passerelle et dans le flux global ; elle ne peut pas être attribuée
+automatiquement à l'historique d'un appareil précis. Elle n'indique ni un join
+LoRaWAN réussi ni une livraison à l'application. Les octets raw sont distincts
+des données **Decoded** produites par le codec du payload LoRaWAN.

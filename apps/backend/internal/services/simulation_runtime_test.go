@@ -111,7 +111,7 @@ func TestSimulationRuntimeSynchronizesHardwareRegistry(t *testing.T) {
 	if err != nil || snapshot.State.DeviceCount != 2 || snapshot.State.GatewayCount != 1 {
 		t.Fatalf("unexpected synchronized snapshot: %+v, %v", snapshot.State, err)
 	}
-	device.Name = "Updated runtime device"
+	device.PayloadConfig.Payload = "Updated runtime payload"
 	if err := service.UpdateDevice(device); err != nil {
 		t.Fatalf("update device: %v", err)
 	}
@@ -190,8 +190,8 @@ func validSimulationDevice(id string) contracts.Device {
 		Class: contracts.ClassC, Activation: contracts.ABP,
 		ABPConfig:      &contracts.ABPConfig{DevAddr: "26011BDA", NwkSKey: "00112233445566778899AABBCCDDEEFF", AppSKey: "FFEEDDCCBBAA99887766554433221100"},
 		LocationConfig: contracts.LocationConfig{Latitude: serviceFloat32Ptr(37.5), Longitude: serviceFloat32Ptr(15.1), Altitude: serviceFloat32Ptr(100), Region: contracts.EU868},
-		RX1Config:      contracts.RX1Config{Delay: serviceIntPtr(1), Duration: serviceIntPtr(1000), DataRateOffset: serviceIntPtr(0)},
-		RX2Config:      contracts.RX2Config{Delay: serviceIntPtr(1), Duration: serviceIntPtr(1000), ChannelFrequency: 869525000, DataRate: serviceIntPtr(5), ACKTimeout: 2000},
+		RX1Config:      contracts.RX1Config{Delay: serviceIntPtr(1000), Duration: serviceIntPtr(1000), DataRateOffset: serviceIntPtr(0)},
+		RX2Config:      contracts.RX2Config{Delay: serviceIntPtr(2000), Duration: serviceIntPtr(1000), ChannelFrequency: 869525000, DataRate: serviceIntPtr(5), ACKTimeout: 2000},
 		FrameConfig:    contracts.FrameConfig{FPort: 1, Retransmission: serviceIntPtr(0), FCntUp: serviceOptionalCounter(0), FCntDown: serviceOptionalCounter(0)},
 		PayloadConfig:  contracts.PayloadConfig{UplinkInterval: 60, OversizedPayloadBehavior: contracts.Truncate, MType: contracts.UnconfirmedDataUp, Payload: "test"},
 		AdvancedConfig: contracts.AdvancedConfig{AntennaRange: 1000, ADREnabled: true},
@@ -201,7 +201,7 @@ func validSimulationDevice(id string) contracts.Device {
 func validSimulationGateway(id string) contracts.Gateway {
 	return contracts.Gateway{
 		ID: id, Active: true, Name: "Runtime gateway", Type: contracts.Virtual,
-		MacAddress: "02:00:00:10:00:81", GatewayEUI: "A840410001000181", KeepAlive: serviceInt32Ptr(30),
+		GatewayEUI: "A840410001000181", KeepAlive: serviceInt32Ptr(30),
 		Latitude: serviceFloat32Ptr(37.5), Longitude: serviceFloat32Ptr(15.1), Altitude: serviceFloat32Ptr(100),
 	}
 }

@@ -33,9 +33,19 @@
       border-bottom: 1px solid var(--border-color);
       padding: 1rem;
 
-      span {
+      button {
+        border: 0;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        font-family: "Material Symbols Outlined", sans-serif;
         cursor: pointer;
         transition: all 0.2s ease-in-out;
+
+        &:disabled {
+          opacity: 0.5;
+          cursor: default;
+        }
 
         @include hover {
           filter: brightness(1.5);

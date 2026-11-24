@@ -40,7 +40,12 @@ const DeviceServiceProvider = (props: DeviceServiceProviderProps) => {
 
       setDevices((prev) => {
         if (!prev) return [res];
-        return [...prev, res];
+        const existingIndex = prev.findIndex((device) => device.id === res.id);
+        if (existingIndex === -1) return [...prev, res];
+
+        return prev.map((device, index) =>
+          index === existingIndex ? res : device,
+        );
       });
 
       return res;

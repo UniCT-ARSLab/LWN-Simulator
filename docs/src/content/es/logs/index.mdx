@@ -6,6 +6,24 @@ title: Registros e historial
 
 La página Registros conserva las simulaciones terminadas y las que siguen activas. Selecciona una ejecución para consultar duración, eventos, dispositivos, gateways y packet success.
 
-El detalle separa la lista de objetos de la historia del objeto seleccionado. Los eventos aparecen del más reciente al más antiguo e incluyen registros, joins, transmisiones, colisiones, pérdidas, ventanas RX, downlinks y comandos MAC.
+El detalle separa la lista de objetos del historial del objeto seleccionado.
+Las ejecuciones aparecen de la más reciente a la más antigua; dentro de cada
+ejecución, los eventos siguen el orden cronológico, del más antiguo al más
+reciente, e incluyen registros, joins, transmisiones, colisiones, pérdidas,
+ventanas RX, downlinks y comandos MAC.
 
 Durante una simulación la lista se actualiza en tiempo real y solo sigue el final si ya estabas cerca del final del desplazamiento.
+
+## Tramas Raw LoRa
+
+Los eventos radio raw muestran **Raw LoRa · HEX** seguido de los bytes del
+payload en hexadecimal, por ejemplo `00 DE AD BE EF`. Así puedes consultar
+datos binarios sin interpretarlos como texto. La misma representación aparece
+en **Engine activity** en la dashboard.
+
+Utiliza el gateway asociado y la marca de tiempo simulada para contextualizar
+la trama. Una trama raw recibida por UDP sin dirección de dispositivo aparece
+en el historial del gateway y en el flujo global, pero no se puede asignar
+automáticamente al historial de un dispositivo concreto. No indica un join
+LoRaWAN correcto ni la entrega a la aplicación. Los bytes raw son distintos
+de los datos **Decoded** que produce el codec del payload LoRaWAN.

@@ -23,6 +23,7 @@ type DeviceRuntimeSynchronizer interface {
 	AcquireHardwareMutation() func()
 	RegisterDeviceLocked(contracts.Device) error
 	UpdateDeviceLocked(contracts.Device) error
+	ValidateDeviceUpdateLocked(contracts.Device) error
 	RemoveDeviceLocked(string) error
 }
 
@@ -80,20 +81,22 @@ func (s *DeviceService) CreateDevice(
 	}
 
 	device := contracts.Device{
-		ID:             uuid.NewString(),
-		Active:         true,
-		DevEUI:         req.DevEUI,
-		Name:           req.Name,
-		Activation:     req.Activation,
-		Class:          req.Class,
-		LocationConfig: req.LocationConfig,
-		ABPConfig:      req.ABPConfig,
-		OOTAConfig:     req.OOTAConfig,
-		RX1Config:      req.RX1Config,
-		RX2Config:      req.RX2Config,
-		AdvancedConfig: req.AdvancedConfig,
-		FrameConfig:    req.FrameConfig,
-		PayloadConfig:  req.PayloadConfig,
+		ID:               uuid.NewString(),
+		Active:           true,
+		DevEUI:           req.DevEUI,
+		Name:             req.Name,
+		Activation:       req.Activation,
+		RadioProtocol:    req.RadioProtocol,
+		RadioReceiveMode: req.RadioReceiveMode,
+		Class:            req.Class,
+		LocationConfig:   req.LocationConfig,
+		ABPConfig:        req.ABPConfig,
+		OOTAConfig:       req.OOTAConfig,
+		RX1Config:        req.RX1Config,
+		RX2Config:        req.RX2Config,
+		AdvancedConfig:   req.AdvancedConfig,
+		FrameConfig:      req.FrameConfig,
+		PayloadConfig:    req.PayloadConfig,
 	}
 
 	devices = append(devices, device)
@@ -142,6 +145,9 @@ func (s *DeviceService) GetDevices(
 		return contracts.GetDevicesResponse{}, fmt.Errorf("get all devices: %w", err)
 	}
 
+	if devices == nil {
+		devices = []contracts.Device{}
+	}
 	return contracts.GetDevicesResponse{
 		Devices: devices,
 	}, nil
@@ -191,18 +197,34 @@ func (s *DeviceService) ImportDevices(devices []contracts.Device) error {
 func (s *DeviceService) UpdateDevice(
 	req contracts.UpdateDeviceRequest,
 ) (contracts.UpdateDeviceResponse, error) {
+	return s.updateDevice(req.ID, func(device *contracts.Device) error {
+		*device = req.Device
+		return nil
+	})
+}
+
+func (s *DeviceService) updateDevice(
+	id string,
+	apply func(*contracts.Device) error,
+) (contracts.UpdateDeviceResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	releaseRuntime := acquireHardwareMutation(s.runtime)
 	defer releaseRuntime()
 
-	previous, err := s.repository.GetByID(req.ID)
+	previous, err := s.repository.GetByID(id)
 	if err != nil {
 		return contracts.UpdateDeviceResponse{}, wrapDeviceRepositoryError(
 			"get device by id",
 			err,
 		)
 	}
+
+	device := previous
+	if err := apply(&device); err != nil {
+		return contracts.UpdateDeviceResponse{}, err
+	}
+	device.ID = id
 
 	devices, err := s.repository.GetAll()
 	if err != nil {
@@ -213,17 +235,19 @@ func (s *DeviceService) UpdateDevice(
 	}
 
 	for _, existing := range devices {
-		if existing.ID != req.ID && existing.DevEUI == req.Device.DevEUI {
+		if existing.ID != id && existing.DevEUI == device.DevEUI {
 			return contracts.UpdateDeviceResponse{}, apperrors.Conflict(
 				"device with DevEUI %q already exists",
-				req.Device.DevEUI,
+				device.DevEUI,
 			)
 		}
 	}
 
-	device := req.Device
-	device.ID = req.ID
-
+	if s.runtime != nil {
+		if err := s.runtime.ValidateDeviceUpdateLocked(device); err != nil {
+			return contracts.UpdateDeviceResponse{}, err
+		}
+	}
 	if err := s.repository.Update(device); err != nil {
 		return contracts.UpdateDeviceResponse{}, wrapDeviceRepositoryError(
 			"update device",

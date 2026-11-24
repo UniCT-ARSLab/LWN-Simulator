@@ -150,3 +150,129 @@ When the same profile is open in multiple browser tabs or connected clients,
 changes to its hardware, bridge configuration, and simulation state are
 reflected in the other views automatically. Each profile remains isolated from
 the others.
+
+## Create profiles with scripts or AI
+
+| Field | Contents |
+| --- | --- |
+| `format`, `version` | `format` must be `lwn-simulator-profile` and `version` must be the number `1`. |
+| `profile` | `profile` contains `id` and `name`. Use a valid UUID v4 and a name of 1 to 100 characters. The backend assigns a new profile UUID on import. |
+| `devices`, `gateways` | `devices` and `gateways` contain complete objects, each with a UUID v4 `id` and a boolean `active`. Device and gateway IDs are preserved. |
+| `gatewayBridge` | `gatewayBridge` is optional. If included, supply `enabled` (boolean), `address` (bridge destination) and `port` (UDP port). Omit it for a new internal-only network. |
+| `logs` | `logs` is an array of objects with `run` and `events`. Use `[]` for a new network. If you copy exported history, preserve the hardware IDs referenced by its events. Imported runs are marked as stopped. |
+
+Keep JSON keys and values case-sensitive. Give each device and gateway a distinct UUID. Use 16 hexadecimal digits for DevEUI and Gateway EUI, with unique values within each group. For ABP devices use distinct eight-digit hexadecimal DevAddr values and 32-digit keys. For OTAA use `activation: "oota"` with `OOTAConfig`, a 16-digit `joinEUI` and a 32-digit `appKey`, and remove `ABPConfig`.
+
+A `virtual` gateway requires a positive `keepAlive` in seconds. A `real` gateway requires `gatewayIPv4` and `gatewayPort` and is defined without `keepAlive`. Latitude and longitude use decimal degrees, altitude and range use meters, frequencies use Hz, and RX delays and durations use milliseconds. Use compatible regions, frequencies and data rates. For the first test, place at least one active device within its antenna range of a gateway.
+
+[Device fields](/hardware/devices) · [Gateway fields](/hardware/gateways) · [Import through the API](/api/profiles)
+
+### Python example
+
+Save the script as `generate_profile.py` and run `python3 generate_profile.py`. It creates three ABP devices and a virtual gateway near Catania with sample keys for internal simulation.
+
+```python
+from copy import deepcopy
+from pathlib import Path
+from uuid import uuid4
+import json
+
+DEVICE_TEMPLATE = {
+    "name": "External sensor",
+    "devEUI": "70B3D57ED0001001",
+    "class": "class-a",
+    "activation": "abp",
+    "radioProtocol": "lorawan",
+    "radioReceiveMode": "lorawan",
+    "ABPConfig": {
+        "devAddr": "26011BDA",
+        "nwkSKey": "00112233445566778899AABBCCDDEEFF",
+        "appSKey": "FFEEDDCCBBAA99887766554433221100"
+    },
+    "locationConfig": {
+        "latitude": 37.5,
+        "longitude": 15.1,
+        "altitude": 100,
+        "region": "EU868"
+    },
+    "RX1Config": {
+        "delay": 1000,
+        "duration": 1000,
+        "dataRateOffset": 0
+    },
+    "RX2Config": {
+        "delay": 2000,
+        "duration": 1000,
+        "channelFrequency": 869525000,
+        "dataRate": 0,
+        "ACKTimeout": 2000
+    },
+    "frameConfig": {
+        "fPort": 10,
+        "retransmission": 2,
+        "FCntUp": 0,
+        "FCntDown": 0,
+        "disableFrameCounterValidation": False
+    },
+    "payloadConfig": {
+        "uplinkInterval": 10,
+        "oversizedPayloadBehavior": "truncate",
+        "MType": "unconfirmed-data-up",
+        "payload": "temperature=23.5",
+        "base64Encoded": False
+    },
+    "advancedConfig": {
+        "antennaRange": 1500,
+        "ADREnabled": True,
+        "uplinkDataRate": 5
+    }
+}
+
+GATEWAY = {
+    "name": "External test gateway",
+    "type": "virtual",
+    "gatewayEUI": "A840410001001001",
+    "keepAlive": 30,
+    "latitude": 37.5,
+    "longitude": 15.1,
+    "altitude": 100
+}
+
+devices = []
+for i in range(1, 4):
+    device = deepcopy(DEVICE_TEMPLATE)
+    device.update(
+        id=str(uuid4()),
+        active=True,
+        name=f"Sensor {i}",
+        devEUI=f"70B3D57ED001{i:04X}",
+    )
+    device["ABPConfig"]["devAddr"] = f"260110{i:02X}"
+    device["locationConfig"]["latitude"] = 37.5 + i * 0.001
+    device["payloadConfig"]["payload"] = f"temperature={23 + i / 10:.1f}"
+    devices.append(device)
+
+archive = {
+    "format": "lwn-simulator-profile",
+    "version": 1,
+    "profile": {"id": str(uuid4()), "name": "Catania test network"},
+    "devices": devices,
+    "gateways": [dict(GATEWAY, id=str(uuid4()), active=True)],
+    "logs": [],
+}
+
+Path("catania-profile.json").write_text(
+    json.dumps(archive, ensure_ascii=False, indent=2) + "\n",
+    encoding="utf-8",
+)
+```
+
+### Generate the file with AI
+
+Give the AI this format and example or an exported test profile. Use sample keys in anything you share. Start with this prompt.
+
+```text
+Generate a single LWN Simulator Profile v1 JSON file from the attached example. Create three EU868 ABP sensors and one nearby virtual gateway around 37.5, 15.1. Preserve the JSON keys and configuration blocks from the example. Assign unique UUID v4 values, EUIs and ABP addresses. Use test credentials, leave logs empty and omit gatewayBridge. Return only the JSON.
+```
+
+Check that the file is valid JSON, then use **Import** in the profile menu or send the document in the `archive` field through the API. If import fails, fix the field named in the error. After import, open the new profile, check the node locations and run a brief simulation to verify uplinks in the logs.

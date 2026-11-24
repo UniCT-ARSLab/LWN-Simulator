@@ -1,12 +1,86 @@
 package runtime
 
 import (
+	"errors"
 	"testing"
 	"time"
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
 )
+
+func TestRuntimeSpeedAndSchedulerControls(t *testing.T) {
+	clock := types.NewManualClock(0)
+	engine, err := New(contracts.SimulationConfig{Speed: 1}, nil, nil, types.Options{Clock: clock, EventBuffer: 32})
+	if err != nil {
+		t.Fatalf("create engine: %v", err)
+	}
+	if err := engine.SetSpeed(2); !errors.Is(err, ErrInvalidTransition) {
+		t.Fatalf("speed change before start should fail with transition error: %v", err)
+	}
+	if err := engine.Cancel("missing"); !errors.Is(err, ErrInvalidTransition) {
+		t.Fatalf("cancel before start should fail with transition error: %v", err)
+	}
+	startEngine(t, engine)
+	defer stopEngine(t, engine)
+	if err := engine.SetSpeed(4); err != nil {
+		t.Fatalf("set runtime speed: %v", err)
+	}
+	if snapshot := engine.Snapshot(); snapshot.State.Speed != 4 {
+		t.Fatalf("runtime speed was not updated: %+v", snapshot.State)
+	}
+	if err := engine.SetSpeed(0); err == nil {
+		t.Fatal("invalid runtime speed was accepted")
+	}
+	event := types.ScheduledEvent{ID: "cancel-me", At: time.Hour, Type: contracts.DeviceRegistered, Message: "never run"}
+	if err := engine.Schedule(event); err != nil {
+		t.Fatalf("schedule cancellable event: %v", err)
+	}
+	if err := engine.Cancel(event.ID); err != nil {
+		t.Fatalf("cancel event: %v", err)
+	}
+	if err := engine.Cancel(event.ID); !errors.Is(err, ErrEventNotFound) {
+		t.Fatalf("second cancellation should report missing event: %v", err)
+	}
+	if !containsEventType(engine.EventLog(), contracts.SchedulerEventCancelled) {
+		t.Fatal("scheduler cancellation was not logged")
+	}
+}
+
+func TestRuntimeControlErrorsAreExplicit(t *testing.T) {
+	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000205")
+	configureABP(&device)
+	gateway := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7205")
+	engine, err := New(contracts.SimulationConfig{Speed: 1}, []contracts.Device{device}, []contracts.Gateway{gateway}, types.Options{Clock: types.NewManualClock(0)})
+	if err != nil {
+		t.Fatalf("create engine: %v", err)
+	}
+	startEngine(t, engine)
+	defer stopEngine(t, engine)
+
+	if err := engine.RegisterDevice(device); err == nil {
+		t.Fatal("duplicate device registration was accepted")
+	}
+	if err := engine.RegisterGateway(gateway); err == nil {
+		t.Fatal("duplicate gateway registration was accepted")
+	}
+	if err := engine.RemoveDevice("missing"); !errors.Is(err, ErrDeviceNotFound) {
+		t.Fatalf("missing device removal returned the wrong error: %v", err)
+	}
+	if err := engine.RemoveGateway("missing"); !errors.Is(err, ErrGatewayNotFound) {
+		t.Fatalf("missing gateway removal returned the wrong error: %v", err)
+	}
+	missingDevice := device
+	missingDevice.ID = "a1c6e32b-4f0d-4b50-9fc5-000000000299"
+	if err := engine.UpdateDevice(missingDevice); !errors.Is(err, ErrDeviceNotFound) {
+		t.Fatalf("missing device update returned the wrong error: %v", err)
+	}
+	missingGateway := gateway
+	missingGateway.ID = "6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7299"
+	if err := engine.UpdateGateway(missingGateway); !errors.Is(err, ErrGatewayNotFound) {
+		t.Fatalf("missing gateway update returned the wrong error: %v", err)
+	}
+}
 
 func TestUpdateDeviceAppliesRuntimeConfigurationAndPersistsIt(t *testing.T) {
 	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000001")
@@ -90,6 +164,50 @@ func TestRuntimeControlsToggleEntitiesAndQueueManualUplink(t *testing.T) {
 	engine.mu.RUnlock()
 	if !hasBeacon || !hasHeartbeat {
 		t.Fatalf("reactivated virtual gateway did not rebuild schedules: beacon=%v heartbeat=%v", hasBeacon, hasHeartbeat)
+	}
+}
+
+func TestUpdateDeviceCanDisableAndReenableTrafficDuringSimulation(t *testing.T) {
+	clock := types.NewManualClock(0)
+	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000003")
+	configureABP(&device)
+	device.PayloadConfig.UplinkInterval = 10
+	gateway := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c03")
+	engine := newTestEngine(t, clock, device, gateway)
+	defer stopEngine(t, engine)
+
+	if err := clock.Advance(time.Second); err != nil {
+		t.Fatalf("advance to first uplink: %v", err)
+	}
+	waitForEventType(t, engine.Events(), contracts.GatewayPacketReceived)
+	if got := engine.Snapshot().Metrics.TotalUplinks; got != 1 {
+		t.Fatalf("expected one initial uplink, got %d", got)
+	}
+
+	device.Active = false
+	if err := engine.UpdateDevice(device); err != nil {
+		t.Fatalf("disable device during simulation: %v", err)
+	}
+	if snapshot := engine.Snapshot(); snapshot.Metrics.ActiveDevices != 0 {
+		t.Fatalf("disabled device remained active in runtime metrics: %+v", snapshot.Metrics)
+	}
+	if err := clock.Advance(20 * time.Second); err != nil {
+		t.Fatalf("advance while device is disabled: %v", err)
+	}
+	if got := engine.Snapshot().Metrics.TotalUplinks; got != 1 {
+		t.Fatalf("disabled device generated traffic: total uplinks=%d", got)
+	}
+
+	device.Active = true
+	if err := engine.UpdateDevice(device); err != nil {
+		t.Fatalf("re-enable device during simulation: %v", err)
+	}
+	if err := clock.Advance(2 * time.Second); err != nil {
+		t.Fatalf("advance after re-enabling device: %v", err)
+	}
+	waitForEventType(t, engine.Events(), contracts.GatewayPacketReceived)
+	if snapshot := engine.Snapshot(); snapshot.Metrics.ActiveDevices != 1 || snapshot.Metrics.TotalUplinks != 2 {
+		t.Fatalf("re-enabled device did not resume traffic: %+v", snapshot.Metrics)
 	}
 }
 
@@ -178,4 +296,82 @@ func containsEventType(events []contracts.SimulationEvent, eventType contracts.S
 		}
 	}
 	return false
+}
+
+func TestExternalGatewayTransportsRequireRealtimeSpeed(t *testing.T) {
+	for _, transport := range []string{"bridge", "real", "internal"} {
+		t.Run(transport, func(t *testing.T) {
+			gateway := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7205")
+			var factory types.GatewayAdapterFactory
+			if transport == "bridge" {
+				factory = &virtualUplinkTestFactory{adapter: newVirtualUplinkTestAdapter()}
+			}
+			if transport == "real" {
+				gateway.Type = contracts.Real
+				gateway.KeepAlive = nil
+				gateway.GatewayIPv4 = engineStringPtr("127.0.0.1")
+				gateway.GatewayPort = engineInt32Ptr(1700)
+				factory = &fakeGatewayFactory{adapter: newFakeGatewayAdapter()}
+			}
+			engine, err := New(contracts.SimulationConfig{Speed: 10}, nil, []contracts.Gateway{gateway}, types.Options{
+				Clock: types.NewManualClock(0), GatewayAdapterFactory: factory,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantSpeed := float64(1)
+			if transport == "internal" {
+				wantSpeed = 10
+			}
+			if engine.Snapshot().State.Speed != wantSpeed || engine.Checkpoint().Config.Speed != wantSpeed {
+				t.Fatalf("unexpected initial speed: %+v", engine.Snapshot().State)
+			}
+			startEngine(t, engine)
+			defer stopEngine(t, engine)
+			for _, speed := range []float64{0.1, 2, 10} {
+				err := engine.SetSpeed(speed)
+				if (err != nil) != (transport != "internal") {
+					t.Fatalf("unexpected speed change result for %v: %v", speed, err)
+				}
+			}
+			if transport != "internal" && engine.Snapshot().State.Speed != 1 {
+				t.Fatal("rejected speed changes modified the clock")
+			}
+			checkpoint := engine.Checkpoint()
+			checkpoint.Config.Speed = 10
+			checkpoint.State.Speed = 10
+			restored, err := New(checkpoint.Config, nil, nil, types.Options{
+				GatewayAdapterFactory: factory, Checkpoint: &checkpoint,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if restored.Snapshot().State.Speed != wantSpeed {
+				t.Fatal("restoring a checkpoint bypassed the external clock constraint")
+			}
+		})
+	}
+}
+
+func TestMovingRealGatewayPreservesConnection(t *testing.T) {
+	gateway := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c01")
+	gateway.Type = contracts.Real
+	gateway.KeepAlive = nil
+	gateway.GatewayIPv4 = engineStringPtr("127.0.0.1")
+	gateway.GatewayPort = engineInt32Ptr(1700)
+	engine, err := New(contracts.SimulationConfig{Speed: 1}, nil, []contracts.Gateway{gateway}, types.Options{Clock: types.NewManualClock(0)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	engine.state.Status = contracts.SimulationStatusPaused
+	adapter := newFakeGatewayAdapter()
+	engine.gatewayAdapters[gateway.ID] = adapter
+	engine.gatewayRuntime[gateway.ID].State = contracts.Connected
+	gateway.Longitude = float32Ptr(16)
+	if err := engine.UpdateGateway(gateway); err != nil {
+		t.Fatal(err)
+	}
+	if engine.gatewayRuntime[gateway.ID].State != contracts.Connected || engine.gatewayAdapters[gateway.ID] != adapter {
+		t.Fatal("moving a connected gateway changed its connection")
+	}
 }

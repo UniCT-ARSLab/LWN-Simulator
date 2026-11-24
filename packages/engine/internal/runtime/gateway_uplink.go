@@ -7,8 +7,11 @@ import (
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/Giuseppe-Compagnone/lwn-engine/lorawan"
+	"github.com/Giuseppe-Compagnone/lwn-engine/protocol"
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
 )
+
+var lorawanHandler protocol.Handler = protocol.LoRaWANHandler{}
 
 // buildUplinkPayloadLocked creates the PHYPayload that a virtual gateway
 // exposes to an external Gateway Bridge. The simulator keeps its radio model
@@ -24,6 +27,22 @@ func (e *Engine) buildUplinkPayloadLocked(
 ) []byte {
 	if session == nil {
 		return nil
+	}
+	if deviceRadioProtocol(device) == contracts.RawLoRa {
+		payload := payloadBytes(device)
+		maximum := maximumPayloadSize(device.LocationConfig.Region, dataRate)
+		if maximum > 0 && len(payload) > maximum {
+			start := fragmentIndex * maximum
+			if start >= len(payload) {
+				return nil
+			}
+			end := start + maximum
+			if end > len(payload) {
+				end = len(payload)
+			}
+			payload = payload[start:end]
+		}
+		return append([]byte(nil), payload...)
 	}
 	if session.PendingJoinRequest != nil && session.PendingJoinRequest.JoinEUI != "" {
 		if device.OOTAConfig == nil {
@@ -41,7 +60,7 @@ func (e *Engine) buildUplinkPayloadLocked(
 		if err != nil {
 			return nil
 		}
-		payload, err := lorawan.BuildJoinRequest(lorawan.JoinRequestOptions{
+		payload, err := lorawanHandler.EncodeJoinRequest(protocol.JoinRequest{
 			JoinEUI:  joinEUI,
 			DevEUI:   devEUI,
 			DevNonce: session.DevNonce,
@@ -53,6 +72,9 @@ func (e *Engine) buildUplinkPayloadLocked(
 		return payload
 	}
 
+	if pending := session.PendingUplink; pending != nil && pending.FrameCounter == frameCounter && len(pending.WirePayload) > 0 && pending.WireFragmentIndex == fragmentIndex {
+		return append([]byte(nil), pending.WirePayload...)
+	}
 	devAddrBytes, err := hex.DecodeString(session.DeviceAddress)
 	if err != nil || len(devAddrBytes) != 4 || len(session.NwkSKey) != 16 || len(session.AppSKey) != 16 {
 		return nil
@@ -63,7 +85,7 @@ func (e *Engine) buildUplinkPayloadLocked(
 		fPort = &port
 	}
 	payload := payloadBytes(device)
-	maximum := maximumPayloadSize(device.LocationConfig.Region, dataRate)
+	maximum := applicationPayloadCapacity(device, dataRate, session)
 	if maximum > 0 && len(payload) > maximum {
 		start := fragmentIndex * maximum
 		if start >= len(payload) {
@@ -76,9 +98,20 @@ func (e *Engine) buildUplinkPayloadLocked(
 			payload = payload[start:end]
 		}
 	}
+	var options []byte
+	consumed := 0
+	for _, response := range session.PendingMACResponses {
+		if len(options)+len(response) > uplinkMACReserve(session) {
+			break
+		}
+		options = append(options, response...)
+		consumed++
+	}
 	devAddr := binary.BigEndian.Uint32(devAddrBytes)
-	frame, err := lorawan.BuildDataFrame(lorawan.DataFrameOptions{
+	frame, err := lorawanHandler.EncodeDataFrame(protocol.DataFrame{
 		DevAddr:   devAddr,
+		FOpts:     options,
+		ACK:       session.PendingDownlinkACK,
 		FCnt:      uint32(maxInt64(frameCounter, 0)),
 		FPort:     fPort,
 		Payload:   payload,
@@ -90,6 +123,12 @@ func (e *Engine) buildUplinkPayloadLocked(
 	})
 	if err != nil {
 		return nil
+	}
+	session.PendingMACResponses = session.PendingMACResponses[consumed:]
+	session.PendingDownlinkACK = false
+	if pending := session.PendingUplink; pending != nil && pending.FrameCounter == frameCounter {
+		pending.WirePayload = append([]byte(nil), frame...)
+		pending.WireFragmentIndex = fragmentIndex
 	}
 	return frame
 }

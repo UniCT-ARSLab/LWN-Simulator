@@ -4,6 +4,7 @@ const meta = {
   profiles: "Profili",
   hardware: "Hardware",
   simulation: "Simulazione",
+  api: "API",
   logs: "Log",
 };
 
