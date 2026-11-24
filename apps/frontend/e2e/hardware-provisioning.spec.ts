@@ -165,7 +165,7 @@ test("creates an ABP class C device", async ({ page }) => {
   await expect(page).toHaveURL(/\/hardware\/devices\/?$/);
 });
 
-test("loads dependent RX fields when editing a device", async ({ page }) => {
+test("loads dependent RX fields and coordinates when editing a device", async ({ page }) => {
   await mockBackend(page);
   await page.goto("/hardware/devices");
   await page.goto("/hardware/devices/new?deviceId=device-1");
@@ -180,7 +180,9 @@ test("loads dependent RX fields when editing a device", async ({ page }) => {
   await expect(page.getByLabel("RX2 Channel Frequency")).toHaveValue(
     "869525000",
   );
-  await expect(page.locator(".pos-marker")).toBeVisible();
+  await expect(page.getByLabel("Latitude")).toHaveValue("37.5079");
+  await expect(page.getByLabel("Longitude")).toHaveValue("15.083");
+  await expect(page.getByLabel("Altitude")).toHaveValue("15");
   await expect(
     page
       .locator(".form-field-wrapper")
@@ -188,6 +190,14 @@ test("loads dependent RX fields when editing a device", async ({ page }) => {
       .locator(".selected-box"),
   ).toHaveText("0");
   await expect(rx1DataRateOffset).toHaveText("0");
+});
+
+test("shows the saved device position on the WebGL map", async ({ page, browserName }) => {
+  test.skip(browserName !== "chromium", "The headless CI runner provides WebGL2 for Chromium.");
+  await mockBackend(page);
+  await page.goto("/hardware/devices/new?deviceId=device-1");
+
+  await expect(page.locator(".pos-marker")).toBeVisible();
 });
 
 test("loads and saves an edited device", async ({ page }) => {
